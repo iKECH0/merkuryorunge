@@ -1,0 +1,90 @@
+import axios from 'axios';
+
+const API_URL = import.meta.env.PROD ? 'https://backend-three-khaki-37.vercel.app/api' : 'http://localhost:5000/api';
+
+export const registerTeacher = async (fullName, username, password) => {
+  const response = await axios.post(`${API_URL}/auth/teacher/register`, { fullName, username, password });
+  return response.data;
+};
+
+export const loginTeacher = async (username, password) => {
+  const response = await axios.post(`${API_URL}/auth/teacher/login`, { username, password });
+  return response.data;
+};
+
+export const addStudentByTeacher = async (fullName, username, password, teacherId) => {
+  const response = await axios.post(`${API_URL}/auth/teacher/add-student`, { fullName, username, password, teacherId });
+  return response.data;
+};
+
+export const registerStudent = async (fullName, username, password, inviteCode) => {
+  const response = await axios.post(`${API_URL}/auth/register`, { fullName, username, password, inviteCode });
+  return response.data;
+};
+
+export const loginStudent = async (username, password) => {
+  const response = await axios.post(`${API_URL}/auth/login`, { username, password });
+  return response.data;
+};
+
+export const submitLog = async (logData) => {
+  const response = await axios.post(`${API_URL}/logs`, logData);
+  return response.data;
+};
+
+export const getLogs = async (teacherId = null) => {
+  const url = teacherId ? `${API_URL}/logs?teacher_id=${teacherId}` : `${API_URL}/logs`;
+  const response = await axios.get(url);
+  return response.data;
+};
+
+export const getStudentLogs = async (studentName) => {
+  const response = await axios.get(`${API_URL}/logs/${encodeURIComponent(studentName)}`);
+  return response.data;
+};
+
+export const getStudentGoal = async (studentName) => {
+  const response = await axios.get(`${API_URL}/goals/${encodeURIComponent(studentName)}`);
+  return response.data;
+};
+
+export const setStudentGoal = async (studentName, targetQuestions) => {
+  const response = await axios.post(`${API_URL}/goals`, { studentName, targetQuestions });
+  return response.data;
+};
+
+export const getLeaderboard = async () => {
+  const response = await axios.get(`${API_URL}/leaderboard`);
+  return response.data;
+};
+
+export const getDailyLeaderboard = async () => {
+  const response = await axios.get(`${API_URL}/leaderboard/daily`);
+  return response.data;
+};
+
+export const getStats = async (teacherId = null) => {
+  const url = teacherId ? `${API_URL}/stats?teacher_id=${teacherId}` : `${API_URL}/stats`;
+  const response = await axios.get(url);
+  return response.data;
+};
+
+export const getAdminStats = async () => {
+  const response = await axios.get(`${API_URL}/admin/stats`);
+  return response.data;
+};
+
+export const approveTeacher = async (teacherId) => {
+  const response = await axios.post(`${API_URL}/admin/approve-teacher`, { teacherId });
+  return response.data;
+};
+
+export const deleteTeacher = async (teacherId) => {
+  const response = await axios.delete(`${API_URL}/admin/teacher/${teacherId}`);
+  return response.data;
+};
+
+export const addTeacherByAdmin = async (fullName, username, password) => {
+  const response = await axios.post(`${API_URL}/admin/add-teacher`, { fullName, username, password });
+  return response.data;
+};

@@ -1,0 +1,6 @@
+{
+  "appId": "com.merkuryorunge.app",
+  "appName": "Merkür Yörünge",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
