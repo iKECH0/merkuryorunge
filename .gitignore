@@ -1,0 +1,18 @@
+# Node
+node_modules/
+
+# Loglar
+*.log
+
+# Ortam değişkenleri
+.env
+
+# Build klasörleri
+dist/
+build/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
