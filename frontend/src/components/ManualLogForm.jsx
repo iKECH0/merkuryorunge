@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { submitLog } from '../api';
-import { Send, User, BookOpen, Clock, PenTool } from 'lucide-react';
+import { Send, User, BookOpen, Clock, PenTool, CheckCircle, X } from 'lucide-react';
 const SUBJECTS = ['Matematik', 'Geometri', 'Fizik', 'Kimya', 'Biyoloji', 'Türkçe', 'Edebiyat', 'Tarih', 'İnkılap Tarihi', 'Coğrafya', 'Felsefe', 'Din Kültürü', 'İngilizce'];
 
 const ManualLogForm = ({ onLogSubmitted, studentName }) => {
@@ -8,6 +8,7 @@ const ManualLogForm = ({ onLogSubmitted, studentName }) => {
   const [duration, setDuration] = useState('');
   const [questionsSolved, setQuestionsSolved] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,6 +24,8 @@ const ManualLogForm = ({ onLogSubmitted, studentName }) => {
       });
       setDuration('');
       setQuestionsSolved('');
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
       if (onLogSubmitted) onLogSubmitted();
     } catch (err) {
       alert("Bir hata oluştu. Lütfen tekrar deneyin.");
@@ -100,6 +103,20 @@ const ManualLogForm = ({ onLogSubmitted, studentName }) => {
             </>
           )}
         </button>
+
+        {showSuccess && (
+          <div className="fade-in" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={() => setShowSuccess(false)}>
+            <div className="slide-up" style={{ background: 'var(--color-bg-deep)', border: '1px solid var(--color-success)', borderRadius: '24px', padding: '32px', maxWidth: '300px', width: '100%', textAlign: 'center', boxShadow: '0 0 40px rgba(34, 197, 94, 0.2)' }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'inline-flex', padding: '16px', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '50%', color: '#22c55e', marginBottom: '20px' }}>
+                <CheckCircle size={48} />
+              </div>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '24px', color: '#22c55e' }}>Başarılı!</h3>
+              <p style={{ margin: 0, fontSize: '15px', color: 'var(--color-text-muted)' }}>
+                Çalışmanız başarıyla kaydedildi.
+              </p>
+            </div>
+          </div>
+        )}
       </form>
     </div>
   );

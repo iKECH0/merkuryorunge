@@ -5,10 +5,11 @@ import SessionTracker from '../components/SessionTracker';
 import Leaderboard from '../components/Leaderboard';
 import StudentProfile from '../components/StudentProfile';
 import Onboarding from '../components/Onboarding';
-import { Rocket, Clock, Trophy, Sparkles, Lock, User, LogOut } from 'lucide-react';
+import MerkurAIChat from '../components/MerkurAIChat';
+import { Rocket, Clock, Trophy, Sparkles, Lock, User, LogOut, BotMessageSquare } from 'lucide-react';
 
 const StudentDashboard = ({ studentName }) => {
-  const [activeTab, setActiveTab] = useState('manual');
+  const [activeTab, setActiveTab] = useState('profile');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const navigate = useNavigate();
   
@@ -23,6 +24,34 @@ const StudentDashboard = ({ studentName }) => {
       }
     }
   }, [studentUsername]);
+
+  // 22:00 Alarm / Hatırlatıcı
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+
+    const checkTime = () => {
+      const now = new Date();
+      if (now.getHours() === 22 && now.getMinutes() === 0) {
+        const todayStr = now.toLocaleDateString('tr-TR');
+        const hasSeenToday = localStorage.getItem(`alarm_seen_${todayStr}`);
+        if (!hasSeenToday) {
+          if ("Notification" in window && Notification.permission === "granted") {
+            new Notification("Merkür Yörünge", { body: "⏰ Saat 22:00! Günün değerlendirmesini yapma vakti geldi! Bugün neler başardın?", icon: '/favicon.ico' });
+          } else {
+            alert("⏰ Saat 22:00! Günün değerlendirmesini yapma vakti geldi! Bugün neler başardın?");
+          }
+          localStorage.setItem(`alarm_seen_${todayStr}`, 'true');
+        }
+      }
+    };
+
+    // Check immediately and then every minute
+    checkTime();
+    const interval = setInterval(checkTime, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleOnboardingComplete = () => {
     if (studentUsername) {
@@ -61,15 +90,24 @@ const StudentDashboard = ({ studentName }) => {
 
       <div style={{ display: 'flex', justifyContent: 'center', animationDelay: '0.2s', width: '100%' }} className="slide-up">
         <div style={{ width: '100%', maxWidth: '540px' }}>
-          {activeTab === 'manual' && <ManualLogForm onLogSubmitted={() => setActiveTab('leaderboard')} studentName={studentName} />}
-          {activeTab === 'tracker' && <SessionTracker onSessionEnded={() => setActiveTab('leaderboard')} studentName={studentName} />}
-          {activeTab === 'leaderboard' && <Leaderboard />}
           {activeTab === 'profile' && <StudentProfile studentName={studentName} />}
+          {activeTab === 'manual' && <ManualLogForm studentName={studentName} />}
+          {activeTab === 'tracker' && <SessionTracker studentName={studentName} />}
+          {activeTab === 'leaderboard' && <Leaderboard />}
+          {activeTab === 'ai' && <MerkurAIChat studentName={studentName} />}
         </div>
       </div>
 
       {/* Student Specific Bottom Nav */}
       <nav className="bottom-nav slide-up" style={{ animationDelay: '0.4s' }}>
+        <button 
+          className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
+          onClick={() => setActiveTab('profile')}
+          style={{ background: activeTab === 'profile' ? 'var(--color-primary)' : 'transparent', border: 'none', cursor: 'pointer' }}
+        >
+          <User size={20} />
+          <span>Profilim</span>
+        </button>
         <button 
           className={`nav-item ${activeTab === 'manual' ? 'active' : ''}`}
           onClick={() => setActiveTab('manual')}
@@ -95,12 +133,12 @@ const StudentDashboard = ({ studentName }) => {
           <span>Sıralama</span>
         </button>
         <button 
-          className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
-          onClick={() => setActiveTab('profile')}
-          style={{ background: activeTab === 'profile' ? 'var(--color-primary)' : 'transparent', border: 'none', cursor: 'pointer' }}
+          className={`nav-item ${activeTab === 'ai' ? 'active' : ''}`}
+          onClick={() => setActiveTab('ai')}
+          style={{ background: activeTab === 'ai' ? 'var(--color-primary)' : 'transparent', border: 'none', cursor: 'pointer' }}
         >
-          <User size={20} />
-          <span>Profilim</span>
+          <BotMessageSquare size={20} />
+          <span>Merkür AI</span>
         </button>
       </nav>
     </div>
