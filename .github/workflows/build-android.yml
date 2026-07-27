@@ -1,0 +1,53 @@
+name: Build Android App Bundle (AAB)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install Dependencies
+        run: |
+          cd frontend
+          npm install
+
+      - name: Build Web App
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Sync Capacitor
+        run: |
+          cd frontend
+          npx cap sync android
+
+      - name: Build Android Release Bundle (AAB)
+        run: |
+          cd frontend/android
+          chmod +x gradlew
+          ./gradlew bundleRelease
+
+      - name: Upload AAB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: frontend/android/app/build/outputs/bundle/release/app-release.aab
