@@ -21,6 +21,15 @@ const StudentRoute = ({ children }) => {
   return isStudent ? children : <Navigate to="/ogrenci" />;
 };
 
+// Catches URL-encoded Turkish characters like %C4%B1 (ı) and redirects properly
+const GizlilikRedirect = () => {
+  const path = decodeURIComponent(window.location.pathname).toLowerCase();
+  if (path.includes('gizlilik')) {
+    return <PrivacyPolicy />;
+  }
+  return <Navigate to="/" />;
+};
+
 function App() {
   const [studentName, setStudentName] = useState(localStorage.getItem('studentName'));
   const [studentUsername, setStudentUsername] = useState(localStorage.getItem('studentUsername'));
@@ -62,7 +71,9 @@ function App() {
             />
             <Route path="/super-admin" element={<SuperAdminDashboard />} />
             <Route path="/gizlilikpolitikasi" element={<PrivacyPolicy />} />
-            <Route path="/gizlilikpolitikası" element={<PrivacyPolicy />} />
+            <Route path="/gizlilik-politikasi" element={<PrivacyPolicy />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="*" element={<GizlilikRedirect />} />
           </Routes>
         </main>
       </div>
