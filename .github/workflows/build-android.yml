@@ -44,7 +44,7 @@ jobs:
         run: |
           cd frontend/android
           chmod +x gradlew
-          ./gradlew bundleRelease
+          ./gradlew bundleRelease -Pandroid.injected.signing.store.file=$(pwd)/app/upload.keystore -Pandroid.injected.signing.store.password=merkuryorunge -Pandroid.injected.signing.key.alias=upload -Pandroid.injected.signing.key.password=merkuryorunge
 
       - name: Upload AAB Artifact
         uses: actions/upload-artifact@v4
