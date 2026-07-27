@@ -1,5 +1,7 @@
 {
   "rewrites": [
+    { "source": "/gizlilikpolitikasi.html", "destination": "/gizlilikpolitikasi.html" },
+    { "source": "/gizlilikpolitikasi", "destination": "/gizlilikpolitikasi.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
