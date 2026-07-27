@@ -7,6 +7,7 @@ import StudentLogin from './pages/StudentLogin';
 import TeacherAuth from './pages/TeacherAuth';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import Landing from './pages/Landing';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 import Onboarding from './components/Onboarding';
 import './index.css';
 
@@ -60,6 +61,8 @@ function App() {
               } 
             />
             <Route path="/super-admin" element={<SuperAdminDashboard />} />
+            <Route path="/gizlilikpolitikasi" element={<PrivacyPolicy />} />
+            <Route path="/gizlilikpolitikası" element={<PrivacyPolicy />} />
           </Routes>
         </main>
       </div>
