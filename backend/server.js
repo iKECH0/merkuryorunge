@@ -347,7 +347,7 @@ app.post("/api/logs", async (req, res) => {
 // 2. Get all logs (for Teacher Dashboard)
 app.get("/api/logs", async (req, res) => {
   try {
-    const { teacher_id } = req.query;
+    const teacher_id = req.query.teacher_id || req.query.teacherId;
     let result;
     if (teacher_id) {
       result = await pool.query(
@@ -479,7 +479,7 @@ app.get("/api/leaderboard/daily", async (req, res) => {
 // 4. Get general stats for Teacher Dashboard
 app.get("/api/stats", async (req, res) => {
   try {
-    const { teacher_id } = req.query;
+    const teacher_id = req.query.teacher_id || req.query.teacherId;
     let filterClause = "";
     let queryParams = [];
 
