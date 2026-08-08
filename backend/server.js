@@ -288,6 +288,9 @@ app.post("/api/auth/teacher/add-student", async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error(err);
+    if (err.code === '23503') {
+      return res.status(401).json({ error: "Oturumunuz geçersiz veya eski bir hesaptan işlem yapıyorsunuz. Lütfen ÇIKIŞ YAP butonuna basıp tekrar giriş yapın." });
+    }
     res.status(500).json({ error: "Sunucu hatası" });
   }
 });
