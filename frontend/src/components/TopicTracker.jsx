@@ -30,15 +30,37 @@ const getColor = (subject) => {
   return "#6366f1";
 };
 
-export default function TopicTracker({ studentName }) {
-  const [selectedLevel, setSelectedLevel] = useState("Lise");
-  const [selectedGrade, setSelectedGrade] = useState("TYT");
-  const [curriculum, setCurriculum] = useState(null); // from backend
+export default function TopicTracker({ studentName, studentClass }) {
+  // Determine which level/grade matches the student's class
+  const getDefaultLevelAndGrade = (classNum) => {
+    if (!classNum) return { level: 'Lise', grade: 'TYT' };
+    const n = parseInt(classNum);
+    if (n >= 1 && n <= 4) return { level: 'İlkokul', grade: String(n) };
+    if (n >= 5 && n <= 6) return { level: 'Ortaokul', grade: String(n) };
+    if (n >= 7 && n <= 8) return { level: 'LGS', grade: String(n) };
+    if (n >= 9 && n <= 10) return { level: 'Lise', grade: String(n) };
+    if (n >= 11 && n <= 12) return { level: 'YKS', grade: String(n) };
+    return { level: 'Lise', grade: 'TYT' };
+  };
+
+  const defaults = getDefaultLevelAndGrade(studentClass);
+  const [selectedLevel, setSelectedLevel] = useState(defaults.level);
+  const [selectedGrade, setSelectedGrade] = useState(defaults.grade);
+  const [curriculum, setCurriculum] = useState(null);
   const [completedIds, setCompletedIds] = useState(new Set());
   const [openSubjects, setOpenSubjects] = useState({});
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [saving, setSaving] = useState(null);
+
+  // When studentClass changes (e.g. after async fetch), re-sync level/grade
+  useEffect(() => {
+    if (studentClass) {
+      const d = getDefaultLevelAndGrade(studentClass);
+      setSelectedLevel(d.level);
+      setSelectedGrade(d.grade);
+    }
+  }, [studentClass]);
 
   const fetchCurriculum = useCallback(async () => {
     try {
@@ -104,7 +126,10 @@ export default function TopicTracker({ studentName }) {
   const gradePercent = allGradeTopics.length > 0 ? Math.round((completedGrade / allGradeTopics.length) * 100) : 0;
 
   const allTopics = curriculum ? Object.values(curriculum).flatMap(g => Object.values(g)).flat() : [];
-  const overallPercent = allTopics.length > 0 ? Math.round((completedIds.size / allTopics.length) * 100) : 0;
+  // If student has a class set, show that class's completion % as the "overall" metric
+  const overallTopics = studentClass ? allGradeTopics : allTopics;
+  const overallCompleted = studentClass ? completedGrade : completedIds.size;
+  const overallPercent = overallTopics.length > 0 ? Math.round((overallCompleted / overallTopics.length) * 100) : 0;
 
   const currentLevel = SCHOOL_LEVELS[selectedLevel];
 
@@ -116,10 +141,12 @@ export default function TopicTracker({ studentName }) {
           <div style={{ padding: "10px", background: "rgba(99,102,241,0.1)", borderRadius: "12px", color: "#6366f1" }}>
             <BarChart3 size={22} />
           </div>
-          <h2 className="title" style={{ margin: 0, fontSize: "18px" }}>Genel İlerleme</h2>
+          <h2 className="title" style={{ margin: 0, fontSize: "18px" }}>
+            {studentClass ? `${studentClass}. Sınıf Konu İlerlemesi` : 'Genel İlerleme'}
+          </h2>
         </div>
         <div style={{ fontSize: "36px", fontWeight: "800", color: "#6366f1" }}>{overallPercent}%</div>
-        <div style={{ fontSize: "13px", color: "var(--color-text-muted)", marginBottom: "12px" }}>{completedIds.size} / {allTopics.length} konu tamamlandı</div>
+        <div style={{ fontSize: "13px", color: "var(--color-text-muted)", marginBottom: "12px" }}>{overallCompleted} / {overallTopics.length} konu tamamlandı</div>
         <div style={{ height: "8px", background: "var(--color-border)", borderRadius: "100px", overflow: "hidden" }}>
           <div style={{ width: `${overallPercent}%`, height: "100%", background: "linear-gradient(90deg,#6366f1,#8b5cf6)", borderRadius: "100px", transition: "width 0.5s ease" }} />
         </div>

@@ -8,14 +8,22 @@ import Onboarding from '../components/Onboarding';
 import MerkurAIChat from '../components/MerkurAIChat';
 import TopicTracker from '../components/TopicTracker';
 import { Rocket, Clock, Trophy, Sparkles, Lock, User, LogOut, BotMessageSquare, BookOpen } from 'lucide-react';
+import { getStudentInfo } from '../api';
 
 const StudentDashboard = ({ studentName }) => {
   const [activeTab, setActiveTab] = useState('profile');
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [studentClassName, setStudentClassName] = useState(null);
   const navigate = useNavigate();
   
   // Track studentUsername so we can key the onboarding to the user
   const studentUsername = localStorage.getItem('studentUsername');
+
+  useEffect(() => {
+    getStudentInfo(studentName).then(info => {
+      if (info && info.class_name) setStudentClassName(info.class_name);
+    }).catch(() => {});
+  }, [studentName]);
 
   useEffect(() => {
     if (studentUsername) {
@@ -95,7 +103,7 @@ const StudentDashboard = ({ studentName }) => {
           {activeTab === 'manual' && <ManualLogForm studentName={studentName} />}
           {activeTab === 'tracker' && <SessionTracker studentName={studentName} />}
           {activeTab === 'leaderboard' && <Leaderboard />}
-          {activeTab === 'topics' && <TopicTracker studentName={studentName} />}
+          {activeTab === 'topics' && <TopicTracker studentName={studentName} studentClass={studentClassName} />}
           {activeTab === 'ai' && <MerkurAIChat studentName={studentName} />}
         </div>
       </div>
