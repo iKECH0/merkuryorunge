@@ -43,6 +43,15 @@ export const getStudentLogs = async (studentName) => {
   return response.data;
 };
 
+export const getStudentInfo = async (studentName) => {
+  try {
+    const response = await axios.get(`${API_URL}/student-info/${encodeURIComponent(studentName)}`);
+    return response.data;
+  } catch (error) {
+    return null;
+  }
+};
+
 export const getStudentGoal = async (studentName) => {
   const response = await axios.get(`${API_URL}/goals/${encodeURIComponent(studentName)}`);
   return response.data;

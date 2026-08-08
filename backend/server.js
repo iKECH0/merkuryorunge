@@ -367,6 +367,23 @@ app.get("/api/logs", async (req, res) => {
 });
 
 // 2.1 Get individual logs (for Student Dashboard)
+app.get("/api/student-info/:studentName", async (req, res) => {
+  try {
+    const { studentName } = req.params;
+    const result = await pool.query(
+      "SELECT school_level FROM students WHERE full_name = $1 LIMIT 1",
+      [studentName]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 app.get("/api/logs/:studentName", async (req, res) => {
   try {
     const { studentName } = req.params;

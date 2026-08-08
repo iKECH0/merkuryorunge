@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { submitLog } from '../api';
 import { Play, Square, BookOpen } from 'lucide-react';
-const SUBJECTS = ['Paragraf', 'Problemler', 'Kitap Okuma', 'Matematik', 'Geometri', 'Fizik', 'Kimya', 'Biyoloji', 'Türkçe', 'Edebiyat', 'Türk Dili ve Edebiyatı', 'Tarih', 'T.C. İnkılap Tarihi ve Atatürkçülük', 'İnkılap Tarihi', 'Coğrafya', 'Felsefe', 'Din Kültürü', 'Din Kültürü ve Ahlak Bilgisi', 'İngilizce', 'Fen Bilimleri', 'Sosyal Bilgiler', 'Hayat Bilgisi', 'Beden Eğitimi ve Spor', 'Beden Eğitimi ve Oyun', 'Görsel Sanatlar', 'Müzik'];
+const SUBJECTS = ['Matematik', 'Geometri', 'Fizik', 'Kimya', 'Biyoloji', 'Türkçe', 'Edebiyat', 'Türk Dili ve Edebiyatı', 'Tarih', 'T.C. İnkılap Tarihi ve Atatürkçülük', 'İnkılap Tarihi', 'Coğrafya', 'Felsefe', 'Din Kültürü', 'Din Kültürü ve Ahlak Bilgisi', 'İngilizce', 'Fen Bilimleri', 'Sosyal Bilgiler', 'Hayat Bilgisi', 'Beden Eğitimi ve Spor', 'Beden Eğitimi ve Oyun', 'Görsel Sanatlar', 'Müzik', 'Paragraf', 'Problemler', 'Kitap Okuma'];
 
 const SessionTracker = ({ onSessionEnded, studentName }) => {
   const [isTracking, setIsTracking] = useState(false);

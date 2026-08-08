@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { submitLog } from '../api';
 import { Send, User, BookOpen, Clock, PenTool, CheckCircle, X } from 'lucide-react';
-const SUBJECTS = ['Paragraf', 'Problemler', 'Kitap Okuma', 'Matematik', 'Geometri', 'Fizik', 'Kimya', 'Biyoloji', 'Türkçe', 'Edebiyat', 'Türk Dili ve Edebiyatı', 'Tarih', 'T.C. İnkılap Tarihi ve Atatürkçülük', 'İnkılap Tarihi', 'Coğrafya', 'Felsefe', 'Din Kültürü', 'Din Kültürü ve Ahlak Bilgisi', 'İngilizce', 'Fen Bilimleri', 'Sosyal Bilgiler', 'Hayat Bilgisi', 'Beden Eğitimi ve Spor', 'Beden Eğitimi ve Oyun', 'Görsel Sanatlar', 'Müzik'];
+const SUBJECTS = ['Matematik', 'Geometri', 'Fizik', 'Kimya', 'Biyoloji', 'Türkçe', 'Edebiyat', 'Türk Dili ve Edebiyatı', 'Tarih', 'T.C. İnkılap Tarihi ve Atatürkçülük', 'İnkılap Tarihi', 'Coğrafya', 'Felsefe', 'Din Kültürü', 'Din Kültürü ve Ahlak Bilgisi', 'İngilizce', 'Fen Bilimleri', 'Sosyal Bilgiler', 'Hayat Bilgisi', 'Beden Eğitimi ve Spor', 'Beden Eğitimi ve Oyun', 'Görsel Sanatlar', 'Müzik', 'Paragraf', 'Problemler', 'Kitap Okuma'];
 
 const ManualLogForm = ({ onLogSubmitted, studentName }) => {
   const [subject, setSubject] = useState(SUBJECTS[0]);

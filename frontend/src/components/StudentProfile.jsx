@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getStudentLogs, getStudentGoal, setStudentGoal } from '../api';
+import { getStudentLogs, getStudentGoal, setStudentGoal, getStudentInfo } from '../api';
 import { Target, Bot, Sparkles, TrendingUp, Palette, CalendarDays, Clock, BookOpen, Hash, Trash2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid } from 'recharts';
 
@@ -11,6 +11,7 @@ const StudentProfile = ({ studentName }) => {
   const [logs, setLogs] = useState([]);
   const [goal, setGoal] = useState(0);
   const [inputGoal, setInputGoal] = useState('');
+  const [schoolLevel, setSchoolLevel] = useState('');
   const [aiMessage, setAiMessage] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [bgTheme, setBgTheme] = useState(localStorage.getItem('profileBackground') || 'bg-default');
@@ -32,6 +33,10 @@ const StudentProfile = ({ studentName }) => {
       setLogs(logsData);
       const goalData = await getStudentGoal(studentName);
       setGoal(goalData.target_questions || 0);
+      const infoData = await getStudentInfo(studentName);
+      if (infoData && infoData.school_level) {
+        setSchoolLevel(infoData.school_level);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -137,6 +142,30 @@ const StudentProfile = ({ studentName }) => {
 
   return (
     <div className="fade-in">
+      <div className="glass-card slide-up" style={{ marginBottom: '24px', padding: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+          <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary), #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: 'bold', color: '#fff', boxShadow: '0 8px 16px rgba(6, 182, 212, 0.3)' }}>
+            {studentName.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h2 style={{ fontSize: '28px', margin: '0 0 8px 0', color: 'var(--color-text-main)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {studentName} 
+              <span style={{ fontSize: '14px', background: 'rgba(255,255,255,0.1)', padding: '4px 12px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Sparkles size={14} color="var(--color-primary)" /> Merkür Yörünge Öğrencisi
+              </span>
+              {schoolLevel && (
+                <span style={{ fontSize: '14px', background: 'rgba(6, 182, 212, 0.15)', color: 'var(--color-primary)', padding: '4px 12px', borderRadius: '100px', display: 'flex', alignItems: 'center', border: '1px solid rgba(6, 182, 212, 0.3)' }}>
+                  {schoolLevel}
+                </span>
+              )}
+            </h2>
+            <div style={{ display: 'flex', gap: '16px', color: 'var(--color-text-muted)', fontSize: '14px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Target size={16} /> Hedef: {goal} Soru</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Background Theme Selector */}
       <div className="glass-card slide-up text-center" style={{ marginBottom: '24px', padding: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', justifyContent: 'center' }}>
