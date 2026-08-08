@@ -527,7 +527,7 @@ const TeacherDashboard = () => {
               </div>
               <div className="form-group">
                 <label>Sınıf <span style={{ color: 'var(--color-text-muted)', fontWeight: 400, fontSize: '12px' }}>(İsteğe Bağlı)</span></label>
-                <input type="text" className="input-field" placeholder="Örn: 9-A, 10-B, 5" value={newStudentClassName} onChange={(e) => setNewStudentClassName(e.target.value)} />
+                <input type="number" min="1" max="12" className="input-field" placeholder="Örn: 9, 10, 11" value={newStudentClassName} onChange={(e) => setNewStudentClassName(e.target.value)} />
               </div>
               <div className="form-group">
                 <label>Eğitim Kademesi</label>
