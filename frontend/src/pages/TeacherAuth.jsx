@@ -63,97 +63,96 @@ const TeacherAuth = () => {
   };
 
   return (
-    <div className="fade-in flex-center" style={{ minHeight: '100vh', width: '100%', padding: '20px' }}>
-      <div className="glass-card slide-up" style={{ width: '100%', maxWidth: '450px', position: 'relative' }}>
+    <div className="fade-in flex-center" style={{ minHeight: '100vh', width: '100%', padding: '20px', background: 'radial-gradient(circle at top right, rgba(16, 185, 129, 0.15), transparent 40%), radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.15), transparent 40%)' }}>
+      
+      {/* Decorative Blur Orbs */}
+      <div style={{ position: 'absolute', top: '10%', right: '20%', width: '150px', height: '150px', background: '#10b981', borderRadius: '50%', filter: 'blur(100px)', opacity: 0.2, zIndex: 0 }} />
+      <div style={{ position: 'absolute', bottom: '10%', left: '20%', width: '150px', height: '150px', background: '#3b82f6', borderRadius: '50%', filter: 'blur(100px)', opacity: 0.2, zIndex: 0 }} />
+
+      <div className="slide-up" style={{ width: '100%', maxWidth: '420px', padding: '40px 20px', position: 'relative', zIndex: 1 }}>
         
-        <button 
-          onClick={() => navigate('/')} 
-          style={{ position: 'absolute', top: '24px', left: '24px', background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}
-          title="Geri Dön"
-        >
-          <ArrowLeft size={24} />
-        </button>
-
-        <div className="text-center" style={{ marginBottom: '32px', paddingTop: '16px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '20px', background: 'linear-gradient(135deg, rgba(6,182,212,0.1), rgba(59,130,246,0.1))', border: '1px solid rgba(6,182,212,0.2)', marginBottom: '16px' }}>
-            <Briefcase size={32} color="var(--color-primary)" />
-          </div>
-          <h1 className="title text-gradient" style={{ fontSize: '32px', marginBottom: '8px' }}>Öğretmen Portalı</h1>
-          <p style={{ color: 'var(--color-text-muted)' }}>Öğrencilerinizi yönetin ve raporlayın.</p>
-        </div>
-
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '32px', background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '16px' }}>
+        {/* Toggle Tabs (Segmented Control) */}
+        <div style={{ display: 'flex', background: 'rgba(0,0,0,0.4)', borderRadius: '14px', padding: '6px', marginBottom: '32px', border: '1px solid rgba(255,255,255,0.05)' }}>
           <button 
-            className={`btn ${isLogin ? 'btn-primary' : ''}`} 
-            style={{ flex: 1, padding: '12px', background: isLogin ? '' : 'transparent', border: 'none', color: isLogin ? '#fff' : 'var(--color-text-muted)', borderRadius: '12px' }}
+            style={{ 
+              flex: 1, padding: '10px', borderRadius: '10px', border: 'none', 
+              background: isLogin ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+              color: isLogin ? '#fff' : 'var(--color-text-muted)',
+              boxShadow: isLogin ? '0 4px 12px rgba(0,0,0,0.1)' : 'none',
+              cursor: 'pointer', fontWeight: '600', fontSize: '14px', transition: 'all 0.3s'
+            }}
             onClick={() => { setIsLogin(true); setError(''); setSuccessMsg(''); }}
-            type="button"
           >
             Giriş Yap
           </button>
           <button 
-            className={`btn ${!isLogin ? 'btn-primary' : ''}`} 
-            style={{ flex: 1, padding: '12px', background: !isLogin ? '' : 'transparent', border: 'none', color: !isLogin ? '#fff' : 'var(--color-text-muted)', borderRadius: '12px' }}
+            style={{ 
+              flex: 1, padding: '10px', borderRadius: '10px', border: 'none', 
+              background: !isLogin ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+              color: !isLogin ? '#fff' : 'var(--color-text-muted)',
+              boxShadow: !isLogin ? '0 4px 12px rgba(0,0,0,0.1)' : 'none',
+              cursor: 'pointer', fontWeight: '600', fontSize: '14px', transition: 'all 0.3s'
+            }}
             onClick={() => { setIsLogin(false); setError(''); setSuccessMsg(''); }}
-            type="button"
           >
-            Hesap Oluştur
+            Kayıt Ol
           </button>
+        </div>
+
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{ display: 'inline-flex', padding: '18px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(59, 130, 246, 0.2))', borderRadius: '24px', border: '1px solid rgba(16, 185, 129, 0.3)', marginBottom: '20px', boxShadow: '0 0 30px rgba(16, 185, 129, 0.2)' }}>
+            <Briefcase size={36} color="#10b981" />
+          </div>
+          <h2 className="title text-gradient" style={{ fontSize: '32px', marginBottom: '8px', letterSpacing: '-0.5px' }}>Öğretmen Portalı</h2>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '15px' }}>Öğrencilerinizi yönetin ve analiz edin.</p>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {!isLogin && (
-            <div className="input-group">
-              <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Sparkles size={16} /> Adınız Soyadınız
-              </label>
+            <div className="input-group slide-up" style={{ animationDelay: '0.1s', position: 'relative' }}>
+              <User size={18} color="var(--color-text-muted)" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }} />
               <input
                 type="text"
                 className="input-field"
-                placeholder="Örn: Ahmet Yılmaz"
+                placeholder="Adınız Soyadınız"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                style={{ paddingLeft: '48px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', height: '54px' }}
               />
             </div>
           )}
 
-          <div className="input-group">
-            <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <User size={16} /> Kullanıcı Adı
-            </label>
+          <div className="input-group slide-up" style={{ animationDelay: '0.2s', position: 'relative' }}>
+            <User size={18} color="var(--color-text-muted)" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }} />
             <input
               type="text"
               className="input-field"
-              placeholder="Örn: ahmethoca"
+              placeholder="Kullanıcı Adı"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              style={{ paddingLeft: '48px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', height: '54px' }}
             />
           </div>
 
-          <div className="input-group">
-            <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Lock size={16} /> Şifre
-            </label>
+          <div className="input-group slide-up" style={{ animationDelay: '0.3s', position: 'relative' }}>
+            <Lock size={18} color="var(--color-text-muted)" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }} />
             <input
               type="password"
               className="input-field"
-              placeholder="••••••••"
+              placeholder="Erişim Şifresi"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              style={{ paddingLeft: '48px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', height: '54px', letterSpacing: password ? '4px' : 'normal' }}
             />
           </div>
 
           {error && (
-            <div className="shake" style={{ color: '#ef4444', fontSize: '14px', textAlign: 'center', background: 'rgba(239,68,68,0.1)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(239,68,68,0.2)' }}>
-              {error}
+            <div className="shake" style={{ color: '#ef4444', fontSize: '13px', textAlign: 'center', background: 'rgba(239,68,68,0.1)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} /> {error}
             </div>
           )}
-
           {successMsg && (
-            <div className="slide-up" style={{ color: '#10b981', fontSize: '14px', textAlign: 'center', background: 'rgba(16,185,129,0.1)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(16,185,129,0.2)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '4px' }}>
-                <Sparkles size={16} /> <strong>Başarılı!</strong>
-              </div>
+            <div className="slide-up" style={{ color: '#10b981', fontSize: '13px', textAlign: 'center', background: 'rgba(16,185,129,0.1)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(16,185,129,0.2)' }}>
               {successMsg}
             </div>
           )}
@@ -161,22 +160,25 @@ const TeacherAuth = () => {
           <button 
             type="submit" 
             className="btn btn-primary" 
-            style={{ padding: '14px', fontSize: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+            style={{ 
+              height: '54px', fontSize: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', 
+              marginTop: '12px', borderRadius: '14px', background: 'linear-gradient(to right, #10b981, #059669)',
+              boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.4)', border: 'none', fontWeight: '600'
+            }}
             disabled={isLoading}
           >
-            {isLoading ? 'İşleniyor...' : (isLogin ? <><LogIn size={20} /> Panele Gir</> : <><PlusCircle size={20} /> Kayıt Ol</>)}
+            {isLoading ? 'İşleniyor...' : (isLogin ? <><LogIn size={20} /> Giriş Yap</> : <><PlusCircle size={20} /> Kayıt Ol</>)}
           </button>
         </form>
-
-        {/* Geri Dön Linki */}
-        <div style={{ marginTop: '24px', textAlign: 'center' }}>
-          <a 
-            href="/" 
-            className="text-primary hover-glow" 
-            style={{ textDecoration: 'none', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+        <div style={{ marginTop: '32px', textAlign: 'center' }}>
+          <button 
+            onClick={() => navigate('/')}
+            style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '8px', borderRadius: '8px', transition: 'all 0.2s' }}
+            onMouseOver={(e) => e.currentTarget.style.color = '#fff'}
+            onMouseOut={(e) => e.currentTarget.style.color = 'var(--color-text-muted)'}
           >
-            <ArrowRight size={16} style={{ transform: 'rotate(180deg)' }} /> Portal Seçimine Geri Dön
-          </a>
+            <ArrowLeft size={16} /> Portal Seçimine Dön
+          </button>
         </div>
       </div>
     </div>

@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { getLogs, getStats, addStudentByTeacher } from '../api';
 import StudentReportPDF from '../components/StudentReportPDF';
-import { LayoutDashboard, RefreshCw, Users, Clock, Hash, BookOpen, Download, LogOut, Copy, CheckCircle2, PlusCircle, X, User, Key } from 'lucide-react';
+import CurriculumManager from '../components/CurriculumManager';
+import { LayoutDashboard, RefreshCw, Users, Clock, Hash, BookOpen, Download, LogOut, Copy, CheckCircle2, PlusCircle, X, User, Key, GraduationCap } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const COLORS = ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
@@ -17,12 +18,14 @@ const TeacherDashboard = () => {
   const [generatingStudent, setGeneratingStudent] = useState(null);
   const [pdfTargetStudent, setPdfTargetStudent] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [showCurriculum, setShowCurriculum] = useState(false);
 
   // Add Student Modal State
   const [showAddModal, setShowAddModal] = useState(false);
   const [newStudentFullName, setNewStudentFullName] = useState('');
   const [newStudentUsername, setNewStudentUsername] = useState('');
   const [newStudentPassword, setNewStudentPassword] = useState('');
+  const [newStudentSchoolLevel, setNewStudentSchoolLevel] = useState('Lise (YKS)');
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
   const [addSuccess, setAddSuccess] = useState('');
@@ -92,11 +95,12 @@ const TeacherDashboard = () => {
         return;
       }
 
-      await addStudentByTeacher(newStudentFullName.trim(), newStudentUsername.trim().toLowerCase(), newStudentPassword, teacherIdForAdd);
+      await addStudentByTeacher(newStudentFullName.trim(), newStudentUsername.trim().toLowerCase(), newStudentPassword, teacherIdForAdd, newStudentSchoolLevel);
       setAddSuccess('Öğrenci başarıyla eklendi!');
       setNewStudentFullName('');
       setNewStudentUsername('');
       setNewStudentPassword('');
+      setNewStudentSchoolLevel('Lise (YKS)');
       fetchData(); // Refresh list to show new student (will appear once they have a log, or we can just show success)
       
       setTimeout(() => {
@@ -299,6 +303,13 @@ const TeacherDashboard = () => {
               <PlusCircle size={16} /> Öğrenci Ekle
             </button>
           )}
+          <button
+            className="btn btn-primary"
+            style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '8px', background: showCurriculum ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.1)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.3)' }}
+            onClick={() => setShowCurriculum(v => !v)}
+          >
+            <GraduationCap size={16} /> {showCurriculum ? 'Paneli Gizle' : 'Müfredat Yönetimi'}
+          </button>
           <button 
             className="btn btn-secondary" 
             style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444' }} 
@@ -346,6 +357,13 @@ const TeacherDashboard = () => {
           </button>
         </div>
       </div>
+
+      {/* Curriculum Manager Panel */}
+      {showCurriculum && (
+        <div className="slide-up" style={{ marginBottom: '32px' }}>
+          <CurriculumManager />
+        </div>
+      )}
 
       {loading || !stats ? (
         <div className="text-center text-primary animate-pulse-glow" style={{ padding: '60px', fontSize: '18px' }}>
@@ -501,9 +519,17 @@ const TeacherDashboard = () => {
                 <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><User size={16} /> Kullanıcı Adı</label>
                 <input type="text" className="input-field" placeholder="Örn: aliyilmaz" value={newStudentUsername} onChange={(e) => setNewStudentUsername(e.target.value)} required />
               </div>
-              <div className="input-group">
-                <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Key size={16} /> Şifre</label>
+              <div className="form-group">
+                <label>Erişim Şifresi (Sizin belirlediğiniz)</label>
                 <input type="text" className="input-field" placeholder="Örn: gizlisifre123" value={newStudentPassword} onChange={(e) => setNewStudentPassword(e.target.value)} required />
+              </div>
+              <div className="form-group">
+                <label>Eğitim Kademesi</label>
+                <select className="input-field" value={newStudentSchoolLevel} onChange={(e) => setNewStudentSchoolLevel(e.target.value)} style={{ appearance: 'auto' }}>
+                  <option value="İlkokul">İlkokul</option>
+                  <option value="Ortaokul (LGS)">Ortaokul (LGS)</option>
+                  <option value="Lise (YKS)">Lise (YKS)</option>
+                </select>
               </div>
 
               {addError && <div style={{ color: '#ef4444', fontSize: '14px', background: 'rgba(239,68,68,0.1)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)' }}>{addError}</div>}

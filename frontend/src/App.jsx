@@ -8,6 +8,7 @@ import TeacherAuth from './pages/TeacherAuth';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import Landing from './pages/Landing';
 import Onboarding from './components/Onboarding';
+import AccountDeletion from './pages/AccountDeletion';
 import './index.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -37,6 +38,7 @@ function App() {
         <main className="container">
           <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/hesap-silme" element={<AccountDeletion />} />
             <Route 
               path="/ogrenci" 
               element={studentName ? <Navigate to="/" /> : <StudentLogin onLogin={handleStudentLogin} />} 

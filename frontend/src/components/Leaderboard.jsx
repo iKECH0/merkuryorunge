@@ -6,6 +6,7 @@ const Leaderboard = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [timeframe, setTimeframe] = useState('all');
+  const [selectedLevel, setSelectedLevel] = useState('Genel');
 
   useEffect(() => {
     fetchData();
@@ -58,11 +59,29 @@ const Leaderboard = () => {
         </div>
       </div>
 
-      {data.length === 0 ? (
+      {/* School Level Tabs */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap', overflowX: 'auto', paddingBottom: '8px' }}>
+        {['Genel', 'İlkokul', 'Ortaokul (LGS)', 'Lise (YKS)'].map(level => (
+          <button 
+            key={level}
+            onClick={() => setSelectedLevel(level)}
+            style={{ 
+              padding: '8px 16px', borderRadius: '100px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', whiteSpace: 'nowrap', transition: 'all 0.3s',
+              background: selectedLevel === level ? 'rgba(6, 182, 212, 0.15)' : 'rgba(0,0,0,0.2)',
+              color: selectedLevel === level ? 'var(--color-primary)' : 'var(--color-text-muted)',
+              boxShadow: selectedLevel === level ? '0 4px 12px rgba(6, 182, 212, 0.2)' : 'none'
+            }}
+          >
+            {level}
+          </button>
+        ))}
+      </div>
+
+      {data.filter(s => selectedLevel === 'Genel' || s.school_level === selectedLevel).length === 0 ? (
         <p className="text-center text-muted">Henüz {timeframe === 'daily' ? 'bugün için' : ''} veri yok. İlk sırayı sen al!</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {data.map((student, index) => {
+          {data.filter(s => selectedLevel === 'Genel' || s.school_level === selectedLevel).map((student, index) => {
             const isFirst = index === 0;
             const isSecond = index === 1;
             const isThird = index === 2;

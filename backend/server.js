@@ -77,6 +77,38 @@ const initDB = async () => {
       )
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS topic_curriculum (
+        id SERIAL PRIMARY KEY,
+        grade VARCHAR(10) NOT NULL,
+        subject VARCHAR(100) NOT NULL,
+        topic_name VARCHAR(255) NOT NULL,
+        sort_order INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS student_topic_progress (
+        id SERIAL PRIMARY KEY,
+        student_name VARCHAR(255) NOT NULL,
+        topic_id INT REFERENCES topic_curriculum(id) ON DELETE CASCADE,
+        is_completed BOOLEAN DEFAULT TRUE,
+        completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(student_name, topic_id)
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS deletion_requests (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255),
+        reason TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log("Database tables initialized.");
   } catch (err) {
     console.error("Error initializing database:", err);
@@ -90,7 +122,7 @@ initDB();
 // --- AUTHENTICATION ---
 app.post("/api/auth/register", async (req, res) => {
   try {
-    const { fullName, username, password, inviteCode } = req.body;
+    const { fullName, username, password, inviteCode, schoolLevel } = req.body;
     
     let teacherId = null;
     if (inviteCode) {
@@ -113,8 +145,8 @@ app.post("/api/auth/register", async (req, res) => {
 
     // Insert new user
     const result = await pool.query(
-      "INSERT INTO students (full_name, username, password_hash, teacher_id) VALUES ($1, $2, $3, $4) RETURNING id, full_name, username, teacher_id",
-      [fullName, username, passwordHash, teacherId]
+      "INSERT INTO students (full_name, username, password_hash, teacher_id, school_level) VALUES ($1, $2, $3, $4, $5) RETURNING id, full_name, username, teacher_id, school_level",
+      [fullName, username, passwordHash, teacherId, schoolLevel || 'Lise (YKS)']
     );
 
     res.status(201).json(result.rows[0]);
@@ -177,7 +209,7 @@ app.post("/api/auth/teacher/register", async (req, res) => {
 
 app.post("/api/auth/teacher/add-student", async (req, res) => {
   try {
-    const { fullName, username, password, teacherId } = req.body;
+    const { fullName, username, password, teacherId, schoolLevel } = req.body;
     
     // Check if username exists
     const userExists = await pool.query("SELECT * FROM students WHERE username = $1", [username]);
@@ -191,8 +223,8 @@ app.post("/api/auth/teacher/add-student", async (req, res) => {
 
     // Insert new user directly under the teacher
     const result = await pool.query(
-      "INSERT INTO students (full_name, username, password_hash, teacher_id) VALUES ($1, $2, $3, $4) RETURNING id, full_name, username, teacher_id",
-      [fullName, username, passwordHash, teacherId]
+      "INSERT INTO students (full_name, username, password_hash, teacher_id, school_level) VALUES ($1, $2, $3, $4, $5) RETURNING id, full_name, username, teacher_id, school_level",
+      [fullName, username, passwordHash, teacherId, schoolLevel || 'Lise (YKS)']
     );
 
     res.status(201).json(result.rows[0]);
@@ -324,12 +356,14 @@ app.post("/api/goals", async (req, res) => {
 app.get("/api/leaderboard", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT student_name, 
-             SUM(duration_minutes) as total_duration, 
-             SUM(questions_solved) as total_questions,
-             (SUM(duration_minutes) + (SUM(questions_solved) * 2)) as total_points
-      FROM study_logs 
-      GROUP BY student_name 
+      SELECT l.student_name, 
+             SUM(l.duration_minutes) as total_duration, 
+             SUM(l.questions_solved) as total_questions,
+             (SUM(l.duration_minutes) + (SUM(l.questions_solved) * 2)) as total_points,
+             MAX(s.school_level) as school_level
+      FROM study_logs l
+      LEFT JOIN students s ON l.student_name = s.full_name
+      GROUP BY l.student_name 
       ORDER BY total_points DESC, total_duration DESC
       LIMIT 50
     `);
@@ -344,13 +378,15 @@ app.get("/api/leaderboard", async (req, res) => {
 app.get("/api/leaderboard/daily", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT student_name, 
-             SUM(duration_minutes) as total_duration, 
-             SUM(questions_solved) as total_questions,
-             (SUM(duration_minutes) + (SUM(questions_solved) * 2)) as total_points
-      FROM study_logs 
-      WHERE DATE(created_at) = CURRENT_DATE
-      GROUP BY student_name 
+      SELECT l.student_name, 
+             SUM(l.duration_minutes) as total_duration, 
+             SUM(l.questions_solved) as total_questions,
+             (SUM(l.duration_minutes) + (SUM(l.questions_solved) * 2)) as total_points,
+             MAX(s.school_level) as school_level
+      FROM study_logs l
+      LEFT JOIN students s ON l.student_name = s.full_name
+      WHERE DATE(l.created_at) = CURRENT_DATE
+      GROUP BY l.student_name 
       ORDER BY total_points DESC, total_duration DESC
       LIMIT 50
     `);
@@ -496,6 +532,249 @@ app.post("/api/admin/add-teacher", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+// --- TOPIC CURRICULUM & PROGRESS ---
+
+// Get all curriculum grouped by grade and subject
+app.get("/api/curriculum", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, grade, subject, topic_name, sort_order FROM topic_curriculum ORDER BY grade, subject, sort_order"
+    );
+    // Group by grade -> subject -> topics
+    const grouped = {};
+    result.rows.forEach(row => {
+      if (!grouped[row.grade]) grouped[row.grade] = {};
+      if (!grouped[row.grade][row.subject]) grouped[row.grade][row.subject] = [];
+      grouped[row.grade][row.subject].push({ id: row.id, topic_name: row.topic_name, sort_order: row.sort_order });
+    });
+    res.json(grouped);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Seed curriculum if empty
+app.post("/api/curriculum/seed", async (req, res) => {
+  try {
+    const existing = await pool.query("SELECT COUNT(*) FROM topic_curriculum");
+    if (parseInt(existing.rows[0].count) > 0) {
+      return res.json({ message: "Already seeded", count: existing.rows[0].count });
+    }
+    const { topics } = req.body;
+    for (const t of topics) {
+      await pool.query(
+        "INSERT INTO topic_curriculum (grade, subject, topic_name, sort_order) VALUES ($1, $2, $3, $4)",
+        [t.grade, t.subject, t.topic_name, t.sort_order]
+      );
+    }
+    res.json({ message: "Seeded successfully", count: topics.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Get student's completed topic IDs
+app.get("/api/topics/progress/:studentName", async (req, res) => {
+  try {
+    const { studentName } = req.params;
+    const result = await pool.query(
+      "SELECT topic_id FROM student_topic_progress WHERE student_name = $1 AND is_completed = TRUE",
+      [decodeURIComponent(studentName)]
+    );
+    res.json(result.rows.map(r => r.topic_id));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Mark topic as completed
+app.post("/api/topics/progress", async (req, res) => {
+  try {
+    const { studentName, topicId } = req.body;
+    await pool.query(
+      "INSERT INTO student_topic_progress (student_name, topic_id, is_completed) VALUES ($1, $2, TRUE) ON CONFLICT (student_name, topic_id) DO UPDATE SET is_completed = TRUE, completed_at = CURRENT_TIMESTAMP",
+      [studentName, topicId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Unmark topic
+app.delete("/api/topics/progress", async (req, res) => {
+  try {
+    const { studentName, topicId } = req.body;
+    await pool.query(
+      "DELETE FROM student_topic_progress WHERE student_name = $1 AND topic_id = $2",
+      [studentName, topicId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Get topic progress summary for all students of a teacher
+app.get("/api/topics/teacher/:teacherId", async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+    // Get all students of this teacher
+    const students = await pool.query(
+      "SELECT full_name FROM students WHERE teacher_id = $1",
+      [teacherId]
+    );
+    const result = [];
+    for (const student of students.rows) {
+      const progress = await pool.query(
+        "SELECT COUNT(*) as completed FROM student_topic_progress WHERE student_name = $1 AND is_completed = TRUE",
+        [student.full_name]
+      );
+      result.push({
+        student_name: student.full_name,
+        completed_count: parseInt(progress.rows[0].completed)
+      });
+    }
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+// Add a new topic
+app.post("/api/curriculum/topic", async (req, res) => {
+  try {
+    const { grade, subject, topic_name } = req.body;
+    if (!grade || !subject || !topic_name) return res.status(400).json({ error: "Eksik alan" });
+    const maxOrder = await pool.query(
+      "SELECT COALESCE(MAX(sort_order), 0) as max_order FROM topic_curriculum WHERE grade = $1 AND subject = $2",
+      [grade, subject]
+    );
+    const sort_order = parseInt(maxOrder.rows[0].max_order) + 1;
+    const result = await pool.query(
+      "INSERT INTO topic_curriculum (grade, subject, topic_name, sort_order) VALUES ($1, $2, $3, $4) RETURNING *",
+      [grade, subject, topic_name, sort_order]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Edit a topic name
+app.put("/api/curriculum/topic/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { topic_name } = req.body;
+    if (!topic_name) return res.status(400).json({ error: "Konu adı boş olamaz" });
+    const result = await pool.query(
+      "UPDATE topic_curriculum SET topic_name = $1 WHERE id = $2 RETURNING *",
+      [topic_name, id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: "Konu bulunamadı" });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Delete a topic
+app.delete("/api/curriculum/topic/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query("DELETE FROM topic_curriculum WHERE id = $1", [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Add a new subject to a grade
+app.post("/api/curriculum/subject", async (req, res) => {
+  try {
+    const { grade, subject } = req.body;
+    if (!grade || !subject) return res.status(400).json({ error: "Eksik alan" });
+    const existing = await pool.query(
+      "SELECT id FROM topic_curriculum WHERE grade = $1 AND subject = $2 LIMIT 1",
+      [grade, subject]
+    );
+    if (existing.rows.length > 0) return res.status(400).json({ error: "Bu ders zaten mevcut" });
+    // Insert a placeholder topic so the subject appears
+    await pool.query(
+      "INSERT INTO topic_curriculum (grade, subject, topic_name, sort_order) VALUES ($1, $2, $3, 1)",
+      [grade, subject, "İlk konuyu ekleyin"]
+    );
+    res.status(201).json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Reset and re-seed curriculum (force re-seed)
+app.post("/api/curriculum/reseed", async (req, res) => {
+  try {
+    const { topics } = req.body;
+    await pool.query("DELETE FROM student_topic_progress");
+    await pool.query("DELETE FROM topic_curriculum");
+    for (const t of topics) {
+      await pool.query(
+        "INSERT INTO topic_curriculum (grade, subject, topic_name, sort_order) VALUES ($1, $2, $3, $4)",
+        [t.grade, t.subject, t.topic_name, t.sort_order]
+      );
+    }
+    res.json({ message: "Reseed successful", count: topics.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// --- DELETION REQUESTS ---
+app.post("/api/deletion-requests", async (req, res) => {
+  try {
+    const { name, email, reason } = req.body;
+    await pool.query(
+      "INSERT INTO deletion_requests (name, email, reason) VALUES ($1, $2, $3)",
+      [name, email, reason]
+    );
+    res.status(201).json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.get("/api/deletion-requests", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM deletion_requests ORDER BY created_at DESC");
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.delete("/api/deletion-requests/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query("DELETE FROM deletion_requests WHERE id = $1", [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 5000;

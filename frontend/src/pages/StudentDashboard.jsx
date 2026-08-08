@@ -6,7 +6,8 @@ import Leaderboard from '../components/Leaderboard';
 import StudentProfile from '../components/StudentProfile';
 import Onboarding from '../components/Onboarding';
 import MerkurAIChat from '../components/MerkurAIChat';
-import { Rocket, Clock, Trophy, Sparkles, Lock, User, LogOut, BotMessageSquare } from 'lucide-react';
+import TopicTracker from '../components/TopicTracker';
+import { Rocket, Clock, Trophy, Sparkles, Lock, User, LogOut, BotMessageSquare, BookOpen } from 'lucide-react';
 
 const StudentDashboard = ({ studentName }) => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -94,6 +95,7 @@ const StudentDashboard = ({ studentName }) => {
           {activeTab === 'manual' && <ManualLogForm studentName={studentName} />}
           {activeTab === 'tracker' && <SessionTracker studentName={studentName} />}
           {activeTab === 'leaderboard' && <Leaderboard />}
+          {activeTab === 'topics' && <TopicTracker studentName={studentName} />}
           {activeTab === 'ai' && <MerkurAIChat studentName={studentName} />}
         </div>
       </div>
@@ -131,6 +133,14 @@ const StudentDashboard = ({ studentName }) => {
         >
           <Trophy size={20} />
           <span>Sıralama</span>
+        </button>
+        <button 
+          className={`nav-item ${activeTab === 'topics' ? 'active' : ''}`}
+          onClick={() => setActiveTab('topics')}
+          style={{ background: activeTab === 'topics' ? 'var(--color-primary)' : 'transparent', border: 'none', cursor: 'pointer' }}
+        >
+          <BookOpen size={20} />
+          <span>Konular</span>
         </button>
         <button 
           className={`nav-item ${activeTab === 'ai' ? 'active' : ''}`}

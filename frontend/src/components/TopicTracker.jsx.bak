@@ -1,0 +1,204 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { CheckCircle2, Circle, ChevronDown, ChevronRight, BookOpen, BarChart3 } from 'lucide-react';
+import { CURRICULUM_TREE, GRADE_ORDER } from '../data/curriculum';
+import { getTopicProgress, markTopicComplete, unmarkTopicComplete } from '../api';
+
+const GRADE_LABELS = { TYT: 'TYT', AYT: 'AYT', '9': '9. Sınıf', '10': '10. Sınıf', '11': '11. Sınıf', '12': '12. Sınıf' };
+const SUBJECT_COLORS = {
+  Matematik: '#3b82f6', Geometri: '#8b5cf6', Fizik: '#06b6d4', Kimya: '#10b981',
+  Biyoloji: '#22c55e', Turkce: '#f59e0b', 'Turk Dili ve Edebiyati': '#f59e0b',
+  Tarih: '#ef4444', Cografya: '#f97316', Felsefe: '#a855f7', 'Felsefe Grubu': '#a855f7',
+};
+const getSubjectColor = (subject) => {
+  for (const key of Object.keys(SUBJECT_COLORS)) {
+    if (subject.toLowerCase().includes(key.toLowerCase())) return SUBJECT_COLORS[key];
+  }
+  return '#6366f1';
+};
+
+export default function TopicTracker({ studentName }) {
+  const [selectedGrade, setSelectedGrade] = useState('TYT');
+  const [completedIds, setCompletedIds] = useState(new Set());
+  const [openSubjects, setOpenSubjects] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(null);
+
+  const fetchProgress = useCallback(async () => {
+    try {
+      const ids = await getTopicProgress(studentName);
+      setCompletedIds(new Set(ids));
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  }, [studentName]);
+
+  useEffect(() => { fetchProgress(); }, [fetchProgress]);
+
+  const toggleTopic = async (topicId) => {
+    const isCompleted = completedIds.has(topicId);
+    setSaving(topicId);
+    try {
+      if (isCompleted) {
+        await unmarkTopicComplete(studentName, topicId);
+        setCompletedIds(prev => { const n = new Set(prev); n.delete(topicId); return n; });
+      } else {
+        await markTopicComplete(studentName, topicId);
+        setCompletedIds(prev => new Set([...prev, topicId]));
+      }
+    } catch (err) { console.error(err); }
+    finally { setSaving(null); }
+  };
+
+  const toggleSubject = (subjectKey) => {
+    setOpenSubjects(prev => ({ ...prev, [subjectKey]: !prev[subjectKey] }));
+  };
+
+  const gradeData = CURRICULUM_TREE[selectedGrade] || {};
+  const allTopicsInGrade = Object.values(gradeData).flat();
+  const completedInGrade = allTopicsInGrade.filter(t => completedIds.has(t.id)).length;
+  const totalInGrade = allTopicsInGrade.length;
+  const gradePercent = totalInGrade > 0 ? Math.round((completedInGrade / totalInGrade) * 100) : 0;
+
+  const totalAll = Object.values(CURRICULUM_TREE).flatMap(g => Object.values(g)).flat().length;
+  const completedAll = completedIds.size;
+  const overallPercent = totalAll > 0 ? Math.round((completedAll / totalAll) * 100) : 0;
+
+  if (loading) {
+    return (
+      <div className="glass-card fade-in" style={{ textAlign: 'center', padding: '40px' }}>
+        <div style={{ fontSize: '32px', marginBottom: '12px' }}>📚</div>
+        <p style={{ color: 'var(--color-text-muted)' }}>Konu verileri yükleniyor...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fade-in">
+      {/* Overall Progress */}
+      <div className="glass-card slide-up" style={{ marginBottom: '20px', textAlign: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center', marginBottom: '16px' }}>
+          <div style={{ padding: '10px', background: 'rgba(99,102,241,0.1)', borderRadius: '12px', color: '#6366f1' }}>
+            <BarChart3 size={22} />
+          </div>
+          <h2 className="title" style={{ margin: 0, fontSize: '18px' }}>Genel İlerleme</h2>
+        </div>
+        <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '36px', fontWeight: '800', color: '#6366f1' }}>{overallPercent}%</div>
+            <div style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>{completedAll} / {totalAll} konu</div>
+          </div>
+        </div>
+        <div style={{ marginTop: '12px', height: '8px', background: 'var(--color-border)', borderRadius: '100px', overflow: 'hidden' }}>
+          <div style={{ width: `${overallPercent}%`, height: '100%', background: 'linear-gradient(90deg, #6366f1, #8b5cf6)', borderRadius: '100px', transition: 'width 0.5s ease' }} />
+        </div>
+      </div>
+
+      {/* Grade Tabs */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        {GRADE_ORDER.map(grade => (
+          <button
+            key={grade}
+            onClick={() => setSelectedGrade(grade)}
+            style={{
+              padding: '8px 16px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '600', fontFamily: 'var(--font-primary)',
+              background: selectedGrade === grade ? 'var(--color-primary)' : 'var(--color-bg-glass)',
+              color: selectedGrade === grade ? '#fff' : 'var(--color-text-muted)',
+              transition: 'all 0.2s',
+              boxShadow: selectedGrade === grade ? '0 4px 12px rgba(6,182,212,0.3)' : 'none'
+            }}
+          >
+            {GRADE_LABELS[grade]}
+          </button>
+        ))}
+      </div>
+
+      {/* Grade Progress */}
+      <div className="glass-card" style={{ marginBottom: '20px', padding: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--color-text-main)' }}>{GRADE_LABELS[selectedGrade]} İlerlemesi</span>
+          <span style={{ fontSize: '14px', color: 'var(--color-primary)', fontWeight: '700' }}>{gradePercent}%</span>
+        </div>
+        <div style={{ height: '6px', background: 'var(--color-border)', borderRadius: '100px', overflow: 'hidden' }}>
+          <div style={{ width: `${gradePercent}%`, height: '100%', background: 'linear-gradient(90deg, var(--color-primary), #8b5cf6)', borderRadius: '100px', transition: 'width 0.5s ease' }} />
+        </div>
+        <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '6px' }}>{completedInGrade} / {totalInGrade} konu tamamlandı</div>
+      </div>
+
+      {/* Subject Accordions */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {Object.entries(gradeData).map(([subject, topics]) => {
+          const color = getSubjectColor(subject);
+          const completedInSubject = topics.filter(t => completedIds.has(t.id)).length;
+          const totalInSubject = topics.length;
+          const subjectPercent = Math.round((completedInSubject / totalInSubject) * 100);
+          const isOpen = openSubjects[`${selectedGrade}-${subject}`];
+
+          return (
+            <div key={subject} className="glass-card" style={{ padding: 0, overflow: 'hidden', border: `1px solid ${color}22` }}>
+              {/* Subject Header */}
+              <button
+                onClick={() => toggleSubject(`${selectedGrade}-${subject}`)}
+                style={{ width: '100%', background: 'transparent', border: 'none', padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}
+              >
+                <div style={{ padding: '8px', background: `${color}22`, borderRadius: '10px', color, flexShrink: 0 }}>
+                  <BookOpen size={16} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--color-text-main)' }}>{subject}</span>
+                    <span style={{ fontSize: '13px', color, fontWeight: '700', marginLeft: '8px', flexShrink: 0 }}>
+                      {completedInSubject}/{totalInSubject}
+                    </span>
+                  </div>
+                  <div style={{ height: '4px', background: 'var(--color-border)', borderRadius: '100px', overflow: 'hidden' }}>
+                    <div style={{ width: `${subjectPercent}%`, height: '100%', background: color, borderRadius: '100px', transition: 'width 0.3s ease' }} />
+                  </div>
+                </div>
+                <div style={{ color: 'var(--color-text-muted)', flexShrink: 0 }}>
+                  {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                </div>
+              </button>
+
+              {/* Topic List */}
+              {isOpen && (
+                <div style={{ borderTop: `1px solid ${color}22`, padding: '8px 12px 12px' }}>
+                  {topics.map(topic => {
+                    const done = completedIds.has(topic.id);
+                    const isSaving = saving === topic.id;
+                    return (
+                      <button
+                        key={topic.id}
+                        onClick={() => !isSaving && toggleTopic(topic.id)}
+                        style={{
+                          width: '100%', background: done ? `${color}12` : 'transparent',
+                          border: `1px solid ${done ? color + '44' : 'transparent'}`,
+                          borderRadius: '10px', padding: '10px 12px', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px',
+                          textAlign: 'left', transition: 'all 0.2s', opacity: isSaving ? 0.5 : 1
+                        }}
+                      >
+                        <div style={{ color: done ? color : 'var(--color-text-muted)', flexShrink: 0 }}>
+                          {done ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+                        </div>
+                        <span style={{
+                          fontSize: '13px', fontFamily: 'var(--font-primary)',
+                          color: done ? 'var(--color-text-main)' : 'var(--color-text-muted)',
+                          fontWeight: done ? '600' : '400',
+                          textDecoration: done ? 'none' : 'none'
+                        }}>
+                          {topic.topic_name}
+                        </span>
+                        {done && (
+                          <span style={{ marginLeft: 'auto', fontSize: '11px', color, fontWeight: '700', flexShrink: 0 }}>✓</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

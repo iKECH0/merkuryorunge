@@ -1,6 +1,10 @@
 {
-  "appId": "com.merkuryorunge.app",
+  "appId": "com.kodivas.merkuryorunge",
   "appName": "Merkür Yörünge",
   "webDir": "dist",
+  "server": {
+    "url": "https://merkuryorunge.vercel.app",
+    "cleartext": true
+  },
   "bundledWebRuntime": false
 }

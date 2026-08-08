@@ -12,13 +12,13 @@ export const loginTeacher = async (username, password) => {
   return response.data;
 };
 
-export const addStudentByTeacher = async (fullName, username, password, teacherId) => {
-  const response = await axios.post(`${API_URL}/auth/teacher/add-student`, { fullName, username, password, teacherId });
+export const addStudentByTeacher = async (fullName, username, password, teacherId, schoolLevel) => {
+  const response = await axios.post(`${API_URL}/auth/teacher/add-student`, { fullName, username, password, teacherId, schoolLevel });
   return response.data;
 };
 
-export const registerStudent = async (fullName, username, password, inviteCode) => {
-  const response = await axios.post(`${API_URL}/auth/register`, { fullName, username, password, inviteCode });
+export const registerStudent = async (fullName, username, password, inviteCode, schoolLevel) => {
+  const response = await axios.post(`${API_URL}/auth/register`, { fullName, username, password, inviteCode, schoolLevel });
   return response.data;
 };
 
@@ -74,6 +74,16 @@ export const getAdminStats = async () => {
   return response.data;
 };
 
+export const getDeletionRequests = async () => {
+  const response = await axios.get(`${API_URL}/deletion-requests`);
+  return response.data;
+};
+
+export const deleteDeletionRequest = async (id) => {
+  const response = await axios.delete(`${API_URL}/deletion-requests/${id}`);
+  return response.data;
+};
+
 export const approveTeacher = async (teacherId) => {
   const response = await axios.post(`${API_URL}/admin/approve-teacher`, { teacherId });
   return response.data;
@@ -86,5 +96,25 @@ export const deleteTeacher = async (teacherId) => {
 
 export const addTeacherByAdmin = async (fullName, username, password) => {
   const response = await axios.post(`${API_URL}/admin/add-teacher`, { fullName, username, password });
+  return response.data;
+};
+
+export const getTopicProgress = async (studentName) => {
+  const response = await axios.get(`${API_URL}/topics/progress/${encodeURIComponent(studentName)}`);
+  return response.data;
+};
+
+export const markTopicComplete = async (studentName, topicId) => {
+  const response = await axios.post(`${API_URL}/topics/progress`, { studentName, topicId });
+  return response.data;
+};
+
+export const unmarkTopicComplete = async (studentName, topicId) => {
+  const response = await axios.delete(`${API_URL}/topics/progress`, { data: { studentName, topicId } });
+  return response.data;
+};
+
+export const getTeacherTopicProgress = async (teacherId) => {
+  const response = await axios.get(`${API_URL}/topics/teacher/${teacherId}`);
   return response.data;
 };

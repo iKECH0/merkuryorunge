@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAdminStats, approveTeacher, deleteTeacher, addTeacherByAdmin } from '../api';
-import { LayoutDashboard, Users, CheckCircle, Clock, ShieldCheck, LogOut, RefreshCw, BarChart2, Trash2, PlusCircle, X, User, Key, Briefcase, Sparkles, ShieldAlert } from 'lucide-react';
+import { getAdminStats, approveTeacher, deleteTeacher, addTeacherByAdmin, getDeletionRequests, deleteDeletionRequest } from '../api';
+import { LayoutDashboard, Users, CheckCircle, Clock, ShieldCheck, LogOut, RefreshCw, BarChart2, Trash2, PlusCircle, X, User, Key, Briefcase, Sparkles, ShieldAlert, AlertTriangle } from 'lucide-react';
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
+  const [deletionRequests, setDeletionRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -30,8 +31,12 @@ const SuperAdminDashboard = () => {
   const fetchData = async () => {
     setIsRefreshing(true);
     try {
-      const stats = await getAdminStats();
+      const [stats, requests] = await Promise.all([
+        getAdminStats(),
+        getDeletionRequests()
+      ]);
       setData(stats);
+      setDeletionRequests(requests);
     } catch (err) {
       console.error(err);
     } finally {
@@ -63,6 +68,17 @@ const SuperAdminDashboard = () => {
     } catch (err) {
       console.error(err);
       alert('Silme işlemi sırasında bir hata oluştu.');
+    }
+  };
+
+  const handleResolveDeletion = async (id) => {
+    if (!window.confirm('Bu talebi çözüldü olarak işaretlemek ve listeden kaldırmak istediğinize emin misiniz?')) return;
+    try {
+      await deleteDeletionRequest(id);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      alert('Hata oluştu.');
     }
   };
 
@@ -171,6 +187,40 @@ const SuperAdminDashboard = () => {
           <h3 style={{ margin: '0 0 16px 0', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}><BarChart2 size={20} /> Platform Toplam Çözülen Soru</h3>
           <div style={{ fontSize: '48px', fontWeight: 'bold', color: '#fff' }}>{platformTotals.total_questions}</div>
         </div>
+      </div>
+
+      {/* Deletion Requests */}
+      <div className="glass-card slide-up" style={{ padding: '32px', marginBottom: '40px' }}>
+        <h2 style={{ margin: '0 0 24px 0', fontSize: '20px', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <AlertTriangle size={24} /> Hesap Silme Talepleri
+        </h2>
+        {deletionRequests.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-text-muted)' }}>Bekleyen hesap silme talebi yok.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {deletionRequests.map((req) => (
+              <div key={req.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px', background: 'rgba(239, 68, 68, 0.05)', borderRadius: '16px', border: '1px solid rgba(239, 68, 68, 0.1)' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', color: '#fff' }}>{req.name}</h3>
+                  {req.email && <div style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>E-posta: {req.email}</div>}
+                  {req.reason && <div style={{ fontSize: '13px', color: '#fca5a5' }}>Neden: {req.reason}</div>}
+                  <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '8px' }}>
+                    Tarih: {new Date(req.created_at).toLocaleString('tr-TR')}
+                  </div>
+                </div>
+                <div>
+                  <button 
+                    onClick={() => handleResolveDeletion(req.id)}
+                    className="btn btn-primary"
+                    style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '6px', background: '#10b981', border: 'none' }}
+                  >
+                    <CheckCircle size={14} /> Çözüldü İşaretle
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Teachers List */}

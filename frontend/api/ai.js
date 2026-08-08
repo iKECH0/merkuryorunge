@@ -16,10 +16,16 @@ async function generateWithFallback(buildModel, message, history) {
       const model = buildModel(modelName);
       let reply = "";
       if (history && history.length > 0) {
-        const geminiHistory = history.map(msg => ({
+        let geminiHistory = history.map(msg => ({
           role: msg.role === "assistant" || msg.role === "model" ? "model" : "user",
           parts: [{ text: msg.content || "" }]
         }));
+        
+        // Ensure first message is user
+        while (geminiHistory.length > 0 && geminiHistory[0].role === "model") {
+          geminiHistory.shift();
+        }
+        
         const chat = model.startChat({ history: geminiHistory });
         const result = await chat.sendMessage(message);
         reply = result.response.text();

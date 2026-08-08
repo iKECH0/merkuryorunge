@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.merkuryorunge.app",
+      "sha256_cert_fingerprints": [
+        "CF:2B:77:E8:25:84:C3:AD:B3:4C:35:D3:7C:43:A7:24:B3:FC:EA:51:FD:7A:93:AE:68:AF:DC:A8:F1:63:99:8A"
+      ]
+    }
+  }
+]

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getStudentLogs, getStudentGoal, setStudentGoal } from '../api';
-import { Target, Bot, Sparkles, TrendingUp, Palette, CalendarDays, Clock, BookOpen, Hash } from 'lucide-react';
+import { Target, Bot, Sparkles, TrendingUp, Palette, CalendarDays, Clock, BookOpen, Hash, Trash2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid } from 'recharts';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
 const StudentProfile = ({ studentName }) => {
+  const navigate = useNavigate();
   const [logs, setLogs] = useState([]);
   const [goal, setGoal] = useState(0);
   const [inputGoal, setInputGoal] = useState('');
@@ -188,7 +190,14 @@ const StudentProfile = ({ studentName }) => {
               </div>
             </div>
             <p style={{ marginTop: '16px', fontSize: '16px', fontWeight: 'bold', color: 'var(--color-text-muted)' }}>{totalQuestions} / {goal} Soru</p>
-            <button onClick={() => setGoal(0)} style={{ marginTop: '16px', background: 'transparent', border: 'none', color: 'var(--color-text-muted)', textDecoration: 'underline', cursor: 'pointer', fontSize: '14px' }}>Hedefi Sıfırla</button>
+            <button onClick={async () => {
+              try {
+                await setStudentGoal(studentName, 0);
+                setGoal(0);
+              } catch (err) {
+                console.error(err);
+              }
+            }} style={{ marginTop: '16px', background: 'transparent', border: 'none', color: 'var(--color-text-muted)', textDecoration: 'underline', cursor: 'pointer', fontSize: '14px' }}>Hedefi Sıfırla</button>
           </div>
         )}
       </div>
@@ -304,6 +313,23 @@ const StudentProfile = ({ studentName }) => {
             {isAiLoading ? 'Analiz Ediliyor...' : <><TrendingUp size={18} /> Gelişim Analizi İste</>}
           </button>
         )}
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px', marginBottom: '16px' }}>
+        <button 
+          onClick={() => navigate('/hesap-silme')}
+          style={{ 
+            display: 'flex', alignItems: 'center', gap: '8px', 
+            background: 'transparent', border: '1px solid rgba(239, 68, 68, 0.3)', 
+            color: '#ef4444', padding: '10px 20px', borderRadius: '8px',
+            fontSize: '14px', fontWeight: '500', cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'; }}
+          onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+        >
+          <Trash2 size={16} /> Hesabımı Sil
+        </button>
       </div>
     </div>
   );
