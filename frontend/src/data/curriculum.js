@@ -155,8 +155,10 @@ export const CURRICULUM = [
 
 export const SCHOOL_LEVELS = {
   "İlkokul": { grades: ["1","2","3","4"], label: "İlkokul (1-4)", emoji: "🏫" },
-  "Ortaokul": { grades: ["5","6","7","8"], label: "Ortaokul (5-8)", emoji: "📚" },
-  "Lise": { grades: ["9","10","11","12","TYT","AYT"], label: "Lise (9-12 + TYT/AYT)", emoji: "🎓" },
+  "Ortaokul": { grades: ["5","6"], label: "Ortaokul (5-6)", emoji: "📚" },
+  "LGS": { grades: ["7","8"], label: "LGS Hazırlık (7-8)", emoji: "🎯" },
+  "Lise": { grades: ["9","10"], label: "Lise (9-10)", emoji: "🎓" },
+  "YKS": { grades: ["11","12","TYT","AYT"], label: "YKS Hazırlık", emoji: "🚀" },
 };
 
 export const GRADE_LABELS = {
@@ -166,6 +168,26 @@ export const GRADE_LABELS = {
   "TYT":"TYT","AYT":"AYT"
 };
 
+export const GRADE_ORDER = ["1","2","3","4","5","6","7","8","9","10","11","12","TYT","AYT"];
+
+const SUBJECT_PRIORITY = {
+  "Matematik": 1,
+  "Türkçe": 2,
+  "Türk Dili ve Edebiyatı": 3,
+  "Geometri": 4,
+  "Fizik": 5,
+  "Kimya": 6,
+  "Biyoloji": 7,
+  "Fen Bilimleri": 8,
+  "Tarih": 9,
+  "T.C. İnkılap Tarihi ve Atatürkçülük": 10,
+  "Coğrafya": 11,
+  "Din Kültürü ve Ahlak Bilgisi": 12,
+  "İngilizce": 13,
+  "Felsefe": 14,
+  "Felsefe Grubu": 15
+};
+
 export const CURRICULUM_TREE = {};
 CURRICULUM.forEach(item => {
   if (!CURRICULUM_TREE[item.grade]) CURRICULUM_TREE[item.grade] = {};
@@ -173,4 +195,18 @@ CURRICULUM.forEach(item => {
   CURRICULUM_TREE[item.grade][item.subject].push(item);
 });
 
-export const GRADE_ORDER = ["1","2","3","4","5","6","7","8","9","10","11","12","TYT","AYT"];
+// Sort subjects within each grade based on priority
+Object.keys(CURRICULUM_TREE).forEach(grade => {
+  const subjectsObj = CURRICULUM_TREE[grade];
+  const sortedSubjects = {};
+  
+  Object.keys(subjectsObj).sort((a, b) => {
+    const priorityA = SUBJECT_PRIORITY[a] || 99;
+    const priorityB = SUBJECT_PRIORITY[b] || 99;
+    return priorityA - priorityB;
+  }).forEach(key => {
+    sortedSubjects[key] = subjectsObj[key];
+  });
+  
+  CURRICULUM_TREE[grade] = sortedSubjects;
+});
