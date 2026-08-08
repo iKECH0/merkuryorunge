@@ -7,6 +7,7 @@ import StudentLogin from './pages/StudentLogin';
 import TeacherAuth from './pages/TeacherAuth';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import Landing from './pages/Landing';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 import Onboarding from './components/Onboarding';
 import AccountDeletion from './pages/AccountDeletion';
 import './index.css';
@@ -19,6 +20,15 @@ const ProtectedRoute = ({ children }) => {
 const StudentRoute = ({ children }) => {
   const isStudent = localStorage.getItem('studentName') !== null;
   return isStudent ? children : <Navigate to="/ogrenci" />;
+};
+
+// Catches URL-encoded Turkish characters like %C4%B1 (ı) and redirects properly
+const GizlilikRedirect = () => {
+  const path = decodeURIComponent(window.location.pathname).toLowerCase();
+  if (path.includes('gizlilik')) {
+    return <PrivacyPolicy />;
+  }
+  return <Navigate to="/" />;
 };
 
 function App() {
@@ -62,6 +72,10 @@ function App() {
               } 
             />
             <Route path="/super-admin" element={<SuperAdminDashboard />} />
+            <Route path="/gizlilikpolitikasi" element={<PrivacyPolicy />} />
+            <Route path="/gizlilik-politikasi" element={<PrivacyPolicy />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="*" element={<GizlilikRedirect />} />
           </Routes>
         </main>
       </div>
