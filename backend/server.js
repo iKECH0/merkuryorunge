@@ -213,10 +213,6 @@ app.post("/api/auth/register", async (req, res) => {
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { username, password } = req.body;
-    
-    if (!dbReady) {
-      return res.status(200).json({ id: 1, username, full_name: username, teacher_id: null });
-    }
 
     const result = await pool.query("SELECT * FROM students WHERE username = $1", [username]);
     if (result.rows.length === 0) {
@@ -298,10 +294,6 @@ app.post("/api/auth/teacher/add-student", async (req, res) => {
 app.post("/api/auth/teacher/login", async (req, res) => {
   try {
     const { username, password } = req.body;
-    
-    if (!dbReady) {
-      return res.status(200).json({ id: 1, username, full_name: username, invite_code: "DEMO" });
-    }
 
     const result = await pool.query("SELECT * FROM teachers WHERE username = $1", [username]);
     if (result.rows.length === 0) {
@@ -352,7 +344,7 @@ app.get("/api/logs", async (req, res) => {
   try {
     const teacher_id = req.query.teacher_id || req.query.teacherId;
     let result;
-    if (teacher_id) {
+    if (teacher_id && teacher_id !== 'ALL') {
       result = await pool.query(
         "SELECT * FROM study_logs WHERE teacher_id = $1 ORDER BY created_at DESC",
         [teacher_id]
@@ -486,7 +478,7 @@ app.get("/api/stats", async (req, res) => {
     let filterClause = "";
     let queryParams = [];
 
-    if (teacher_id) {
+    if (teacher_id && teacher_id !== 'ALL') {
       filterClause = "WHERE teacher_id = $1";
       queryParams = [teacher_id];
     }
