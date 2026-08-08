@@ -516,7 +516,7 @@ app.get("/api/stats", async (req, res) => {
     `, queryParams);
 
     const allStudentsQuery = await pool.query(`
-      SELECT full_name as name 
+      SELECT id, full_name as name, class_name, school_level
       FROM students 
       ${filterClause}
       ORDER BY full_name ASC
@@ -607,6 +607,25 @@ app.post("/api/admin/add-teacher", async (req, res) => {
     );
 
     res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Update student class/level (teacher edits existing student)
+app.put("/api/students/:studentId", async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { className, schoolLevel } = req.body;
+    const result = await pool.query(
+      "UPDATE students SET class_name = $1, school_level = $2 WHERE id = $3 RETURNING id, full_name, class_name, school_level",
+      [className || null, schoolLevel, studentId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Öğrenci bulunamadı." });
+    }
+    res.json(result.rows[0]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });

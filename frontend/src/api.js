@@ -103,6 +103,11 @@ export const deleteTeacher = async (teacherId) => {
   return response.data;
 };
 
+export const updateStudent = async (studentId, className, schoolLevel) => {
+  const response = await axios.put(`${API_URL}/students/${studentId}`, { className, schoolLevel });
+  return response.data;
+};
+
 export const addTeacherByAdmin = async (fullName, username, password) => {
   const response = await axios.post(`${API_URL}/admin/add-teacher`, { fullName, username, password });
   return response.data;

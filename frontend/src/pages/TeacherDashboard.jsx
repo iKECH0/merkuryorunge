@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { getLogs, getStats, addStudentByTeacher } from '../api';
+import { getLogs, getStats, addStudentByTeacher, updateStudent } from '../api';
 import StudentReportPDF from '../components/StudentReportPDF';
 import CurriculumManager from '../components/CurriculumManager';
-import { LayoutDashboard, RefreshCw, Users, Clock, Hash, BookOpen, Download, LogOut, Copy, CheckCircle2, PlusCircle, X, User, Key, GraduationCap } from 'lucide-react';
+import { LayoutDashboard, RefreshCw, Users, Clock, Hash, BookOpen, Download, LogOut, Copy, CheckCircle2, PlusCircle, X, User, Key, GraduationCap, Pencil } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const COLORS = ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
@@ -19,6 +19,13 @@ const TeacherDashboard = () => {
   const [pdfTargetStudent, setPdfTargetStudent] = useState(null);
   const [copied, setCopied] = useState(false);
   const [showCurriculum, setShowCurriculum] = useState(false);
+
+  // Edit Student Modal State
+  const [editingStudent, setEditingStudent] = useState(null); // { id, name, class_name, school_level }
+  const [editClassName, setEditClassName] = useState('');
+  const [editSchoolLevel, setEditSchoolLevel] = useState('Lise (YKS)');
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState('');
 
   // Add Student Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -474,7 +481,20 @@ const TeacherDashboard = () => {
                     </div>
                   </div>
 
-                  <div style={{ flex: '0 0 auto' }}>
+                  <div style={{ flex: '0 0 auto', display: 'flex', gap: '8px' }}>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: '8px 12px', fontSize: '13px', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
+                      onClick={() => {
+                        const studentInfo = stats?.allStudents?.find(s => s.name === student.name);
+                        setEditingStudent(studentInfo || { name: student.name });
+                        setEditClassName(studentInfo?.class_name || '');
+                        setEditSchoolLevel(studentInfo?.school_level || 'Lise (YKS)');
+                        setEditError('');
+                      }}
+                    >
+                      <Pencil size={14} />
+                    </button>
                     <button 
                       className="btn btn-secondary"
                       style={{ padding: '8px 16px', fontSize: '13px', background: 'rgba(6, 182, 212, 0.1)', color: 'var(--color-primary)', border: '1px solid rgba(6, 182, 212, 0.3)' }}
@@ -545,6 +565,65 @@ const TeacherDashboard = () => {
                 {addLoading ? 'Kaydediliyor...' : 'Öğrenciyi Kaydet'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Student Modal */}
+      {editingStudent && (
+        <div className="fade-in" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(10px)' }}>
+          <div className="glass-card slide-up" style={{ width: '100%', maxWidth: '380px', padding: '32px', position: 'relative' }}>
+            <button onClick={() => setEditingStudent(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
+              <X size={24} />
+            </button>
+            <h2 className="title" style={{ fontSize: '20px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Pencil size={20} color="#f59e0b" /> Öğrenci Düzenle
+            </h2>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '14px', marginBottom: '24px' }}>{editingStudent.name}</p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group">
+                <label>Sınıf Numarası <span style={{ color: 'var(--color-text-muted)', fontWeight: 400, fontSize: '12px' }}>(İsteğe Bağlı)</span></label>
+                <input
+                  type="number" min="1" max="12"
+                  className="input-field"
+                  placeholder="Örn: 9, 10, 11"
+                  value={editClassName}
+                  onChange={(e) => setEditClassName(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Eğitim Kademesi</label>
+                <select className="input-field" value={editSchoolLevel} onChange={(e) => setEditSchoolLevel(e.target.value)} style={{ appearance: 'auto' }}>
+                  <option value="İlkokul">İlkokul</option>
+                  <option value="Ortaokul (LGS)">Ortaokul (LGS)</option>
+                  <option value="Lise (YKS)">Lise (YKS)</option>
+                </select>
+              </div>
+
+              {editError && <div style={{ color: '#ef4444', fontSize: '14px', background: 'rgba(239,68,68,0.1)', padding: '12px', borderRadius: '8px' }}>{editError}</div>}
+
+              <button
+                className="btn btn-primary"
+                disabled={editLoading || !editingStudent.id}
+                style={{ padding: '14px' }}
+                onClick={async () => {
+                  if (!editingStudent.id) { setEditError('Öğrenci ID bulunamadı. Sayfayı yenileyin.'); return; }
+                  setEditLoading(true);
+                  try {
+                    await updateStudent(editingStudent.id, editClassName || null, editSchoolLevel);
+                    setEditingStudent(null);
+                    fetchData();
+                  } catch (e) {
+                    setEditError('Güncelleme başarısız oldu.');
+                  } finally {
+                    setEditLoading(false);
+                  }
+                }}
+              >
+                {editLoading ? 'Kaydediliyor...' : 'Kaydet'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -14,6 +14,7 @@ const StudentLogin = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [inviteCode, setInviteCode] = useState(initialInvite);
   const [schoolLevel, setSchoolLevel] = useState('Lise (YKS)');
+  const [className, setClassName] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -34,7 +35,7 @@ const StudentLogin = ({ onLogin }) => {
           setIsLoading(false);
           return;
         }
-        const user = await registerStudent(fullName.trim(), username.trim().toLowerCase(), password, inviteCode.trim().toUpperCase(), schoolLevel);
+        const user = await registerStudent(fullName.trim(), username.trim().toLowerCase(), password, inviteCode.trim().toUpperCase(), schoolLevel, className.trim() || null);
         onLogin(user.full_name, user.username);
       } else {
         if (username.trim().length === 0 || password.length === 0) {
@@ -136,6 +137,19 @@ const StudentLogin = ({ onLogin }) => {
                   <option value="Lise (YKS)" style={{color: '#000'}}>Lise (YKS)</option>
                 </select>
                 <div style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--color-text-muted)' }}>▼</div>
+              </div>
+
+              <div className="input-group slide-up" style={{ animationDelay: '0.14s', position: 'relative' }}>
+                <input
+                  type="number"
+                  min="1"
+                  max="12"
+                  className="input-field"
+                  placeholder="Sınıf numaranız (Örn: 9, 10) — İsteğe Bağlı"
+                  value={className}
+                  onChange={(e) => setClassName(e.target.value)}
+                  style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', height: '54px', padding: '0 16px', color: '#fff', width: '100%' }}
+                />
               </div>
 
               <div className="input-group slide-up" style={{ animationDelay: '0.15s', position: 'relative' }}>
