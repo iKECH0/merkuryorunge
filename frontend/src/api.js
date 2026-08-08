@@ -12,13 +12,13 @@ export const loginTeacher = async (username, password) => {
   return response.data;
 };
 
-export const addStudentByTeacher = async (fullName, username, password, teacherId, schoolLevel) => {
-  const response = await axios.post(`${API_URL}/auth/teacher/add-student`, { fullName, username, password, teacherId, schoolLevel });
+export const addStudentByTeacher = async (fullName, username, password, teacherId, schoolLevel, className) => {
+  const response = await axios.post(`${API_URL}/auth/teacher/add-student`, { fullName, username, password, teacherId, schoolLevel, className });
   return response.data;
 };
 
-export const registerStudent = async (fullName, username, password, inviteCode, schoolLevel) => {
-  const response = await axios.post(`${API_URL}/auth/register`, { fullName, username, password, inviteCode, schoolLevel });
+export const registerStudent = async (fullName, username, password, inviteCode, schoolLevel, className) => {
+  const response = await axios.post(`${API_URL}/auth/register`, { fullName, username, password, inviteCode, schoolLevel, className });
   return response.data;
 };
 

@@ -106,6 +106,12 @@ const initDB = async () => {
     try {
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS teacher_id INT REFERENCES teachers(id) ON DELETE SET NULL`);
     } catch(e) {}
+    try {
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS school_level VARCHAR(50) DEFAULT 'Lise (YKS)'`);
+    } catch(e) {}
+    try {
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS class_name VARCHAR(50) DEFAULT NULL`);
+    } catch(e) {}
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS study_logs (
@@ -176,7 +182,7 @@ initDB();
 // --- AUTHENTICATION ---
 app.post("/api/auth/register", async (req, res) => {
   try {
-    const { fullName, username, password, inviteCode, schoolLevel } = req.body;
+    const { fullName, username, password, inviteCode, schoolLevel, className } = req.body;
     
     let teacherId = null;
     if (inviteCode) {
@@ -199,8 +205,8 @@ app.post("/api/auth/register", async (req, res) => {
 
     // Insert new user
     const result = await pool.query(
-      "INSERT INTO students (full_name, username, password_hash, teacher_id, school_level) VALUES ($1, $2, $3, $4, $5) RETURNING id, full_name, username, teacher_id, school_level",
-      [fullName, username, passwordHash, teacherId, schoolLevel || 'Lise (YKS)']
+      "INSERT INTO students (full_name, username, password_hash, teacher_id, school_level, class_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, full_name, username, teacher_id, school_level, class_name",
+      [fullName, username, passwordHash, teacherId, schoolLevel || 'Lise (YKS)', className || null]
     );
 
     res.status(201).json(result.rows[0]);
@@ -263,7 +269,7 @@ app.post("/api/auth/teacher/register", async (req, res) => {
 
 app.post("/api/auth/teacher/add-student", async (req, res) => {
   try {
-    const { fullName, username, password, teacherId, schoolLevel } = req.body;
+    const { fullName, username, password, teacherId, schoolLevel, className } = req.body;
     
     // Check if username exists
     const userExists = await pool.query("SELECT * FROM students WHERE username = $1", [username]);
@@ -277,8 +283,8 @@ app.post("/api/auth/teacher/add-student", async (req, res) => {
 
     // Insert new user directly under the teacher
     const result = await pool.query(
-      "INSERT INTO students (full_name, username, password_hash, teacher_id, school_level) VALUES ($1, $2, $3, $4, $5) RETURNING id, full_name, username, teacher_id, school_level",
-      [fullName, username, passwordHash, teacherId, schoolLevel || 'Lise (YKS)']
+      "INSERT INTO students (full_name, username, password_hash, teacher_id, school_level, class_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, full_name, username, teacher_id, school_level, class_name",
+      [fullName, username, passwordHash, teacherId, schoolLevel || 'Lise (YKS)', className || null]
     );
 
     res.status(201).json(result.rows[0]);
@@ -366,7 +372,7 @@ app.get("/api/student-info/:studentName", async (req, res) => {
   try {
     const { studentName } = req.params;
     const result = await pool.query(
-      "SELECT school_level FROM students WHERE full_name = $1 LIMIT 1",
+      "SELECT school_level, class_name FROM students WHERE full_name = $1 LIMIT 1",
       [studentName]
     );
     if (result.rows.length === 0) {

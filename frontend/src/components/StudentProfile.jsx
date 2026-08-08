@@ -12,6 +12,7 @@ const StudentProfile = ({ studentName }) => {
   const [goal, setGoal] = useState(0);
   const [inputGoal, setInputGoal] = useState('');
   const [schoolLevel, setSchoolLevel] = useState('');
+  const [className, setClassName] = useState('');
   const [aiMessage, setAiMessage] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [bgTheme, setBgTheme] = useState(localStorage.getItem('profileBackground') || 'bg-default');
@@ -36,6 +37,9 @@ const StudentProfile = ({ studentName }) => {
       const infoData = await getStudentInfo(studentName);
       if (infoData && infoData.school_level) {
         setSchoolLevel(infoData.school_level);
+      }
+      if (infoData && infoData.class_name) {
+        setClassName(infoData.class_name);
       }
     } catch (err) {
       console.error(err);
@@ -156,6 +160,11 @@ const StudentProfile = ({ studentName }) => {
               {schoolLevel && (
                 <span style={{ fontSize: '14px', background: 'rgba(6, 182, 212, 0.15)', color: 'var(--color-primary)', padding: '4px 12px', borderRadius: '100px', display: 'flex', alignItems: 'center', border: '1px solid rgba(6, 182, 212, 0.3)' }}>
                   {schoolLevel}
+                </span>
+              )}
+              {className && (
+                <span style={{ fontSize: '14px', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '4px 12px', borderRadius: '100px', display: 'flex', alignItems: 'center', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                  {className}. Sınıf
                 </span>
               )}
             </h2>

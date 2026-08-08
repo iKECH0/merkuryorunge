@@ -26,6 +26,7 @@ const TeacherDashboard = () => {
   const [newStudentUsername, setNewStudentUsername] = useState('');
   const [newStudentPassword, setNewStudentPassword] = useState('');
   const [newStudentSchoolLevel, setNewStudentSchoolLevel] = useState('Lise (YKS)');
+  const [newStudentClassName, setNewStudentClassName] = useState('');
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
   const [addSuccess, setAddSuccess] = useState('');
@@ -95,11 +96,12 @@ const TeacherDashboard = () => {
         return;
       }
 
-      await addStudentByTeacher(newStudentFullName.trim(), newStudentUsername.trim().toLowerCase(), newStudentPassword, teacherIdForAdd, newStudentSchoolLevel);
+      await addStudentByTeacher(newStudentFullName.trim(), newStudentUsername.trim().toLowerCase(), newStudentPassword, teacherIdForAdd, newStudentSchoolLevel, newStudentClassName.trim() || null);
       setAddSuccess('Öğrenci başarıyla eklendi!');
       setNewStudentFullName('');
       setNewStudentUsername('');
       setNewStudentPassword('');
+      setNewStudentClassName('');
       setNewStudentSchoolLevel('Lise (YKS)');
       fetchData(); // Refresh list to show new student (will appear once they have a log, or we can just show success)
       
@@ -522,6 +524,10 @@ const TeacherDashboard = () => {
               <div className="form-group">
                 <label>Erişim Şifresi (Sizin belirlediğiniz)</label>
                 <input type="text" className="input-field" placeholder="Örn: gizlisifre123" value={newStudentPassword} onChange={(e) => setNewStudentPassword(e.target.value)} required />
+              </div>
+              <div className="form-group">
+                <label>Sınıf <span style={{ color: 'var(--color-text-muted)', fontWeight: 400, fontSize: '12px' }}>(İsteğe Bağlı)</span></label>
+                <input type="text" className="input-field" placeholder="Örn: 9-A, 10-B, 5" value={newStudentClassName} onChange={(e) => setNewStudentClassName(e.target.value)} />
               </div>
               <div className="form-group">
                 <label>Eğitim Kademesi</label>
