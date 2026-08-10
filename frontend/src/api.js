@@ -132,3 +132,8 @@ export const getTeacherTopicProgress = async (teacherId) => {
   const response = await axios.get(`${API_URL}/topics/teacher/${teacherId}`);
   return response.data;
 };
+
+export const deleteStudentByTeacher = async (id) => {
+  const response = await axios.delete(`${API_URL}/teacher/student/${id}`);
+  return response.data;
+};

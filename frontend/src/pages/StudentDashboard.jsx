@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { Capacitor } from '@capacitor/core';
 import ManualLogForm from '../components/ManualLogForm';
 import SessionTracker from '../components/SessionTracker';
 import Leaderboard from '../components/Leaderboard';
@@ -34,33 +36,74 @@ const StudentDashboard = ({ studentName }) => {
     }
   }, [studentUsername]);
 
-  // 22:00 Alarm / Hatırlatıcı
+  // 10:30 & 22:30 Local Notifications
   useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-
-    const checkTime = () => {
-      const now = new Date();
-      if (now.getHours() === 22 && now.getMinutes() === 0) {
-        const todayStr = now.toLocaleDateString('tr-TR');
-        const hasSeenToday = localStorage.getItem(`alarm_seen_${todayStr}`);
-        if (!hasSeenToday) {
-          if ("Notification" in window && Notification.permission === "granted") {
-            new Notification("Merkür Yörünge", { body: "⏰ Saat 22:00! Günün değerlendirmesini yapma vakti geldi! Bugün neler başardın?", icon: '/favicon.ico' });
-          } else {
-            alert("⏰ Saat 22:00! Günün değerlendirmesini yapma vakti geldi! Bugün neler başardın?");
+    const setupNotifications = async () => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          let permStatus = await LocalNotifications.checkPermissions();
+          if (permStatus.display !== 'granted') {
+            permStatus = await LocalNotifications.requestPermissions();
           }
-          localStorage.setItem(`alarm_seen_${todayStr}`, 'true');
+          
+          if (permStatus.display === 'granted') {
+            const pending = await LocalNotifications.getPending();
+            if (pending.notifications.length > 0) {
+              await LocalNotifications.cancel(pending);
+            }
+            
+            await LocalNotifications.schedule({
+              notifications: [
+                {
+                  title: "Merkür Yörünge Hatırlatması",
+                  body: "Saat 10:30! Günün planını ve ilk raporlarını girmeyi unutma!",
+                  id: 1,
+                  schedule: { on: { hour: 10, minute: 30 }, allowWhileIdle: true },
+                },
+                {
+                  title: "Merkür Yörünge Hatırlatması",
+                  body: "Saat 22:30! Günün raporunu girdin mi? Hadi hemen kaydet!",
+                  id: 2,
+                  schedule: { on: { hour: 22, minute: 30 }, allowWhileIdle: true },
+                }
+              ]
+            });
+          }
+        } catch (e) {
+          console.error("Bildirim hatası:", e);
+        }
+      } else {
+        // Web için basit bildirim
+        if ("Notification" in window && Notification.permission === "default") {
+          Notification.requestPermission();
         }
       }
     };
 
-    // Check immediately and then every minute
-    checkTime();
-    const interval = setInterval(checkTime, 60000);
-    return () => clearInterval(interval);
+    setupNotifications();
   }, []);
+
+  const sendTestNotification = async () => {
+    if (Capacitor.isNativePlatform()) {
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            title: "Test Bildirimi",
+            body: "Bu bir test bildirimidir. Bildirim sistemi sorunsuz çalışıyor!",
+            id: 99,
+            schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true },
+          }
+        ]
+      });
+      alert("Test bildirimi 5 saniye sonra çalacak. Lütfen uygulamayı arka plana alın veya ekranı kilitleyin.");
+    } else {
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("Test Bildirimi", { body: "Bu bir web test bildirimidir." });
+      } else {
+        alert("Web bildirimleri aktif değil veya cihaz desteklemiyor.");
+      }
+    }
+  };
 
   const handleOnboardingComplete = () => {
     if (studentUsername) {
@@ -94,7 +137,17 @@ const StudentDashboard = ({ studentName }) => {
           <Sparkles size={32} color="var(--color-primary)" />
         </div>
         <h1 className="title text-gradient" style={{ fontSize: '40px', marginBottom: '8px', lineHeight: 1.1 }}>Merkür Yörünge</h1>
-        <p style={{ margin: 0, fontSize: '18px', color: 'var(--color-text-muted)', fontFamily: 'var(--font-primary)' }}>Merhaba, {studentName} 🚀</p>
+        <p style={{ margin: 0, fontSize: '18px', color: 'var(--color-text-muted)', fontFamily: 'var(--font-primary)', marginBottom: '12px' }}>Merhaba, {studentName} 🚀</p>
+        
+        {studentUsername?.toUpperCase() === 'TESTER' && (
+          <button 
+            onClick={sendTestNotification}
+            className="btn btn-secondary"
+            style={{ padding: '8px 16px', fontSize: '13px', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', margin: '0 auto', display: 'flex' }}
+          >
+            Test Bildirimi Gönder (5sn)
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'center', animationDelay: '0.2s', width: '100%' }} className="slide-up">

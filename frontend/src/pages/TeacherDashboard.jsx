@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { getLogs, getStats, addStudentByTeacher, updateStudent } from '../api';
+import { getLogs, getStats, addStudentByTeacher, updateStudent, deleteStudentByTeacher } from '../api';
 import StudentReportPDF from '../components/StudentReportPDF';
 import CurriculumManager from '../components/CurriculumManager';
-import { LayoutDashboard, RefreshCw, Users, Clock, Hash, BookOpen, Download, LogOut, Copy, CheckCircle2, PlusCircle, X, User, Key, GraduationCap, Pencil } from 'lucide-react';
+import { LayoutDashboard, RefreshCw, Users, Clock, Hash, BookOpen, Download, LogOut, Copy, CheckCircle2, PlusCircle, X, User, Key, GraduationCap, Pencil, Trash2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const COLORS = ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
@@ -37,6 +37,13 @@ const TeacherDashboard = () => {
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
   const [addSuccess, setAddSuccess] = useState('');
+
+  // Delete Student Modal State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteSuccess, setDeleteSuccess] = useState('');
 
   const teacherId = localStorage.getItem('teacherId');
   const teacherName = localStorage.getItem('teacherName') || 'Öğretmen';
@@ -123,6 +130,35 @@ const TeacherDashboard = () => {
     }
   };
 
+  const handleDeleteStudent = async (e) => {
+    e.preventDefault();
+    setDeleteError('');
+    setDeleteSuccess('');
+    setDeleteLoading(true);
+
+    try {
+      if (!studentToDelete) {
+        setDeleteError('Lütfen silinecek öğrenciyi seçin.');
+        setDeleteLoading(false);
+        return;
+      }
+      
+      await deleteStudentByTeacher(studentToDelete);
+      setDeleteSuccess('Öğrenci başarıyla silindi!');
+      fetchData();
+      
+      setTimeout(() => {
+        setShowDeleteModal(false);
+        setDeleteSuccess('');
+        setStudentToDelete('');
+      }, 2000);
+    } catch (err) {
+      setDeleteError(err.response?.data?.error || 'Öğrenci silinirken hata oluştu.');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const groupedStudents = useMemo(() => {
     const map = {};
     
@@ -130,6 +166,8 @@ const TeacherDashboard = () => {
     if (stats?.allStudents) {
       stats.allStudents.forEach(student => {
         map[student.name] = {
+          id: student.id,
+          username: student.username,
           name: student.name,
           totalDuration: 0,
           totalQuestions: 0,
@@ -158,7 +196,7 @@ const TeacherDashboard = () => {
     return Object.values(map).sort((a, b) => b.totalDuration - a.totalDuration);
   }, [logs, stats]);
 
-  const handleGeneratePDF = (student) => {
+  const handleGenerateReport = (student) => {
     setPdfTargetStudent(student);
     setGeneratingStudent(student.name);
   };
@@ -304,13 +342,22 @@ const TeacherDashboard = () => {
         </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           {teacherId !== 'ALL' && (
-            <button 
-              className="btn btn-primary" 
-              style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)' }} 
-              onClick={() => setShowAddModal(true)}
-            >
-              <PlusCircle size={16} /> Öğrenci Ekle
-            </button>
+            <>
+              <button 
+                className="btn btn-primary" 
+                style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)' }} 
+                onClick={() => setShowAddModal(true)}
+              >
+                <PlusCircle size={16} /> Öğrenci Ekle
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }} 
+                onClick={() => setShowDeleteModal(true)}
+              >
+                <Trash2 size={16} /> Öğrenci Sil
+              </button>
+            </>
           )}
           <button
             className="btn btn-primary"
@@ -481,7 +528,7 @@ const TeacherDashboard = () => {
                     </div>
                   </div>
 
-                  <div style={{ flex: '0 0 auto', display: 'flex', gap: '8px' }}>
+                  <div style={{ flex: '1 1 100%', display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
                     <button
                       className="btn btn-secondary"
                       style={{ padding: '8px 12px', fontSize: '13px', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
@@ -569,6 +616,7 @@ const TeacherDashboard = () => {
         </div>
       )}
 
+
       {/* Edit Student Modal */}
       {editingStudent && (
         <div className="fade-in" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(10px)' }}>
@@ -624,6 +672,51 @@ const TeacherDashboard = () => {
                 {editLoading ? 'Kaydediliyor...' : 'Kaydet'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Student Modal */}
+      {showDeleteModal && (
+        <div className="fade-in" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(10px)' }}>
+          <div className="glass-card slide-up" style={{ width: '100%', maxWidth: '400px', padding: '32px', position: 'relative', border: '1px solid rgba(239,68,68,0.3)' }}>
+            <button 
+              onClick={() => { setShowDeleteModal(false); setDeleteError(''); setDeleteSuccess(''); setStudentToDelete(''); }}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}
+            >
+              <X size={24} />
+            </button>
+            <h2 className="title" style={{ fontSize: '24px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444' }}>
+              <Trash2 size={24} color="#ef4444" /> Öğrenci Sil
+            </h2>
+            <p style={{ color: 'var(--color-text-muted)', marginBottom: '24px', fontSize: '14px' }}>
+              Silmek istediğiniz öğrenciyi seçin. Bu işlem geri alınamaz ve tüm verileri siler.
+            </p>
+            
+            <form onSubmit={handleDeleteStudent} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="input-group">
+                <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Users size={16} /> Öğrenci Seçin</label>
+                <select 
+                  className="input-field" 
+                  value={studentToDelete} 
+                  onChange={(e) => setStudentToDelete(e.target.value)} 
+                  required
+                  style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  <option value="" style={{ color: '#000' }}>Öğrenci Seçin...</option>
+                  {groupedStudents.map(s => (
+                    <option key={s.id} value={s.id} style={{ color: '#000' }}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {deleteError && <div style={{ color: '#ef4444', fontSize: '14px', background: 'rgba(239,68,68,0.1)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)' }}>{deleteError}</div>}
+              {deleteSuccess && <div style={{ color: '#10b981', fontSize: '14px', background: 'rgba(16,185,129,0.1)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.2)' }}>{deleteSuccess}</div>}
+
+              <button type="submit" className="btn btn-secondary" disabled={deleteLoading} style={{ padding: '14px', marginTop: '8px', background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.5)' }}>
+                {deleteLoading ? 'Siliniyor...' : 'Kalıcı Olarak Sil'}
+              </button>
+            </form>
           </div>
         </div>
       )}

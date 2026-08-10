@@ -516,7 +516,7 @@ app.get("/api/stats", async (req, res) => {
     `, queryParams);
 
     const allStudentsQuery = await pool.query(`
-      SELECT id, full_name as name, class_name, school_level
+      SELECT id, full_name as name, class_name, school_level, username
       FROM students 
       ${filterClause}
       ORDER BY full_name ASC
@@ -587,6 +587,29 @@ app.delete("/api/admin/teacher/:id", async (req, res) => {
 });
 
 // 8. Admin Manually Add Teacher
+// 9. Teacher Delete Student
+app.delete("/api/teacher/student/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Get student details to delete related goals and logs
+    const studentQuery = await pool.query("SELECT full_name FROM students WHERE id = $1", [id]);
+    if (studentQuery.rows.length === 0) {
+      return res.status(404).json({ error: "Öğrenci bulunamadı" });
+    }
+    const studentName = studentQuery.rows[0].full_name;
+
+    await pool.query("DELETE FROM student_goals WHERE student_name = $1", [studentName]);
+    await pool.query("DELETE FROM study_logs WHERE student_name = $1", [studentName]);
+    await pool.query("DELETE FROM students WHERE id = $1", [id]);
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Sunucu hatası" });
+  }
+});
+
 app.post("/api/admin/add-teacher", async (req, res) => {
   try {
     const { fullName, username, password } = req.body;
