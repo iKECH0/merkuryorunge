@@ -20,11 +20,13 @@ jobs:
           node-version: '22'
 
       - name: Setup Java 21
-        id: setup_java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
+
+      - name: Verify Java Version
+        run: java -version
 
       - name: Install Dependencies
         run: |
@@ -46,7 +48,6 @@ jobs:
           cd frontend/android
           chmod +x gradlew
           ./gradlew bundleRelease \
-            -Dorg.gradle.java.home=${{ steps.setup_java.outputs.path }} \
             -Pandroid.injected.signing.store.file=$(pwd)/app/upload.keystore \
             -Pandroid.injected.signing.store.password=merkuryorunge \
             -Pandroid.injected.signing.key.alias=upload \
