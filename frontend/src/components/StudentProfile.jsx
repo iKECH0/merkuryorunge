@@ -117,31 +117,57 @@ const StudentProfile = ({ studentName }) => {
   const subjectData = processSubjectData();
   const dailyReport = processDailyReport();
 
-  const generateAIInsight = () => {
+  const generateAIInsight = async () => {
     setIsAiLoading(true);
-    setTimeout(() => {
-      if (logs.length === 0) {
-        setAiMessage(`Merhaba ${studentName}! Henüz sisteme girdiğin bir çalışma verisi yok. Hemen bir seans başlatıp ilk adımını atabilirsin!`);
-        setIsAiLoading(false);
-        return;
-      }
+    
+    if (logs.length === 0) {
+      setAiMessage(`Merhaba ${studentName}! Henüz sisteme girdiğin bir çalışma verisi yok. Hemen bir seans başlatıp ilk adımını atabilirsin!`);
+      setIsAiLoading(false);
+      return;
+    }
 
+    try {
       const subjectCounts = {};
+      let totalMinutes = 0;
+      let totalQuestions = 0;
+      
       logs.forEach(log => {
         subjectCounts[log.subject] = (subjectCounts[log.subject] || 0) + log.duration_minutes;
+        totalMinutes += (log.duration_minutes || 0);
+        totalQuestions += (log.questions_solved || 0);
       });
 
       const sortedSubjects = Object.entries(subjectCounts).sort((a, b) => b[1] - a[1]);
-      const strongest = sortedSubjects[0][0];
-      const weakest = sortedSubjects[sortedSubjects.length - 1][0];
+      const strongest = sortedSubjects[0]?.[0] || 'Belirsiz';
+      const weakest = sortedSubjects[sortedSubjects.length - 1]?.[0] || 'Belirsiz';
+      
+      const logsSummary = `Toplam ${totalMinutes} dakika calisma ve ${totalQuestions} soru. Aktif ders sayisi: ${sortedSubjects.length}.`;
 
-      if (sortedSubjects.length === 1) {
-        setAiMessage(`Selam ${studentName}! Sadece ${strongest} çalışmışsın. Sınav maratonunda denge çok önemlidir, bugün biraz da farklı bir derse odaklanmaya ne dersin?`);
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://127.0.0.1:5000' : '');
+      const res = await fetch(`${apiBaseUrl}/api/ai?action=analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentName,
+          logsSummary,
+          strongest,
+          weakest
+        })
+      });
+
+      const data = await res.json();
+      
+      if (data.message) {
+        setAiMessage(data.message);
       } else {
-        setAiMessage(`Merhaba ${studentName}! Verilerini analiz ettim. Son zamanlarda ${strongest} dersine harika bir şekilde odaklanmışsın ama ${weakest} dersini biraz ihmal etmiş gibisin. Bugün ${weakest} branşından 30 soru çözerek bu açığı kapatabilirsin. Güç seninle olsun! 🚀`);
+        setAiMessage(`Merhaba ${studentName}! Verilerini analiz ettim. Bugün farklı bir strateji deneyerek çalışmalarını daha verimli hale getirebilirsin. Güç seninle olsun! 🚀`);
       }
+    } catch (err) {
+      console.error("AI Insight Error:", err);
+      setAiMessage(`Selam ${studentName}! Şu an derin bir analiz yapamıyorum ama çalışmalarının harika gittiğine eminim! 🚀`);
+    } finally {
       setIsAiLoading(false);
-    }, 1500);
+    }
   };
 
   return (

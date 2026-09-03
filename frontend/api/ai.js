@@ -84,6 +84,21 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: message_text });
     }
 
+    if (action === "analyze" || req.url.includes("/api/ai/analyze")) {
+      const { studentName, logsSummary, strongest, weakest } = req.body;
+      const systemInstruction = "Sen Merkur Yorunge egitim platformunun yapay zeka egitim kocu Merkur AI'sin. Her seferinde yaratici, farkli ve egitici tavsiyeler vermelisin. Asla ayni seyleri tekrar etme.";
+      const prompt = `Ogrenci: ${studentName}\nEn cok odaklanilan ders: ${strongest}\nEn az ilgilenilen ders: ${weakest}\nOzet veri: ${logsSummary}\n\nGorevin: Ogrencinin bu calisma verilerine bakarak ona ozel, sadece soru cozmesi gerektigini soylemek yerine zaman yonetimi, farkli calisma stratejileri, odaklanma teknikleri veya motivasyon uzerine cok yonlu, 3-4 cumlelik icten, yaratici ve bol emojili bir geri bildirim ve analiz sunmak. Standart kaliplardan kacinarak ogrenciye gercekten icgoru sagla.`;
+      
+      const buildModel = (modelName) => genAI.getGenerativeModel({
+        model: modelName,
+        systemInstruction: systemInstruction,
+        generationConfig: { temperature: 0.9 }
+      });
+      
+      const message_text = await generateWithFallback(buildModel, prompt, null);
+      return res.status(200).json({ message: message_text });
+    }
+
     return res.status(404).json({ error: "Not Found" });
 
   } catch (err) {
