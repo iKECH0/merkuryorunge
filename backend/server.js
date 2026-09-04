@@ -998,13 +998,23 @@ const aiHandler = async (req, res) => {
       return res.json({ message: reply });
     }
 
-function buildAnalysisLocalReport({ studentName, totalMinutes, totalHours, totalQuestions, totalSessions, activeDaysCount, subjects, strongest, weakest }) {
+function buildAnalysisLocalReport({ studentName, goal = 0, totalMinutes, totalHours, totalQuestions, totalSessions, activeDaysCount, subjects, strongest, weakest }) {
   const subjectList = subjects && subjects.length > 0
     ? subjects.map(s => `• **${s.subject}**: ${s.minutes} dk (${s.hours} saat, %${s.percent}) — ${s.questions} soru`).join("\n")
     : "• Henüz detaylı branş kaydı bulunmuyor.";
 
   const avgPerDay = activeDaysCount > 0 ? Math.round(totalQuestions / activeDaysCount) : 0;
   const avgMinPerDay = activeDaysCount > 0 ? Math.round(totalMinutes / activeDaysCount) : 0;
+
+  let goalAdvice = "";
+  if (goal > 0) {
+    const diff = goal - totalQuestions;
+    if (diff > 0) {
+      goalAdvice = `Haftalık ${goal} soru hedefine ulaşmak için ${diff} sorun kaldı; günde ortalama ~${Math.ceil(diff / 3)} soru daha ekleyerek hedefini rahatça yakalayabilirsin.`;
+    } else {
+      goalAdvice = `Haftalık ${goal} soru hedefini şimdiden aştın, harika bir tempo!`;
+    }
+  }
 
   return `📊 **${studentName} - Çalışma Performans Analizi**
 
@@ -1017,7 +1027,12 @@ function buildAnalysisLocalReport({ studentName, totalMinutes, totalHours, total
 ${subjectList}
 
 3. 🎯 **Performans Değerlendirmesi**
-En yoğun emek verdiğin ders **${strongest}** olmuş. Bu alandaki istikrarın harika! Dersler arasındaki dengeyi korumak adına **${weakest}** dersine de düzenli bloklar ekleyerek genel netlerini zirveye taşıyabilirsin. Harika bir emek, böyle devam et! 🚀`;
+En yoğun emek verdiğin ders **${strongest}** olmuş. Bu alandaki istikrarın ve soru çözme azmin takdire şayan!
+
+4. 💡 **Koçun Stratejik Gelişim Tavsiyesi**
+• **Denge Adımı:** **${weakest}** dersine biraz daha ağırlık vererek netlerini genel toplamda hızla yükseltebilirsin. Önümüzdeki günlerde ilk çalışma seansını bu derse ayırmanı öneririm.
+• **Hedef:** ${goalAdvice || "Günde düzenli soru çözme ritmini koruyarak ilerle!"}
+• **Son Söz:** Emek verdiğin her dakika seni hedefine bir adım daha yaklaştırıyor. Temponu hiç düşürme! 🚀`;
 }
 
     if (action === "analyze" || req.url.includes("/analyze")) {
@@ -1053,21 +1068,21 @@ En yoğun emek verdiğin ders **${strongest}** olmuş. Bu alandaki istikrarın h
 ${subjectLines}
 
 GÖREVİN:
-Öğrenci genel geçer çalışma fikirleri veya Pomodoro tavsiyesi İSTEMİYOR.
-Öğrencinin ASIL AMACI: Şimdiye kadar sisteme girdiği verilerin net, somut bir PERFORMANS ANALİZİNİ ve karnesini görmek. Neler yapmış, hangi derse ne kadar zaman ve soru harcamış, bunu net olarak görmek istiyor.
+Öğrencinin amacı girdiği verilerin net bir PERFORMANS ANALİZİNİ görmek ve raporun EN SONUNDA bu verilere dayanan somut, kişiye özel bir stratejik koçluk tavsiyesi almaktır.
 
 Lütfen aşağıdaki başlıklarla net, akıcı ve profesyonel bir analiz karnesi sun:
 1. 📋 **Genel Çalışma Karnesi**: Toplam süre, soru sayısı ve aktif gün sayısına göre genel tempo değerlendirmesi.
 2. ⚖️ **Ders Dağılımı ve Efor Dengesi**: Hangi derse ne kadar zaman ve soru harcanmış, denge nasıl?
 3. ⚡ **Soru Çözme Temposu**: Soru başına harcanan süreye göre hız ve verimlilik yorumu.
-4. 🎯 **Performans Değerlendirmesi**: Mevcut verilerine göre güçlü yönü ve dengelenmesi gereken alan.
+4. 🎯 **Performans Değerlendirmesi**: Mevcut verilerine göre güçlü yönü ve öne çıkan dersleri.
+5. 💡 **Koçun Stratejik Gelişim Tavsiyesi**: Raporun en sonunda; öğrencinin verilerine, özellikle geride kalan dersine (${weakest}) ve hedefine göre 2-3 maddelik uygulanabilir, çok somut ve motive edici bir gelişim tavsiyesi ver.
 
 KURALLAR:
-- ASLA 'Pomodoro yap / 25 dakika çalış / 5 dakika mola ver' gibi standart kalıplar KULLANMA.
-- Bütün analizini yukarıdaki GERÇEK RAKAMLAR VE DERSLER üzerine kur.
+- ASLA basmakalıp 'Pomodoro yap / 25 dakika çalış / 5 dakika mola ver' deme.
+- Tavsiyen tamamen öğrencinin GERÇEK VERİLERİ (${weakest} dersi, çözülen soru sayısı, hedefi) üzerine kurulu olsun.
 - Net, profesyonel, maddeler halinde ve okuması zevkli bir üslupla yaz.`;
 
-      const customInstruction = `Sen Merkür Yörünge eğitim platformunun Kıdemli Performans ve Veri Analisti Merkür AI'sin. Görevin öğrencinin gerçek çalışma kayıtlarını net rakamlarla analiz etmek, verilerini ona ayna gibi yansıtmak ve somut performans değerlendirmesi yapmaktır. Asla genel geçer tavsiyeler veya Pomodoro kalıpları kullanmazsın.`;
+      const customInstruction = `Sen Merkür Yörünge eğitim platformunun Kıdemli Performans ve Veri Analisti Merkür AI'sin. Görevin öğrencinin gerçek çalışma kayıtlarını net rakamlarla analiz etmek, verilerini ona ayna gibi yansıtmak ve en sonunda somut bir stratejik gelişim tavsiyesi sunmaktır. Asla genel geçer tavsiyeler veya Pomodoro kalıpları kullanmazsın.`;
 
       try {
         const reply = await generateReply({
@@ -1082,6 +1097,7 @@ KURALLAR:
           return res.json({
             message: buildAnalysisLocalReport({
               studentName,
+              goal,
               totalMinutes,
               totalHours,
               totalQuestions,
@@ -1100,6 +1116,7 @@ KURALLAR:
         return res.json({
           message: buildAnalysisLocalReport({
             studentName,
+            goal,
             totalMinutes,
             totalHours,
             totalQuestions,
