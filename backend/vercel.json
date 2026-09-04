@@ -18,6 +18,7 @@
     }
   ],
   "env": {
-    "DATABASE_URL": "postgresql://neondb_owner:npg_sQt6d7CwbFhO@ep-late-king-aski6x7d-pooler.c-4.eu-central-1.aws.neon.tech/neondb?sslmode=require"
+    "DATABASE_URL": "postgresql://neondb_owner:npg_sQt6d7CwbFhO@ep-late-king-aski6x7d-pooler.c-4.eu-central-1.aws.neon.tech/neondb?sslmode=require",
+    "GEMINI_API_KEY": "AQ.Ab8RN6IHmyBnnQ9-lwMLAEgLPOR9xxNx1grkU7yZDtBm7-bCPw"
   }
 }

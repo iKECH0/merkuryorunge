@@ -22,9 +22,9 @@ let dbReady = false;
 const geminiApiKey = process.env.GEMINI_API_KEY || "AQ.Ab8RN6IHmyBnnQ9-lwMLAEgLPOR9xxNx1grkU7yZDtBm7-bCPw";
 const genAI = new GoogleGenerativeAI(geminiApiKey);
 const GEMINI_MODELS = [
-  "gemini-2.5-flash-lite", // Ultra fast (~1s response)
-  "gemini-3.5-flash",      // Reliable backup (~8s)
-  "gemini-3.8-flash"       // High reasoning backup (~14s)
+  "gemini-2.5-flash-lite", // Ultra fast (~0.8s - 1.2s response)
+  "gemini-3.1-flash-lite", // Reliable fast backup (~3.8s)
+  "gemini-3.5-flash"       // Secondary fallback (~8s)
 ];
 
 function withTimeout(promise, ms) {
