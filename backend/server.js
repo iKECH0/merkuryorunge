@@ -998,22 +998,119 @@ const aiHandler = async (req, res) => {
       return res.json({ message: reply });
     }
 
+function buildAnalysisLocalReport({ studentName, totalMinutes, totalHours, totalQuestions, totalSessions, activeDaysCount, subjects, strongest, weakest }) {
+  const subjectList = subjects && subjects.length > 0
+    ? subjects.map(s => `• **${s.subject}**: ${s.minutes} dk (${s.hours} saat, %${s.percent}) — ${s.questions} soru`).join("\n")
+    : "• Henüz detaylı branş kaydı bulunmuyor.";
+
+  const avgPerDay = activeDaysCount > 0 ? Math.round(totalQuestions / activeDaysCount) : 0;
+  const avgMinPerDay = activeDaysCount > 0 ? Math.round(totalMinutes / activeDaysCount) : 0;
+
+  return `📊 **${studentName} - Çalışma Performans Analizi**
+
+1. 📋 **Genel Çalışma Karnesi**
+• **Toplam Süre:** ${totalMinutes} dakika (${totalHours} saat)
+• **Toplam Çözülen Soru:** ${totalQuestions} soru (${totalSessions} seans)
+• **Aktif Çalışılan Gün:** ${activeDaysCount} gün (Günlük ortalama: ~${avgMinPerDay} dk / ~${avgPerDay} soru)
+
+2. ⚖️ **Ders Dağılımı ve Efor Dengesi**
+${subjectList}
+
+3. 🎯 **Performans Değerlendirmesi**
+En yoğun emek verdiğin ders **${strongest}** olmuş. Bu alandaki istikrarın harika! Dersler arasındaki dengeyi korumak adına **${weakest}** dersine de düzenli bloklar ekleyerek genel netlerini zirveye taşıyabilirsin. Harika bir emek, böyle devam et! 🚀`;
+}
+
     if (action === "analyze" || req.url.includes("/analyze")) {
-      const { studentName, studentData = null } = req.body || {};
-      let prompt;
-      if (studentData && Object.keys(studentData.subjects || {}).length > 0) {
-        const subjectEntries = Object.entries(studentData.subjects || {}).sort((a, b) => b[1].minutes - a[1].minutes);
-        const strongest = subjectEntries[0];
-        const weakest = subjectEntries[subjectEntries.length - 1];
-        const subjectLines = subjectEntries.map(([s, d]) => `${s}: ${d.minutes} dk, ${d.questions} soru`).join(", ");
-        prompt = `Öğrencinin son 7 günlük çalışma analizi yap. Veriler: ${subjectLines}. Toplam: ${studentData.totalMinutes} dakika, ${studentData.totalQuestions} soru. En güçlü ders: ${strongest[0]}. En zayıf ders: ${weakest[0]}. Sadece "soru çöz" demek yerine zaman yönetimi, odaklanma teknikleri ve motivasyon üzerine yaratıcı, kişisel ve farklı bir geri bildirim ver. 3-4 cümle, çok samimi ve emojili.`;
-      } else {
-        const { logsSummary, strongest, weakest } = req.body || {};
-        prompt = `Öğrencinin çalışma verisi: ${logsSummary || "veri yok"}. En güçlü: ${strongest || "belirsiz"}, En zayıf: ${weakest || "belirsiz"}. Yaratıcı ve farklı bir motivasyon ve strateji analizi yap.`;
+      const {
+        studentName = "Öğrenci",
+        schoolLevel,
+        className,
+        goal = 0,
+        totalMinutes = 0,
+        totalHours = "0",
+        totalQuestions = 0,
+        totalSessions = 0,
+        activeDaysCount = 1,
+        subjects = [],
+        strongest = "Belirsiz",
+        weakest = "Belirsiz"
+      } = req.body || {};
+
+      const subjectLines = subjects.length > 0
+        ? subjects.map(s => `• ${s.subject}: ${s.minutes} dk (${s.hours} saat, %${s.percent}) - ${s.questions} soru`).join("\n")
+        : "Henüz ders bazlı veri girilmemiş.";
+
+      const prompt = `Aşağıda ${studentName} adlı öğrencinin Merkür Yörünge üzerindeki gerçek çalışma kayıtları ve performans verileri yer alıyor:
+
+📊 ÖĞRENCİ ÇALIŞMA VERİLERİ:
+- İsim: ${studentName} ${className ? `(${className}. Sınıf)` : ""} ${schoolLevel ? `[${schoolLevel}]` : ""}
+- Toplam Çalışma Süresi: ${totalMinutes} dakika (${totalHours} saat)
+- Toplam Çözülen Soru: ${totalQuestions} soru
+- Kaydedilen Çalışma Seansı: ${totalSessions} adet
+- Aktif Çalışılan Gün Sayısı: ${activeDaysCount} gün
+- Haftalık Hedef: ${goal > 0 ? `${goal} soru` : "Belirlenmemiş"}
+- Ders Bazlı Çalışma Dağılımı:
+${subjectLines}
+
+GÖREVİN:
+Öğrenci genel geçer çalışma fikirleri veya Pomodoro tavsiyesi İSTEMİYOR.
+Öğrencinin ASIL AMACI: Şimdiye kadar sisteme girdiği verilerin net, somut bir PERFORMANS ANALİZİNİ ve karnesini görmek. Neler yapmış, hangi derse ne kadar zaman ve soru harcamış, bunu net olarak görmek istiyor.
+
+Lütfen aşağıdaki başlıklarla net, akıcı ve profesyonel bir analiz karnesi sun:
+1. 📋 **Genel Çalışma Karnesi**: Toplam süre, soru sayısı ve aktif gün sayısına göre genel tempo değerlendirmesi.
+2. ⚖️ **Ders Dağılımı ve Efor Dengesi**: Hangi derse ne kadar zaman ve soru harcanmış, denge nasıl?
+3. ⚡ **Soru Çözme Temposu**: Soru başına harcanan süreye göre hız ve verimlilik yorumu.
+4. 🎯 **Performans Değerlendirmesi**: Mevcut verilerine göre güçlü yönü ve dengelenmesi gereken alan.
+
+KURALLAR:
+- ASLA 'Pomodoro yap / 25 dakika çalış / 5 dakika mola ver' gibi standart kalıplar KULLANMA.
+- Bütün analizini yukarıdaki GERÇEK RAKAMLAR VE DERSLER üzerine kur.
+- Net, profesyonel, maddeler halinde ve okuması zevkli bir üslupla yaz.`;
+
+      const customInstruction = `Sen Merkür Yörünge eğitim platformunun Kıdemli Performans ve Veri Analisti Merkür AI'sin. Görevin öğrencinin gerçek çalışma kayıtlarını net rakamlarla analiz etmek, verilerini ona ayna gibi yansıtmak ve somut performans değerlendirmesi yapmaktır. Asla genel geçer tavsiyeler veya Pomodoro kalıpları kullanmazsın.`;
+
+      try {
+        const reply = await generateReply({
+          studentName,
+          message: prompt,
+          history: [],
+          studentData: null,
+          customInstruction
+        });
+
+        if (!reply || reply.includes("Pomodoro") || reply.includes("25 dakika odaklanmış")) {
+          return res.json({
+            message: buildAnalysisLocalReport({
+              studentName,
+              totalMinutes,
+              totalHours,
+              totalQuestions,
+              totalSessions,
+              activeDaysCount,
+              subjects,
+              strongest,
+              weakest
+            })
+          });
+        }
+
+        return res.json({ message: reply });
+      } catch (err) {
+        console.error("Analysis generation error:", err);
+        return res.json({
+          message: buildAnalysisLocalReport({
+            studentName,
+            totalMinutes,
+            totalHours,
+            totalQuestions,
+            totalSessions,
+            activeDaysCount,
+            subjects,
+            strongest,
+            weakest
+          })
+        });
       }
-      const customInstruction = `Sen Merkür Yörünge'nin zeki analiz koçu Merkür AI'sin. Her seferinde tamamen farklı, yaratıcı ve gerçek veriye dayalı analizler sunuyorsun. Asla aynı şeyleri tekrarlama.`;
-      const reply = await generateReply({ studentName, message: prompt, history: [], studentData, customInstruction });
-      return res.json({ message: reply });
     }
 
     // Default chat behavior

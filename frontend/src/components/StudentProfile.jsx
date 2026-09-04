@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getStudentLogs, getStudentGoal, setStudentGoal, getStudentInfo } from '../api';
 import { Target, Bot, Sparkles, TrendingUp, Palette, CalendarDays, Clock, BookOpen, Hash, Trash2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid } from 'recharts';
+import ReactMarkdown from 'react-markdown';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
@@ -121,38 +122,67 @@ const StudentProfile = ({ studentName }) => {
     setIsAiLoading(true);
     
     if (logs.length === 0) {
-      setAiMessage(`Merhaba ${studentName}! Henüz sisteme girdiğin bir çalışma verisi yok. Hemen bir seans başlatıp ilk adımını atabilirsin!`);
+      setAiMessage(`Merhaba ${studentName}! Henüz sisteme girdiğin bir çalışma verisi yok. Bir çalışma seansı başlatıp derslerini kaydettikten sonra buraya tıklayarak detaylı performans analizini görebilirsin! 🚀`);
       setIsAiLoading(false);
       return;
     }
 
     try {
-      const subjectCounts = {};
+      const subjectsMap = {};
       let totalMinutes = 0;
       let totalQuestions = 0;
-      
+      const uniqueDays = new Set();
+
       logs.forEach(log => {
-        subjectCounts[log.subject] = (subjectCounts[log.subject] || 0) + log.duration_minutes;
-        totalMinutes += (log.duration_minutes || 0);
-        totalQuestions += (log.questions_solved || 0);
+        const subj = log.subject || 'Diğer';
+        if (!subjectsMap[subj]) {
+          subjectsMap[subj] = { minutes: 0, questions: 0, sessions: 0 };
+        }
+        subjectsMap[subj].minutes += log.duration_minutes || 0;
+        subjectsMap[subj].questions += log.questions_solved || 0;
+        subjectsMap[subj].sessions += 1;
+
+        totalMinutes += log.duration_minutes || 0;
+        totalQuestions += log.questions_solved || 0;
+
+        if (log.created_at) {
+          try {
+            uniqueDays.add(new Date(log.created_at).toISOString().split('T')[0]);
+          } catch (e) {}
+        }
       });
 
-      const sortedSubjects = Object.entries(subjectCounts).sort((a, b) => b[1] - a[1]);
-      const strongest = sortedSubjects[0]?.[0] || 'Belirsiz';
-      const weakest = sortedSubjects[sortedSubjects.length - 1]?.[0] || 'Belirsiz';
+      const sortedSubjects = Object.entries(subjectsMap).sort((a, b) => b[1].minutes - a[1].minutes);
+      const strongest = sortedSubjects[0] ? sortedSubjects[0][0] : 'Belirsiz';
+      const weakest = sortedSubjects.length > 1 ? sortedSubjects[sortedSubjects.length - 1][0] : sortedSubjects[0]?.[0] || 'Belirsiz';
       
-      const logsSummary = `Toplam ${totalMinutes} dakika calisma ve ${totalQuestions} soru. Aktif ders sayisi: ${sortedSubjects.length}.`;
+      const payload = {
+        studentName,
+        schoolLevel,
+        className,
+        goal,
+        totalMinutes,
+        totalHours: (totalMinutes / 60).toFixed(1),
+        totalQuestions,
+        totalSessions: logs.length,
+        activeDaysCount: uniqueDays.size || 1,
+        subjects: sortedSubjects.map(([name, data]) => ({
+          subject: name,
+          minutes: data.minutes,
+          hours: (data.minutes / 60).toFixed(1),
+          questions: data.questions,
+          percent: totalMinutes > 0 ? Math.round((data.minutes / totalMinutes) * 100) : 0,
+          pace: data.questions > 0 ? (data.minutes / data.questions).toFixed(1) : 0
+        })),
+        strongest,
+        weakest
+      };
 
       const apiBaseUrl = import.meta.env.PROD ? 'https://backend-three-khaki-37.vercel.app' : (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000');
       const res = await fetch(`${apiBaseUrl}/api/ai?action=analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentName,
-          logsSummary,
-          strongest,
-          weakest
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
@@ -160,11 +190,11 @@ const StudentProfile = ({ studentName }) => {
       if (data.message) {
         setAiMessage(data.message);
       } else {
-        setAiMessage(`Merhaba ${studentName}! Verilerini analiz ettim. Bugün farklı bir strateji deneyerek çalışmalarını daha verimli hale getirebilirsin. Güç seninle olsun! 🚀`);
+        setAiMessage(`📊 **${studentName} - Çalışma Özeti**\n\n• Toplam Süre: ${totalMinutes} dakika (${(totalMinutes/60).toFixed(1)} saat)\n• Toplam Soru: ${totalQuestions} soru\n• En Çok Odaklanılan Ders: ${strongest}\n• En Az Odaklanılan Ders: ${weakest}\n\nHarika bir çalışma disiplini sergiliyorsun, dengeli şekilde devam et! 🚀`);
       }
     } catch (err) {
       console.error("AI Insight Error:", err);
-      setAiMessage(`Selam ${studentName}! Şu an derin bir analiz yapamıyorum ama çalışmalarının harika gittiğine eminim! 🚀`);
+      setAiMessage(`Selam ${studentName}! Bağlantı sırasında ufak bir aksaklık oldu. Lütfen birkaç saniye sonra tekrar deneyin! 🚀`);
     } finally {
       setIsAiLoading(false);
     }
@@ -352,29 +382,41 @@ const StudentProfile = ({ studentName }) => {
         </div>
       )}
 
-      <div className="glass-card slide-up" style={{ animationDelay: '0.2s' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-          <div style={{ padding: '12px', background: 'rgba(168, 85, 247, 0.1)', borderRadius: '16px', color: '#a855f7' }}>
-            <Bot size={28} />
+      <div className="glass-card slide-up" style={{ animationDelay: '0.2s', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ padding: '12px', background: 'rgba(168, 85, 247, 0.1)', borderRadius: '16px', color: '#a855f7' }}>
+              <TrendingUp size={28} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '20px', color: 'var(--color-text-main)' }}>Merkür Analiz</h3>
+              <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: '14px' }}>Çalışma verilerin ve performans karnen</p>
+            </div>
           </div>
-          <div>
-            <h3 style={{ margin: 0, fontSize: '20px', color: 'var(--color-text-main)' }}>Merkür AI</h3>
-            <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: '14px' }}>Kişisel yapay zeka koçun</p>
-          </div>
+          {aiMessage && (
+            <button
+              onClick={generateAIInsight}
+              disabled={isAiLoading}
+              className="btn btn-secondary"
+              style={{ fontSize: '13px', padding: '6px 14px' }}
+            >
+              {isAiLoading ? 'Analiz Ediliyor...' : 'Yeniden Analiz Et'}
+            </button>
+          )}
         </div>
 
         {aiMessage ? (
-          <div className="fade-in" style={{ padding: '16px', background: 'var(--color-bg-deep)', borderRadius: '12px', border: '1px solid var(--color-border)', color: 'var(--color-text-main)', lineHeight: '1.6' }}>
-            {aiMessage}
+          <div className="fade-in" style={{ padding: '20px', background: 'var(--color-bg-deep)', borderRadius: '12px', border: '1px solid var(--color-border)', color: 'var(--color-text-main)', lineHeight: '1.7', fontSize: '14.5px' }}>
+            <ReactMarkdown>{aiMessage}</ReactMarkdown>
           </div>
         ) : (
           <button 
-            className="btn btn-secondary" 
-            style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+            className="btn btn-primary" 
+            style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '14px' }}
             onClick={generateAIInsight}
             disabled={isAiLoading}
           >
-            {isAiLoading ? 'Analiz Ediliyor...' : <><TrendingUp size={18} /> Gelişim Analizi İste</>}
+            {isAiLoading ? 'Veriler Analiz Ediliyor...' : <><TrendingUp size={18} /> Verilerimi Analiz Et</>}
           </button>
         )}
       </div>
