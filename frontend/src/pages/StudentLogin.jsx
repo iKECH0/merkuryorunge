@@ -193,7 +193,8 @@ const StudentLogin = ({ onLogin }) => {
 
           {error && (
             <div className="shake" style={{ color: '#ef4444', fontSize: '13px', textAlign: 'center', background: 'rgba(239,68,68,0.1)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} /> {error}
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />
+              <span>{error}</span>
             </div>
           )}
 

@@ -39,8 +39,8 @@ function buildLocalReply(studentName, message) {
   return `${studentName || "Öğrenci"}, ben senin eğitim koçu gibi davranıyorum. Hedefin, dersin ya da motivasyonun varsa birlikte planlayalım ✨`;
 }
 
-async function generateReply({ studentName, message, history = [] }) {
-  const systemInstruction = `Sen Merkur Yorunge eğitim platformunun yapay zeka eğitim koçu Merkur AI'sin. Karşıdaki öğrencinin adı ${studentName || "öğrenci"}. Son derece motive edici, samimi, eğlenceli ve bol emojili konuşursun. Görev öğrencinin ders çalışması, motivasyonu ve eğitimle ilgili sorularına yardımcı olmak.`;
+async function generateReply({ studentName, message, history = [], customInstruction = null }) {
+  const systemInstruction = customInstruction || `Sen Merkur Yorunge eğitim platformunun yapay zeka eğitim koçu Merkur AI'sin. Karşıdaki öğrencinin adı ${studentName || "öğrenci"}. Son derece motive edici, samimi, eğlenceli ve bol emojili konuşursun. Görev öğrencinin ders çalışması, motivasyonu ve eğitimle ilgili sorularına yardımcı olmak.`;
 
   for (const modelName of GEMINI_MODELS) {
     try {
@@ -50,6 +50,12 @@ async function generateReply({ studentName, message, history = [] }) {
           role: msg.role === "assistant" || msg.role === "model" ? "model" : "user",
           parts: [{ text: msg.content || "" }]
         }));
+        
+        // Ensure first message is user
+        while (geminiHistory.length > 0 && geminiHistory[0].role === "model") {
+          geminiHistory.shift();
+        }
+
         const chat = model.startChat({ history: geminiHistory });
         const result = await chat.sendMessage(message);
         return result.response.text();
@@ -897,6 +903,46 @@ app.delete("/api/deletion-requests/:id", async (req, res) => {
   }
 });
 
+
+const aiHandler = async (req, res) => {
+  try {
+    const action = req.query.action || req.body.action;
+
+    if (action === "chat" || req.url.includes("/chat")) {
+      const { studentName, message, history = [] } = req.body || {};
+      const reply = await generateReply({ studentName, message, history });
+      return res.json({ reply });
+    }
+
+    if (action === "coach" || req.url.includes("/coach")) {
+      const { studentName, subject, duration, questionsSolved } = req.body || {};
+      const prompt = `Sen Merkur Yorunge eğitim platformunun yapay zeka koçu Merkur AI'sin. Öğrenci ${studentName || "öğrenci"} az önce çalışmasını kaydetti. Ders: ${subject || "genel"}. Süre: ${duration || 0} dakika. Çözülen soru: ${questionsSolved || 0}. Enerjik, motive edici, kısa ve emoji ile geri bildirim ver.`;
+      const reply = await generateReply({ studentName, message: prompt, history: [] });
+      return res.json({ message: reply });
+    }
+
+    if (action === "analyze" || req.url.includes("/analyze")) {
+      const { studentName, logsSummary, strongest, weakest } = req.body || {};
+      const customInstruction = "Sen Merkur Yorunge egitim platformunun yapay zeka egitim kocu Merkur AI'sin. Her seferinde yaratici, farkli ve egitici tavsiyeler vermelisin. Asla ayni seyleri tekrar etme.";
+      const prompt = `Ogrenci: ${studentName}\nEn cok odaklanilan ders: ${strongest}\nEn az ilgilenilen ders: ${weakest}\nOzet veri: ${logsSummary}\n\nGorevin: Ogrencinin bu calisma verilerine bakarak ona ozel, sadece soru cozmesi gerektigini soylemek yerine zaman yonetimi, farkli calisma stratejileri, odaklanma teknikleri veya motivasyon uzerine cok yonlu, 3-4 cumlelik icten, yaratici ve bol emojili bir geri bildirim ve analiz sunmak. Standart kaliplardan kacinarak ogrenciye gercekten icgoru sagla.`;
+      const reply = await generateReply({ studentName, message: prompt, history: [], customInstruction });
+      return res.json({ message: reply });
+    }
+
+    // Default chat behavior if no action specified
+    const { studentName, message, history = [] } = req.body || {};
+    const reply = await generateReply({ studentName, message, history });
+    res.json({ reply });
+  } catch (err) {
+    console.error("AI route error:", err);
+    res.status(200).json({ reply: "Şu an bağlantı kurmakta zorlanıyorum ama yardım etmek için buradayım. Biraz sonra tekrar deneyin ✨", error: err.message });
+  }
+};
+
+app.post("/api/ai", aiHandler);
+app.post("/api/ai/chat", aiHandler);
+app.post("/api/ai/coach", aiHandler);
+app.post("/api/ai/analyze", aiHandler);
 
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 5000;
