@@ -2,10 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bot, Send, User, Sparkles, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
-const MerkurAIChat = ({ studentName }) => {
+const MerkurAIChat = ({ studentName, studentData }) => {
   const apiBaseUrl = import.meta.env.PROD ? 'https://backend-three-khaki-37.vercel.app' : (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000');
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: `Selam ${studentName}! 👋 Ben Merkür AI. Ders çalışırken takıldığın yerlerde, motivasyona ihtiyacın olduğunda veya planlama yaparken buradayım. Bugün nasıl hissediyorsun?` }
+    { role: 'assistant', content: `Selam ${studentName}! 👋 Ben Merkür AI, kişisel eğitim koçun. Derslerine, çalışma sürenize ve hedeflerine bakıyorum — konuşmaya hazırım! Ne hakkında konuşalım? 🚀` }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -29,27 +29,26 @@ const MerkurAIChat = ({ studentName }) => {
     setIsLoading(true);
 
     try {
-      // Filter history: Gemini requires it to start with 'user' role
-      // Remove leading assistant/model messages (e.g. the initial greeting)
+      // Filter history to start with user role (Gemini requirement)
       const filteredHistory = [...messages];
       while (filteredHistory.length > 0 && filteredHistory[0].role !== 'user') {
         filteredHistory.shift();
       }
 
-      // API call to the frontend Vercel serverless function
       const res = await fetch(`${apiBaseUrl}/api/ai?action=chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentName,
           message: userMessage,
-          history: filteredHistory
+          history: filteredHistory,
+          studentData: studentData || null   // Pass real study data to AI
         })
       });
       
       const data = await res.json();
       
-      if (data.error) {
+      if (data.error && !data.reply) {
         setMessages(prev => [...prev, { role: 'assistant', content: `Hata: ${data.error}` }]);
       } else {
         setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);

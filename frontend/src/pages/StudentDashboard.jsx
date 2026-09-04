@@ -10,12 +10,13 @@ import Onboarding from '../components/Onboarding';
 import MerkurAIChat from '../components/MerkurAIChat';
 import TopicTracker from '../components/TopicTracker';
 import { Rocket, Clock, Trophy, Sparkles, Lock, User, LogOut, BotMessageSquare, BookOpen } from 'lucide-react';
-import { getStudentInfo } from '../api';
+import { getStudentInfo, getStudentLogs, getStudentGoal } from '../api';
 
 const StudentDashboard = ({ studentName }) => {
   const [activeTab, setActiveTab] = useState('profile');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [studentClassName, setStudentClassName] = useState(null);
+  const [studentData, setStudentData] = useState(null);
   const navigate = useNavigate();
   
   // Track studentUsername so we can key the onboarding to the user
@@ -35,6 +36,53 @@ const StudentDashboard = ({ studentName }) => {
       }
     }
   }, [studentUsername]);
+
+  // Load student data for AI personalization
+  useEffect(() => {
+    const loadStudentData = async () => {
+      try {
+        const [logs, info, goal] = await Promise.allSettled([
+          getStudentLogs(studentName),
+          getStudentInfo(studentName),
+          getStudentGoal(studentName)
+        ]);
+
+        const rawLogs = logs.status === 'fulfilled' ? (logs.value || []) : [];
+        const infoData = info.status === 'fulfilled' ? info.value : null;
+        const goalData = goal.status === 'fulfilled' ? goal.value : null;
+
+        // Only consider last 7 days
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const recentLogs = rawLogs.filter(log => new Date(log.created_at) >= sevenDaysAgo);
+
+        const subjects = {};
+        let totalMinutes = 0;
+        let totalQuestions = 0;
+        recentLogs.forEach(log => {
+          const s = log.subject || 'Diğer';
+          if (!subjects[s]) subjects[s] = { minutes: 0, questions: 0 };
+          subjects[s].minutes += (log.duration_minutes || 0);
+          subjects[s].questions += (log.questions_solved || 0);
+          totalMinutes += (log.duration_minutes || 0);
+          totalQuestions += (log.questions_solved || 0);
+        });
+
+        setStudentData({
+          subjects,
+          totalMinutes,
+          totalQuestions,
+          schoolLevel: infoData?.school_level || null,
+          className: infoData?.class_name || null,
+          goal: goalData?.target_questions || null
+        });
+      } catch (e) {
+        console.warn("Student data load failed:", e);
+      }
+    };
+    loadStudentData();
+  }, [studentName]);
 
   // 10:30 & 22:30 Local Notifications
   useEffect(() => {
@@ -157,7 +205,7 @@ const StudentDashboard = ({ studentName }) => {
           {activeTab === 'tracker' && <SessionTracker studentName={studentName} />}
           {activeTab === 'leaderboard' && <Leaderboard />}
           {activeTab === 'topics' && <TopicTracker studentName={studentName} studentClass={studentClassName} />}
-          {activeTab === 'ai' && <MerkurAIChat studentName={studentName} />}
+          {activeTab === 'ai' && <MerkurAIChat studentName={studentName} studentData={studentData} />}
         </div>
       </div>
 

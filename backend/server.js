@@ -44,38 +44,101 @@ function buildLocalReply(studentName, message) {
   return `Harika bir soru ${studentName || "Öğrenci"}! Şu an yıldızlar arası bağlantımda ufak bir yoğunluk var 😅 Ama eğitim koçun olarak buradayım. Hedefin veya planın varsa hemen konuşalım! ✨`;
 }
 
-async function generateReply({ studentName, message, history = [], customInstruction = null }) {
-  const systemInstruction = customInstruction || `Sen Merkur Yorunge eğitim platformunun yapay zeka eğitim koçu Merkur AI'sin. Karşıdaki öğrencinin adı ${studentName || "öğrenci"}. Son derece motive edici, samimi, eğlenceli ve bol emojili konuşursun. Görev öğrencinin ders çalışması, motivasyonu ve eğitimle ilgili sorularına yardımcı olmak. Ayrıca "Naber", "Nasılsın", "Selam" gibi günlük sohbet mesajlarına da arkadaşça, enerjik ve çok doğal karşılık vermelisin (robot gibi konuşma).`;
+// Build a rich, personalized system instruction based on student's actual study data
+function buildSystemInstruction(studentName, studentData) {
+  const name = studentName || "öğrenci";
+  let context = "";
 
-  for (const modelName of GEMINI_MODELS) {
+  if (studentData) {
+    const { subjects = {}, totalMinutes = 0, totalQuestions = 0, schoolLevel, className, goal } = studentData;
+    const subjectEntries = Object.entries(subjects).sort((a, b) => b[1].minutes - a[1].minutes);
+
+    if (subjectEntries.length > 0) {
+      const strongest = subjectEntries[0];
+      const weakest = subjectEntries[subjectEntries.length - 1];
+      const subjectLines = subjectEntries.map(([s, d]) => `  - ${s}: ${d.minutes} dk, ${d.questions} soru`).join("\n");
+
+      context = `
+## Öğrenci Çalışma Verileri (Son 7 Gün):
+- İsim: ${name}
+- Sınıf/Seviye: ${schoolLevel || "Belirtilmemiş"} ${className ? `(${className})` : ""}
+- Toplam çalışma: ${totalMinutes} dakika, ${totalQuestions} soru
+- Hedef: ${goal ? `${goal} soru/gün` : "Belirtilmemiş"}
+- Derse göre dağılım:
+${subjectLines}
+- En çok odaklandığı ders: ${strongest[0]} (${strongest[1].minutes} dk)
+- En az ilgilendiği ders: ${weakest[0]} (${weakest[1].minutes} dk)
+`;
+    } else {
+      context = `\n## Öğrenci Verileri:\n- İsim: ${name}\n- Sınıf/Seviye: ${schoolLevel || "Belirtilmemiş"} ${className ? `(${className})` : ""}\n- Henüz çalışma kaydı yok.\n`;
+    }
+  }
+
+  return `Sen Merkür Yörünge eğitim platformunun zeki, sıcak ve kişisel eğitim koçu Merkür AI'sin.
+${context}
+## Görevin ve Kuralların:
+1. Öğrencinin gerçek çalışma verileri sana verilmiş. MUTLAKA bu verilere atıfta bulun, genel konuşma.
+2. "Naber", "Nasılsın", "Selam", "İyisin mi?" gibi günlük mesajlara insan gibi sıcak, samimi ve kısa karşılık ver. Robot gibi konuşma.
+3. Her cevap FARKLI olsun. Asla aynı cümleleri, aynı kalıpları tekrarlama.
+4. Yanıtlar kısa ve net olsun (3-5 cümle). Uzun essay yazma.
+5. Veriye dayalı tavsiye ver: "Matematikte bu hafta 45 dakika kalmışsın, biraz daha ekleyebilirsin 💡" gibi.
+6. Motive edici, eğlenceli, bol emojili ama abartısız konuş.
+7. Öğrencinin zayıf dersini 2-3 mesajdan sonra nazikçe gündeme getir.
+8. Türkçe konuş, Türkçe yanıtla.`;
+}
+
+// Generate reply using Promise.race — all models called in parallel, fastest wins
+async function generateReply({ studentName, message, history = [], studentData = null, customInstruction = null }) {
+  const systemInstruction = customInstruction || buildSystemInstruction(studentName, studentData);
+
+  const buildAttempt = (modelName) => new Promise(async (resolve, reject) => {
     try {
       const model = genAI.getGenerativeModel({ model: modelName, systemInstruction });
+      let result;
       if (history && history.length > 0) {
         const geminiHistory = history.map((msg) => ({
           role: msg.role === "assistant" || msg.role === "model" ? "model" : "user",
           parts: [{ text: msg.content || "" }]
-        }));
-        
-        // Ensure first message is user
+        })).filter((_, i, arr) => {
+          if (i === 0 && arr[0].role === "model") return false;
+          return true;
+        });
+        // Ensure starts with user
         while (geminiHistory.length > 0 && geminiHistory[0].role === "model") {
           geminiHistory.shift();
         }
-
         const chat = model.startChat({ history: geminiHistory });
-        const result = await chat.sendMessage(message);
-        return result.response.text();
+        result = await chat.sendMessage(message);
+      } else {
+        result = await model.generateContent(message);
       }
-
-      const result = await model.generateContent(message);
-      return result.response.text();
+      resolve(result.response.text());
     } catch (err) {
-      console.warn(`Gemini call failed for model ${modelName}:`, err?.message || err);
-      // Continue to the next model for ANY error (503 High Demand, 429 Quota, 404 Not Found)
+      reject(err);
     }
-  }
+  });
 
-  // If ALL models fail, use fallback
-  return buildLocalReply(studentName, message);
+  // Race all models simultaneously — fastest successful response wins
+  const attempts = GEMINI_MODELS.map(m => buildAttempt(m));
+
+  try {
+    const reply = await new Promise((resolve, reject) => {
+      let rejectedCount = 0;
+      attempts.forEach(p => {
+        p.then(resolve).catch(err => {
+          console.warn("Model attempt failed:", err?.message || err);
+          rejectedCount++;
+          if (rejectedCount === attempts.length) {
+            reject(new Error("All models failed"));
+          }
+        });
+      });
+    });
+    return reply;
+  } catch (err) {
+    console.warn("All Gemini models failed, using fallback");
+    return buildLocalReply(studentName, message);
+  }
 }
 
 // Initialize Database Table
@@ -912,29 +975,39 @@ const aiHandler = async (req, res) => {
     const action = req.query.action || req.body.action;
 
     if (action === "chat" || req.url.includes("/chat")) {
-      const { studentName, message, history = [] } = req.body || {};
-      const reply = await generateReply({ studentName, message, history });
+      const { studentName, message, history = [], studentData = null } = req.body || {};
+      const reply = await generateReply({ studentName, message, history, studentData });
       return res.json({ reply });
     }
 
     if (action === "coach" || req.url.includes("/coach")) {
-      const { studentName, subject, duration, questionsSolved } = req.body || {};
-      const prompt = `Sen Merkur Yorunge eğitim platformunun yapay zeka koçu Merkur AI'sin. Öğrenci ${studentName || "öğrenci"} az önce çalışmasını kaydetti. Ders: ${subject || "genel"}. Süre: ${duration || 0} dakika. Çözülen soru: ${questionsSolved || 0}. Enerjik, motive edici, kısa ve emoji ile geri bildirim ver.`;
-      const reply = await generateReply({ studentName, message: prompt, history: [] });
+      const { studentName, subject, duration, questionsSolved, studentData = null } = req.body || {};
+      const prompt = `Öğrenci ${studentName || "öğrenci"} az önce çalışmasını kaydetti. Ders: ${subject || "genel"}. Süre: ${duration || 0} dakika. Çözülen soru: ${questionsSolved || 0}. Enerjik, motive edici, kısa (2-3 cümle) ve emojili geri bildirim ver.`;
+      const reply = await generateReply({ studentName, message: prompt, history: [], studentData });
       return res.json({ message: reply });
     }
 
     if (action === "analyze" || req.url.includes("/analyze")) {
-      const { studentName, logsSummary, strongest, weakest } = req.body || {};
-      const customInstruction = "Sen Merkur Yorunge egitim platformunun yapay zeka egitim kocu Merkur AI'sin. Her seferinde yaratici, farkli ve egitici tavsiyeler vermelisin. Asla ayni seyleri tekrar etme.";
-      const prompt = `Ogrenci: ${studentName}\nEn cok odaklanilan ders: ${strongest}\nEn az ilgilenilen ders: ${weakest}\nOzet veri: ${logsSummary}\n\nGorevin: Ogrencinin bu calisma verilerine bakarak ona ozel, sadece soru cozmesi gerektigini soylemek yerine zaman yonetimi, farkli calisma stratejileri, odaklanma teknikleri veya motivasyon uzerine cok yonlu, 3-4 cumlelik icten, yaratici ve bol emojili bir geri bildirim ve analiz sunmak. Standart kaliplardan kacinarak ogrenciye gercekten icgoru sagla.`;
-      const reply = await generateReply({ studentName, message: prompt, history: [], customInstruction });
+      const { studentName, studentData = null } = req.body || {};
+      let prompt;
+      if (studentData && Object.keys(studentData.subjects || {}).length > 0) {
+        const subjectEntries = Object.entries(studentData.subjects || {}).sort((a, b) => b[1].minutes - a[1].minutes);
+        const strongest = subjectEntries[0];
+        const weakest = subjectEntries[subjectEntries.length - 1];
+        const subjectLines = subjectEntries.map(([s, d]) => `${s}: ${d.minutes} dk, ${d.questions} soru`).join(", ");
+        prompt = `Öğrencinin son 7 günlük çalışma analizi yap. Veriler: ${subjectLines}. Toplam: ${studentData.totalMinutes} dakika, ${studentData.totalQuestions} soru. En güçlü ders: ${strongest[0]}. En zayıf ders: ${weakest[0]}. Sadece "soru çöz" demek yerine zaman yönetimi, odaklanma teknikleri ve motivasyon üzerine yaratıcı, kişisel ve farklı bir geri bildirim ver. 3-4 cümle, çok samimi ve emojili.`;
+      } else {
+        const { logsSummary, strongest, weakest } = req.body || {};
+        prompt = `Öğrencinin çalışma verisi: ${logsSummary || "veri yok"}. En güçlü: ${strongest || "belirsiz"}, En zayıf: ${weakest || "belirsiz"}. Yaratıcı ve farklı bir motivasyon ve strateji analizi yap.`;
+      }
+      const customInstruction = `Sen Merkür Yörünge'nin zeki analiz koçu Merkür AI'sin. Her seferinde tamamen farklı, yaratıcı ve gerçek veriye dayalı analizler sunuyorsun. Asla aynı şeyleri tekrarlama.`;
+      const reply = await generateReply({ studentName, message: prompt, history: [], studentData, customInstruction });
       return res.json({ message: reply });
     }
 
-    // Default chat behavior if no action specified
-    const { studentName, message, history = [] } = req.body || {};
-    const reply = await generateReply({ studentName, message, history });
+    // Default chat behavior
+    const { studentName, message, history = [], studentData = null } = req.body || {};
+    const reply = await generateReply({ studentName, message, history, studentData });
     res.json({ reply });
   } catch (err) {
     console.error("AI route error:", err);
