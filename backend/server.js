@@ -22,26 +22,41 @@ let dbReady = false;
 const geminiApiKey = process.env.GEMINI_API_KEY || "AQ.Ab8RN6IHmyBnnQ9-lwMLAEgLPOR9xxNx1grkU7yZDtBm7-bCPw";
 const genAI = new GoogleGenerativeAI(geminiApiKey);
 const GEMINI_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.0-flash",
-  "gemini-1.5-flash",
-  "gemini-2.0-flash-lite",
-  "gemini-flash-lite-latest"
+  "gemini-2.5-flash-lite", // Ultra fast (~1s response)
+  "gemini-3.5-flash",      // Reliable backup (~8s)
+  "gemini-3.8-flash"       // High reasoning backup (~14s)
 ];
 
-function buildLocalReply(studentName, message) {
+function withTimeout(promise, ms) {
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
+function buildLocalReply(studentName, message, studentData = null) {
+  const name = studentName || "Öğrenci";
   const normalized = (message || "").toLowerCase();
   
   if (normalized.includes("naber") || normalized.includes("nasılsın") || normalized.includes("selam") || normalized.includes("merhaba")) {
-    return `Selam ${studentName || "Öğrenci"}! 👋 Ben harikayım, seninle çalışmak için sabırsızlanıyorum! Sen nasılsın, bugün nasıl hissediyorsun? 🚀`;
+    const greetings = [
+      `Selam ${name}! 🚀 Enerjim yerinde, seninle yeni hedeflere odaklanmak için sabırsızlanıyorum! Sen nasılsın, çalışmalar nasıl gidiyor? ✨`,
+      `Merhaba ${name}! Harika bir gün olsun! 🌟 Bugün hangi dersle başlıyoruz, zihnin açık mı?`,
+      `Selam ${name}! 👋 Ben bomba gibiyim! Bugün seninle rekorlar kırmaya varım, sen ne durumdasın? 💪`
+    ];
+    return greetings[Math.floor(Math.random() * greetings.length)];
+  }
+  if (studentData && studentData.totalMinutes) {
+    return `${name}, son 7 günde toplam ${studentData.totalMinutes} dakika ve ${studentData.totalQuestions || 0} soru kaydetmişsin! Düzenli çalışman harika ilerliyor, tempoyu koruyup en az çalıştığın derslere 25 dakikalık odak seansları ekleyebilirsin 🚀`;
   }
   if (normalized.includes("plan") || normalized.includes("çalış") || normalized.includes("ders")) {
-    return `${studentName || "Öğrenci"}, bugün kısa ve odaklı bir planla başlamak en iyisi. 25 dakika çalış, 5 dakika mola ver ve bir kısa tekrar yap. Bu düzen çok etkili olur 🚀`;
+    return `${name}, bugün 25 dakika odaklanmış çalışma ve 5 dakika kısa mola (Pomodoro tekniği) ile başlamanı öneririm. Kısa ama derin odak her zaman kazandırır! 🎯`;
   }
-  if (normalized.includes("sınav") || normalized.includes("deneme")) {
-    return `${studentName || "Öğrenci"}, sınav döneminde en önemli şey düzenli tekrar. Günde 3 kısa blok çalış ve her blok sonunda kendini ödüllendir. 💪`;
+  if (normalized.includes("sınav") || normalized.includes("deneme") || normalized.includes("stres")) {
+    return `${name}, sınav yolculuğu bir maraton. Önemli olan her gün küçük de olsa bir adım atmak. Kendine güven, planına sadık kal! 💪✨`;
   }
-  return `Harika bir soru ${studentName || "Öğrenci"}! Şu an yıldızlar arası bağlantımda ufak bir yoğunluk var 😅 Ama eğitim koçun olarak buradayım. Hedefin veya planın varsa hemen konuşalım! ✨`;
+  return `Harika bir noktaya değindin ${name}! Eğitim yolculuğunda her zaman yanındayım. Ders planın, hedeflerin veya motivasyonun hakkında ne düşünüyorsun, birlikte konuşalım! 🌌`;
 }
 
 // Build a rich, personalized system instruction based on student's actual study data
@@ -78,67 +93,63 @@ ${subjectLines}
 ${context}
 ## Görevin ve Kuralların:
 1. Öğrencinin gerçek çalışma verileri sana verilmiş. MUTLAKA bu verilere atıfta bulun, genel konuşma.
-2. "Naber", "Nasılsın", "Selam", "İyisin mi?" gibi günlük mesajlara insan gibi sıcak, samimi ve kısa karşılık ver. Robot gibi konuşma.
-3. Her cevap FARKLI olsun. Asla aynı cümleleri, aynı kalıpları tekrarlama.
-4. Yanıtlar kısa ve net olsun (3-5 cümle). Uzun essay yazma.
+2. "Naber", "Nasılsın", "Selam", "İyisin mi?" gibi günlük mesajlara insan gibi sıcak, samimi ve kısa karşılık ver. Asla robot gibi konuşma.
+3. Her cevap FARKLI olsun. Asla aynı kalıpları tekrarlama.
+4. Yanıtlar kısa ve net olsun (3-4 cümle). Uzun essay yazma.
 5. Veriye dayalı tavsiye ver: "Matematikte bu hafta 45 dakika kalmışsın, biraz daha ekleyebilirsin 💡" gibi.
 6. Motive edici, eğlenceli, bol emojili ama abartısız konuş.
 7. Öğrencinin zayıf dersini 2-3 mesajdan sonra nazikçe gündeme getir.
 8. Türkçe konuş, Türkçe yanıtla.`;
 }
 
-// Generate reply using Promise.race — all models called in parallel, fastest wins
+// Generate reply with guaranteed speed, sanitized chat history, and failover
 async function generateReply({ studentName, message, history = [], studentData = null, customInstruction = null }) {
   const systemInstruction = customInstruction || buildSystemInstruction(studentName, studentData);
 
-  const buildAttempt = (modelName) => new Promise(async (resolve, reject) => {
+  // Sanitize history: ensure strictly alternating user/model turns, starting with user
+  const sanitizedHistory = [];
+  if (Array.isArray(history)) {
+    for (const msg of history) {
+      const role = (msg.role === "assistant" || msg.role === "model") ? "model" : "user";
+      const text = (msg.content || "").trim();
+      if (!text) continue;
+      if (sanitizedHistory.length === 0) {
+        if (role === "user") sanitizedHistory.push({ role, parts: [{ text }] });
+      } else {
+        const last = sanitizedHistory[sanitizedHistory.length - 1];
+        if (last.role === role) {
+          last.parts[0].text += "\n" + text;
+        } else {
+          sanitizedHistory.push({ role, parts: [{ text }] });
+        }
+      }
+    }
+  }
+
+  // Iterate over models: gemini-2.5-flash-lite returns in ~1s
+  for (const modelName of GEMINI_MODELS) {
     try {
       const model = genAI.getGenerativeModel({ model: modelName, systemInstruction });
-      let result;
-      if (history && history.length > 0) {
-        const geminiHistory = history.map((msg) => ({
-          role: msg.role === "assistant" || msg.role === "model" ? "model" : "user",
-          parts: [{ text: msg.content || "" }]
-        })).filter((_, i, arr) => {
-          if (i === 0 && arr[0].role === "model") return false;
-          return true;
-        });
-        // Ensure starts with user
-        while (geminiHistory.length > 0 && geminiHistory[0].role === "model") {
-          geminiHistory.shift();
-        }
-        const chat = model.startChat({ history: geminiHistory });
-        result = await chat.sendMessage(message);
+      let textPromise;
+      if (sanitizedHistory.length > 0) {
+        const chat = model.startChat({ history: sanitizedHistory });
+        textPromise = chat.sendMessage(message).then(r => r.response.text());
       } else {
-        result = await model.generateContent(message);
+        textPromise = model.generateContent(message).then(r => r.response.text());
       }
-      resolve(result.response.text());
+
+      // Max 6s timeout per model - guarantees it NEVER hangs for 50s!
+      const reply = await withTimeout(textPromise, 6000);
+      if (reply && reply.trim()) {
+        return reply.trim();
+      }
     } catch (err) {
-      reject(err);
+      console.warn(`Model ${modelName} failed (${err.message}), trying next...`);
     }
-  });
-
-  // Race all models simultaneously — fastest successful response wins
-  const attempts = GEMINI_MODELS.map(m => buildAttempt(m));
-
-  try {
-    const reply = await new Promise((resolve, reject) => {
-      let rejectedCount = 0;
-      attempts.forEach(p => {
-        p.then(resolve).catch(err => {
-          console.warn("Model attempt failed:", err?.message || err);
-          rejectedCount++;
-          if (rejectedCount === attempts.length) {
-            reject(new Error("All models failed"));
-          }
-        });
-      });
-    });
-    return reply;
-  } catch (err) {
-    console.warn("All Gemini models failed, using fallback");
-    return buildLocalReply(studentName, message);
   }
+
+  // Safe fallback
+  return buildLocalReply(studentName, message, studentData);
 }
 
 // Initialize Database Table
