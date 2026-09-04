@@ -3,7 +3,7 @@ import { Bot, Send, User, Sparkles, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 const MerkurAIChat = ({ studentName }) => {
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://127.0.0.1:5000' : '');
+  const apiBaseUrl = import.meta.env.PROD ? 'https://backend-three-khaki-37.vercel.app' : (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000');
   const [messages, setMessages] = useState([
     { role: 'assistant', content: `Selam ${studentName}! 👋 Ben Merkür AI. Ders çalışırken takıldığın yerlerde, motivasyona ihtiyacın olduğunda veya planlama yaparken buradayım. Bugün nasıl hissediyorsun?` }
   ]);

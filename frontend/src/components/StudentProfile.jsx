@@ -143,7 +143,7 @@ const StudentProfile = ({ studentName }) => {
       
       const logsSummary = `Toplam ${totalMinutes} dakika calisma ve ${totalQuestions} soru. Aktif ders sayisi: ${sortedSubjects.length}.`;
 
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://127.0.0.1:5000' : '');
+      const apiBaseUrl = import.meta.env.PROD ? 'https://backend-three-khaki-37.vercel.app' : (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000');
       const res = await fetch(`${apiBaseUrl}/api/ai?action=analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
