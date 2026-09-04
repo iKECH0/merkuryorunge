@@ -22,25 +22,30 @@ let dbReady = false;
 const geminiApiKey = process.env.GEMINI_API_KEY || "AQ.Ab8RN6IHmyBnnQ9-lwMLAEgLPOR9xxNx1grkU7yZDtBm7-bCPw";
 const genAI = new GoogleGenerativeAI(geminiApiKey);
 const GEMINI_MODELS = [
-  "gemini-flash-lite-latest",
-  "gemini-2.0-flash-lite",
+  "gemini-2.5-flash",
   "gemini-2.0-flash",
-  "gemini-2.5-flash"
+  "gemini-1.5-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-flash-lite-latest"
 ];
 
 function buildLocalReply(studentName, message) {
   const normalized = (message || "").toLowerCase();
+  
+  if (normalized.includes("naber") || normalized.includes("nasılsın") || normalized.includes("selam") || normalized.includes("merhaba")) {
+    return `Selam ${studentName || "Öğrenci"}! 👋 Ben harikayım, seninle çalışmak için sabırsızlanıyorum! Sen nasılsın, bugün nasıl hissediyorsun? 🚀`;
+  }
   if (normalized.includes("plan") || normalized.includes("çalış") || normalized.includes("ders")) {
     return `${studentName || "Öğrenci"}, bugün kısa ve odaklı bir planla başlamak en iyisi. 25 dakika çalış, 5 dakika mola ver ve bir kısa tekrar yap. Bu düzen çok etkili olur 🚀`;
   }
   if (normalized.includes("sınav") || normalized.includes("deneme")) {
     return `${studentName || "Öğrenci"}, sınav döneminde en önemli şey düzenli tekrar. Günde 3 kısa blok çalış ve her blok sonunda kendini ödüllendir. 💪`;
   }
-  return `${studentName || "Öğrenci"}, ben senin eğitim koçu gibi davranıyorum. Hedefin, dersin ya da motivasyonun varsa birlikte planlayalım ✨`;
+  return `Harika bir soru ${studentName || "Öğrenci"}! Şu an yıldızlar arası bağlantımda ufak bir yoğunluk var 😅 Ama eğitim koçun olarak buradayım. Hedefin veya planın varsa hemen konuşalım! ✨`;
 }
 
 async function generateReply({ studentName, message, history = [], customInstruction = null }) {
-  const systemInstruction = customInstruction || `Sen Merkur Yorunge eğitim platformunun yapay zeka eğitim koçu Merkur AI'sin. Karşıdaki öğrencinin adı ${studentName || "öğrenci"}. Son derece motive edici, samimi, eğlenceli ve bol emojili konuşursun. Görev öğrencinin ders çalışması, motivasyonu ve eğitimle ilgili sorularına yardımcı olmak.`;
+  const systemInstruction = customInstruction || `Sen Merkur Yorunge eğitim platformunun yapay zeka eğitim koçu Merkur AI'sin. Karşıdaki öğrencinin adı ${studentName || "öğrenci"}. Son derece motive edici, samimi, eğlenceli ve bol emojili konuşursun. Görev öğrencinin ders çalışması, motivasyonu ve eğitimle ilgili sorularına yardımcı olmak. Ayrıca "Naber", "Nasılsın", "Selam" gibi günlük sohbet mesajlarına da arkadaşça, enerjik ve çok doğal karşılık vermelisin (robot gibi konuşma).`;
 
   for (const modelName of GEMINI_MODELS) {
     try {
@@ -64,14 +69,12 @@ async function generateReply({ studentName, message, history = [], customInstruc
       const result = await model.generateContent(message);
       return result.response.text();
     } catch (err) {
-      const isQuotaError = err?.status === 429 || /quota|too many requests|rate limit/i.test(err?.message || "");
-      if (!isQuotaError) {
-        console.warn("Gemini call failed, using fallback reply:", err?.message || err);
-        return buildLocalReply(studentName, message);
-      }
+      console.warn(`Gemini call failed for model ${modelName}:`, err?.message || err);
+      // Continue to the next model for ANY error (503 High Demand, 429 Quota, 404 Not Found)
     }
   }
 
+  // If ALL models fail, use fallback
   return buildLocalReply(studentName, message);
 }
 
