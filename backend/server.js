@@ -407,6 +407,16 @@ app.post("/api/auth/teacher/login", async (req, res) => {
 });
 // ----------------------
 
+app.get("/api/db-check", async (req, res) => {
+  try {
+    const dbUrl = process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:[^:@]+@/, ':***@') : "NOT_SET";
+    const tables = await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'");
+    res.json({ dbUrl, tables: tables.rows.map(r => r.table_name) });
+  } catch (err) {
+    res.status(500).json({ error: err.message, stack: err.stack });
+  }
+});
+
 // Change Teacher Password
 app.post("/api/auth/teacher/change-password", async (req, res) => {
   try {
@@ -674,7 +684,7 @@ app.get("/api/admin/stats", async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error", detail: err.message, stack: err.stack });
   }
 });
 
@@ -998,7 +1008,7 @@ app.get("/api/deletion-requests", async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error", detail: err.message });
   }
 });
 
