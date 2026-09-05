@@ -137,3 +137,8 @@ export const deleteStudentByTeacher = async (id) => {
   const response = await axios.delete(`${API_URL}/teacher/student/${id}`);
   return response.data;
 };
+
+export const changeTeacherPassword = async (teacherId, currentPassword, newPassword) => {
+  const response = await axios.post(`${API_URL}/auth/teacher/change-password`, { teacherId, currentPassword, newPassword });
+  return response.data;
+};

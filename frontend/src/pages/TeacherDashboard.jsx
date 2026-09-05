@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { getLogs, getStats, addStudentByTeacher, updateStudent, deleteStudentByTeacher } from '../api';
+import { getLogs, getStats, addStudentByTeacher, updateStudent, deleteStudentByTeacher, changeTeacherPassword } from '../api';
 import StudentReportPDF from '../components/StudentReportPDF';
 import CurriculumManager from '../components/CurriculumManager';
-import { LayoutDashboard, RefreshCw, Users, Clock, Hash, BookOpen, Download, LogOut, Copy, CheckCircle2, PlusCircle, X, User, Key, GraduationCap, Pencil, Trash2 } from 'lucide-react';
+import { LayoutDashboard, RefreshCw, Users, Clock, Hash, BookOpen, Download, LogOut, Copy, CheckCircle2, PlusCircle, X, User, Key, GraduationCap, Pencil, Trash2, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const COLORS = ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
@@ -44,6 +44,17 @@ const TeacherDashboard = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [deleteSuccess, setDeleteSuccess] = useState('');
+
+  // Change Password Modal State
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [cpCurrentPassword, setCpCurrentPassword] = useState('');
+  const [cpNewPassword, setCpNewPassword] = useState('');
+  const [cpConfirmPassword, setCpConfirmPassword] = useState('');
+  const [cpShowCurrent, setCpShowCurrent] = useState(false);
+  const [cpShowNew, setCpShowNew] = useState(false);
+  const [cpLoading, setCpLoading] = useState(false);
+  const [cpError, setCpError] = useState('');
+  const [cpSuccess, setCpSuccess] = useState('');
 
   const teacherId = localStorage.getItem('teacherId');
   const teacherName = localStorage.getItem('teacherName') || 'Öğretmen';
@@ -156,6 +167,36 @@ const TeacherDashboard = () => {
       setDeleteError(err.response?.data?.error || 'Öğrenci silinirken hata oluştu.');
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setCpError('');
+    setCpSuccess('');
+    if (cpNewPassword !== cpConfirmPassword) {
+      setCpError('Yeni şifre ve onay şifresi eşleşmiyor.');
+      return;
+    }
+    if (cpNewPassword.length < 6) {
+      setCpError('Yeni şifre en az 6 karakter olmalıdır.');
+      return;
+    }
+    setCpLoading(true);
+    try {
+      await changeTeacherPassword(teacherId, cpCurrentPassword, cpNewPassword);
+      setCpSuccess('Şifreniz başarıyla güncellendi! 🎉');
+      setCpCurrentPassword('');
+      setCpNewPassword('');
+      setCpConfirmPassword('');
+      setTimeout(() => {
+        setShowChangePasswordModal(false);
+        setCpSuccess('');
+      }, 2000);
+    } catch (err) {
+      setCpError(err.response?.data?.error || 'Şifre güncellenirken hata oluştu.');
+    } finally {
+      setCpLoading(false);
     }
   };
 
@@ -365,6 +406,14 @@ const TeacherDashboard = () => {
             onClick={() => setShowCurriculum(v => !v)}
           >
             <GraduationCap size={16} /> {showCurriculum ? 'Paneli Gizle' : 'Müfredat Yönetimi'}
+          </button>
+          <button 
+            className="btn btn-secondary" 
+            style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(139,92,246,0.1)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)' }} 
+            onClick={() => setShowChangePasswordModal(true)}
+            title="Şifremi Değiştir"
+          >
+            <KeyRound size={16} /> Şifremi Değiştir
           </button>
           <button 
             className="btn btn-secondary" 
@@ -715,6 +764,83 @@ const TeacherDashboard = () => {
 
               <button type="submit" className="btn btn-secondary" disabled={deleteLoading} style={{ padding: '14px', marginTop: '8px', background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.5)' }}>
                 {deleteLoading ? 'Siliniyor...' : 'Kalıcı Olarak Sil'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {showChangePasswordModal && (
+        <div className="fade-in" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(10px)' }}>
+          <div className="glass-card slide-up" style={{ width: '100%', maxWidth: '400px', padding: '32px', position: 'relative', border: '1px solid rgba(139,92,246,0.3)' }}>
+            <button 
+              onClick={() => { setShowChangePasswordModal(false); setCpError(''); setCpSuccess(''); setCpCurrentPassword(''); setCpNewPassword(''); setCpConfirmPassword(''); }}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}
+            >
+              <X size={24} />
+            </button>
+            <h2 className="title" style={{ fontSize: '22px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <KeyRound size={22} color="#a78bfa" /> Şifremi Değiştir
+            </h2>
+            <p style={{ color: 'var(--color-text-muted)', marginBottom: '24px', fontSize: '14px' }}>
+              Hesabınızı güvende tutmak için güçlü bir şifre seçin.
+            </p>
+
+            <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="input-group">
+                <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Key size={14} /> Mevcut Şifre</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={cpShowCurrent ? 'text' : 'password'}
+                    className="input-field"
+                    placeholder="Mevcut şifrenizi girin"
+                    value={cpCurrentPassword}
+                    onChange={(e) => setCpCurrentPassword(e.target.value)}
+                    required
+                    style={{ paddingRight: '44px' }}
+                  />
+                  <button type="button" onClick={() => setCpShowCurrent(v => !v)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
+                    {cpShowCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="input-group">
+                <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><KeyRound size={14} /> Yeni Şifre</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={cpShowNew ? 'text' : 'password'}
+                    className="input-field"
+                    placeholder="En az 6 karakter"
+                    value={cpNewPassword}
+                    onChange={(e) => setCpNewPassword(e.target.value)}
+                    required
+                    style={{ paddingRight: '44px' }}
+                  />
+                  <button type="button" onClick={() => setCpShowNew(v => !v)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
+                    {cpShowNew ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="input-group">
+                <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><KeyRound size={14} /> Yeni Şifre Tekrar</label>
+                <input
+                  type="password"
+                  className="input-field"
+                  placeholder="Yeni şifreyi tekrar girin"
+                  value={cpConfirmPassword}
+                  onChange={(e) => setCpConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              {cpError && <div style={{ color: '#ef4444', fontSize: '14px', background: 'rgba(239,68,68,0.1)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)' }}>{cpError}</div>}
+              {cpSuccess && <div style={{ color: '#10b981', fontSize: '14px', background: 'rgba(16,185,129,0.1)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.2)' }}>{cpSuccess}</div>}
+
+              <button type="submit" className="btn btn-primary" disabled={cpLoading} style={{ padding: '14px', marginTop: '8px', background: 'linear-gradient(135deg, rgba(139,92,246,0.3), rgba(109,40,217,0.2))', border: '1px solid rgba(139,92,246,0.4)', color: '#c4b5fd' }}>
+                {cpLoading ? 'Güncelleniyor...' : '🔐 Şifremi Güncelle'}
               </button>
             </form>
           </div>

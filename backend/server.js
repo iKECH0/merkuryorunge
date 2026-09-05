@@ -407,6 +407,40 @@ app.post("/api/auth/teacher/login", async (req, res) => {
 });
 // ----------------------
 
+// Change Teacher Password
+app.post("/api/auth/teacher/change-password", async (req, res) => {
+  try {
+    const { teacherId, currentPassword, newPassword } = req.body;
+
+    if (!teacherId || !currentPassword || !newPassword) {
+      return res.status(400).json({ error: "Tüm alanları doldurun." });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: "Yeni şifre en az 6 karakter olmalıdır." });
+    }
+
+    const result = await pool.query("SELECT * FROM teachers WHERE id = $1", [teacherId]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Öğretmen bulunamadı." });
+    }
+
+    const teacher = result.rows[0];
+    const isMatch = await bcrypt.compare(currentPassword, teacher.password_hash);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Mevcut şifreniz yanlış." });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const newHash = await bcrypt.hash(newPassword, salt);
+    await pool.query("UPDATE teachers SET password_hash = $1 WHERE id = $2", [newHash, teacherId]);
+
+    res.json({ success: true, message: "Şifreniz başarıyla güncellendi." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Sunucu hatası." });
+  }
+});
+
 // 1. Submit a new study log
 app.post("/api/logs", async (req, res) => {
   try {
