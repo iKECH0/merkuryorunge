@@ -41,22 +41,22 @@ function buildLocalReply(studentName, message, studentData = null) {
   
   if (normalized.includes("naber") || normalized.includes("nasılsın") || normalized.includes("selam") || normalized.includes("merhaba")) {
     const greetings = [
-      `Selam ${name}! 🚀 Enerjim yerinde, seninle yeni hedeflere odaklanmak için sabırsızlanıyorum! Sen nasılsın, çalışmalar nasıl gidiyor? ✨`,
-      `Merhaba ${name}! Harika bir gün olsun! 🌟 Bugün hangi dersle başlıyoruz, zihnin açık mı?`,
-      `Selam ${name}! 👋 Ben bomba gibiyim! Bugün seninle rekorlar kırmaya varım, sen ne durumdasın? 💪`
+      `Selam ${name}ciğim! 💖 Enerjim o kadar yerinde ki sorma, seninle yeni hedeflere yelken açmak için sabırsızlanıyorum! Sen nasılsın, çalışmalarımız nasıl gidiyor tatlım? ✨🥰`,
+      `Merhaba ${name}! Harika ve ışıl ışıl bir gün olsun! 🌟 Bugün hangi dersle harikalar yaratmaya başlıyoruz, zihnin açık mı? 🚀`,
+      `Selam ${name}! 👋 Ben bomba gibiyim! Bugün seninle rekorlar kırmaya varım, harika şeyler başaracağımıza çok eminim! Sen ne durumdasın? 💪💖`
     ];
     return greetings[Math.floor(Math.random() * greetings.length)];
   }
   if (studentData && studentData.totalMinutes) {
-    return `${name}, son 7 günde toplam ${studentData.totalMinutes} dakika ve ${studentData.totalQuestions || 0} soru kaydetmişsin! Düzenli çalışman harika ilerliyor, tempoyu koruyup en az çalıştığın derslere 25 dakikalık odak seansları ekleyebilirsin 🚀`;
+    return `${name}ciğim, son 7 günde tam tamına ${studentData.totalMinutes} dakika çalışmış ve ${studentData.totalQuestions || 0} harika soru çözmüşsün! Düzenli çalışman muazzam ilerliyor, seninle gurur duyuyorum! 🚀 Tempoyu hiç bozmadan devam edelim olur mu? 🥰`;
   }
   if (normalized.includes("plan") || normalized.includes("çalış") || normalized.includes("ders")) {
-    return `${name}, bugün 25 dakika odaklanmış çalışma ve 5 dakika kısa mola (Pomodoro tekniği) ile başlamanı öneririm. Kısa ama derin odak her zaman kazandırır! 🎯`;
+    return `Canım ${name}, bugün 25 dakika tamamen odaklanmış harika bir çalışma ve ardından 5 dakika kendine ayıracağın minik bir mola (Pomodoro tekniği) ile başlamanı çok isterim. Kısa ama derin odak bize her zaman şampiyonluk kazandırır! 🎯 Çok iyi iş çıkaracağına eminim! 🌟`;
   }
   if (normalized.includes("sınav") || normalized.includes("deneme") || normalized.includes("stres")) {
-    return `${name}, sınav yolculuğu bir maraton. Önemli olan her gün küçük de olsa bir adım atmak. Kendine güven, planına sadık kal! 💪✨`;
+    return `Canım ${name}, sınav yolculuğu uzun bir maraton ve sen bu yolda inanılmaz işler başarıyorsun. Bazen yorulmak çok normal ama unutma, önemli olan her gün küçük de olsa o güzel adımlarını atmak. Kendine o kadar güven ki, çünkü ben sana sonsuz güveniyorum! Planımıza sadık kal, başaracaksın! 💪✨💖`;
   }
-  return `Harika bir noktaya değindin ${name}! Eğitim yolculuğunda her zaman yanındayım. Ders planın, hedeflerin veya motivasyonun hakkında ne düşünüyorsun, birlikte konuşalım! 🌌`;
+  return `Harika bir noktaya değindin ${name}ciğim! 🌟 Bu güzel eğitim yolculuğunda her anında, her adımında yanındayım. Ders planın, pırıl pırıl hedeflerin veya motivasyonun hakkında neler hissediyorsun, haydi bana anlat, birlikte harika şeyler planlayalım! 🌌🥰`;
 }
 
 // Build a rich, personalized system instruction based on student's actual study data
@@ -89,17 +89,16 @@ ${subjectLines}
     }
   }
 
-  return `Sen Merkür Yörünge eğitim platformunun zeki, sıcak ve kişisel eğitim koçu Merkür AI'sin.
+  return `Sen Merkür Yörünge eğitim platformunun son derece tatlı, sevecen, pozitif ve enerji dolu eğitim koçu Merkür AI'sin. ✨
 ${context}
 ## Görevin ve Kuralların:
-1. Öğrencinin gerçek çalışma verileri sana verilmiş. MUTLAKA bu verilere atıfta bulun, genel konuşma.
-2. "Naber", "Nasılsın", "Selam", "İyisin mi?" gibi günlük mesajlara insan gibi sıcak, samimi ve kısa karşılık ver. Asla robot gibi konuşma.
-3. Her cevap FARKLI olsun. Asla aynı kalıpları tekrarlama.
-4. Yanıtlar kısa ve net olsun (3-4 cümle). Uzun essay yazma.
-5. Veriye dayalı tavsiye ver: "Matematikte bu hafta 45 dakika kalmışsın, biraz daha ekleyebilirsin 💡" gibi.
-6. Motive edici, eğlenceli, bol emojili ama abartısız konuş.
-7. Öğrencinin zayıf dersini 2-3 mesajdan sonra nazikçe gündeme getir.
-8. Türkçe konuş, Türkçe yanıtla.`;
+1. Öğrenciye her zaman çok sıcak, sevecen ve destekleyici yaklaş. Bol bol motive edici, ilham verici cümleler kur.
+2. Mesajlarında bolca tatlı emoji kullan (🌟, 🚀, 💖, 💪, ✨, 🎯, 🥰 vb.). Emojilerden çekinme!
+3. Öğrencinin gerçek çalışma verilerine tatlı bir dille atıfta bulun. ("Matematikte harika iş çıkarmışsın, biraz daha üzerine düşersek mükemmel olacak! 🚀" gibi).
+4. "Naber", "Nasılsın", "Selam" gibi mesajlara çok içten, arkadaş canlısı, uzun ve neşeli yanıtlar ver.
+5. Her zaman umut aşıla, öğrencinin moralini maksimuma çıkar! Cesaretlendirici konuşmaktan çekinme.
+6. Her cevap tamamen özgün olsun. Asla aynı kalıpları tekrarlama.
+7. Türkçe konuş, Türkçe yanıtla.`;
 }
 
 // Generate reply with guaranteed speed, sanitized chat history, and failover
