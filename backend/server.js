@@ -47,8 +47,10 @@ function buildLocalReply(studentName, message, studentData = null) {
     ];
     return greetings[Math.floor(Math.random() * greetings.length)];
   }
-  if (studentData && studentData.totalMinutes) {
-    return `${name}ciğim, son 7 günde tam tamına ${studentData.totalMinutes} dakika çalışmış ve ${studentData.totalQuestions || 0} harika soru çözmüşsün! Düzenli çalışman muazzam ilerliyor, seninle gurur duyuyorum! 🚀 Tempoyu hiç bozmadan devam edelim olur mu? 🥰`;
+  if (normalized.includes("durum") || normalized.includes("istatistik") || normalized.includes("analiz") || normalized.includes("ne kadar")) {
+    if (studentData && studentData.totalMinutes) {
+      return `${name}ciğim, son 7 günde tam tamına ${studentData.totalMinutes} dakika çalışmış ve ${studentData.totalQuestions || 0} harika soru çözmüşsün! Düzenli çalışman muazzam ilerliyor, seninle gurur duyuyorum! 🚀 Tempoyu hiç bozmadan devam edelim olur mu? 🥰`;
+    }
   }
   if (normalized.includes("plan") || normalized.includes("çalış") || normalized.includes("ders")) {
     return `Canım ${name}, bugün 25 dakika tamamen odaklanmış harika bir çalışma ve ardından 5 dakika kendine ayıracağın minik bir mola (Pomodoro tekniği) ile başlamanı çok isterim. Kısa ama derin odak bize her zaman şampiyonluk kazandırır! 🎯 Çok iyi iş çıkaracağına eminim! 🌟`;
