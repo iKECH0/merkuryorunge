@@ -22,9 +22,9 @@ let dbReady = false;
 const geminiApiKey = process.env.GEMINI_API_KEY || "AQ.Ab8RN6IHmyBnnQ9-lwMLAEgLPOR9xxNx1grkU7yZDtBm7-bCPw";
 const genAI = new GoogleGenerativeAI(geminiApiKey);
 const GEMINI_MODELS = [
-  "gemini-2.5-flash-lite", // Ultra fast (~0.8s - 1.2s response)
-  "gemini-3.1-flash-lite", // Reliable fast backup (~3.8s)
-  "gemini-3.5-flash"       // Secondary fallback (~8s)
+  "gemini-3.5-flash-lite", // Fastest (~800ms) ✅ confirmed working
+  "gemini-2.5-flash-lite", // Fast backup (~950ms) ✅ confirmed working
+  "gemini-3.6-flash",      // Slow backup (~6s) ✅ confirmed working
 ];
 
 function withTimeout(promise, ms) {
@@ -178,8 +178,8 @@ async function generateReply({ studentName, message, history = [], studentData =
         textPromise = model.generateContent(message).then(r => r.response.text());
       }
 
-      // Max 6s timeout per model - guarantees it NEVER hangs for 50s!
-      const reply = await withTimeout(textPromise, 6000);
+      // Max 12s timeout per model (accounts for Vercel cold starts)
+      const reply = await withTimeout(textPromise, 12000);
       if (reply && reply.trim()) {
         return reply.trim();
       }
