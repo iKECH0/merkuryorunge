@@ -38,7 +38,8 @@ function withTimeout(promise, ms) {
 function buildLocalReply(studentName, message, studentData = null) {
   const name = studentName || "Öğrenci";
   const normalized = (message || "").toLowerCase();
-  
+
+  // Selamlama
   if (normalized.includes("naber") || normalized.includes("nasılsın") || normalized.includes("selam") || normalized.includes("merhaba")) {
     const greetings = [
       `Selam ${name}ciğim! 💖 Enerjim o kadar yerinde ki sorma, seninle yeni hedeflere yelken açmak için sabırsızlanıyorum! Sen nasılsın, çalışmalarımız nasıl gidiyor tatlım? ✨🥰`,
@@ -47,19 +48,57 @@ function buildLocalReply(studentName, message, studentData = null) {
     ];
     return greetings[Math.floor(Math.random() * greetings.length)];
   }
-  if (normalized.includes("durum") || normalized.includes("istatistik") || normalized.includes("analiz") || normalized.includes("ne kadar")) {
-    if (studentData && studentData.totalMinutes) {
-      return `${name}ciğim, son 7 günde tam tamına ${studentData.totalMinutes} dakika çalışmış ve ${studentData.totalQuestions || 0} harika soru çözmüşsün! Düzenli çalışman muazzam ilerliyor, seninle gurur duyuyorum! 🚀 Tempoyu hiç bozmadan devam edelim olur mu? 🥰`;
+
+  // Hangi dersten devam edeyim / ne çalışayım
+  if (normalized.includes("hangi ders") || normalized.includes("ne çalış") || normalized.includes("nereden başla") || normalized.includes("devam edeyim")) {
+    if (studentData && studentData.subjects) {
+      const entries = Object.entries(studentData.subjects).sort((a, b) => a[1].minutes - b[1].minutes);
+      const weakest = entries[0]?.[0] || null;
+      if (weakest) {
+        return `${name}ciğim, verilerine baktım ve **${weakest}** dersine bu hafta en az zaman ayırmışsın. O yüzden tam gaz oradan devam etmeni öneririm! 📚 Konsantre olduğunda ne kadar hızlı ilerlediğini kendin de göreceksin. Hadi başlayalım mı? 🔥💪`;
+      }
     }
+    return `${name}ciğim, en az çalıştığın dersten başlamak çok akıllıca bir hamle olur! 🎯 Bugün biraz zorlandığın konuyu seçip üzerine git, o tatmin hissi inanılmaz oluyor! Hangi ders aklına geliyor ilk olarak? 😊`;
   }
-  if (normalized.includes("plan") || normalized.includes("çalış") || normalized.includes("ders")) {
-    return `Canım ${name}, bugün 25 dakika tamamen odaklanmış harika bir çalışma ve ardından 5 dakika kendine ayıracağın minik bir mola (Pomodoro tekniği) ile başlamanı çok isterim. Kısa ama derin odak bize her zaman şampiyonluk kazandırır! 🎯 Çok iyi iş çıkaracağına eminim! 🌟`;
+
+  // Nasıl gidiyor / ne yaptım / ilerleme
+  if (normalized.includes("nasıl gid") || normalized.includes("iyi mi") || normalized.includes("ne yaptım") || normalized.includes("ilerleme") || normalized.includes("kaç soru") || normalized.includes("kaç dakika")) {
+    if (studentData && studentData.totalMinutes) {
+      return `${name}ciğim, son 7 günde tam tamına **${studentData.totalMinutes} dakika** çalışmış ve **${studentData.totalQuestions || 0} harika soru** çözmüşsün! Düzenli çalışman muazzam ilerliyor, seninle gurur duyuyorum! 🚀 Tempoyu hiç bozmadan devam edelim olur mu? 🥰`;
+    }
+    return `${name}ciğim, harika gidiyor! 🌟 Her gün çalışma kaydı girmen bile başlı başına büyük bir disiplin. Devam et, birikimi yakında inanılmaz fark yaratacak! 💪`;
   }
-  if (normalized.includes("sınav") || normalized.includes("deneme") || normalized.includes("stres")) {
-    return `Canım ${name}, sınav yolculuğu uzun bir maraton ve sen bu yolda inanılmaz işler başarıyorsun. Bazen yorulmak çok normal ama unutma, önemli olan her gün küçük de olsa o güzel adımlarını atmak. Kendine o kadar güven ki, çünkü ben sana sonsuz güveniyorum! Planımıza sadık kal, başaracaksın! 💪✨💖`;
+
+  // Sınav / stres
+  if (normalized.includes("sınav") || normalized.includes("deneme") || normalized.includes("stres") || normalized.includes("korku") || normalized.includes("endişe")) {
+    return `Canım ${name}, sınav yolculuğu uzun bir maraton ve sen bu yolda inanılmaz işler başarıyorsun! Bazen tedirgin olmak çok normal ama unutma — hazırlık yapan, çalışan, gayret eden sen kazanırsın. Sana sonsuz güveniyorum! 💪✨💖 Biraz nefes al, planına bak, adım adım ilerle. Yanındayım!`;
   }
-  return `Harika bir noktaya değindin ${name}ciğim! 🌟 Bu güzel eğitim yolculuğunda her anında, her adımında yanındayım. Ders planın, pırıl pırıl hedeflerin veya motivasyonun hakkında neler hissediyorsun, haydi bana anlat, birlikte harika şeyler planlayalım! 🌌🥰`;
+
+  // Plan / çalışma programı
+  if (normalized.includes("plan") || normalized.includes("program") || normalized.includes("takvim")) {
+    return `${name}ciğim, sana özel bir çalışma planı oluşturmak harika bir fikir! 🎯 Önce hangi derslerde daha fazla netine ihtiyaç duyduğunu söyle, oradan başlayalım. Hedefine uygun, sürdürülebilir bir tempo birlikte belirleyelim! 🌟`;
+  }
+
+  // Ders hakkında soru (matematik, türkçe, fen vb.)
+  if (normalized.includes("matematik") || normalized.includes("türkçe") || normalized.includes("fen") || normalized.includes("tarih") || normalized.includes("coğrafya") || normalized.includes("fizik") || normalized.includes("kimya") || normalized.includes("biyoloji")) {
+    return `${name}ciğim, o konuya odaklanmak çok akıllıca bir seçim! 📖 O derste zorlandığın belirli bir konu var mı, yoksa genel olarak mı pekiştirmek istiyorsun? Birlikte çözüm yolu bulalım! 💡🌟`;
+  }
+
+  // Motivasyon / yorgunluk / can sıkıntısı
+  if (normalized.includes("yorgun") || normalized.includes("sıkıl") || normalized.includes("motive") || normalized.includes("istek") || normalized.includes("canım istem")) {
+    return `${name}ciğim, böyle hissetmek gayet normal, bu anlarda bile buraya gelip destek araman bile başlı başına bir güç! 💖 Beş dakikalık küçük bir başlangıç yap, o ilk adım her şeyi değiştirir. Seninle gurur duyuyorum! 🌟`;
+  }
+
+  // Genel fallback — HER SEFERINDE FARKLI
+  const fallbacks = [
+    `Harika bir soru sordun ${name}ciğim! 🌟 Detaylandırırsan sana daha kişisel bir cevap verebilirim. Ne düşünüyorsun, hadi anlat! 🥰`,
+    `${name}ciğim, bu konuda seninle konuşmak çok keyifli! 💖 Biraz daha detay verir misin, tam ihtiyacına göre yanındayım! ✨`,
+    `Anladım ${name}ciğim! 🚀 Şu an ne hissediyorsun ya da ne planladığını söyle, birlikte en iyi yolu bulalım! 🎯💪`,
+    `${name}ciğim, ne güzel bir düşünce! 🌟 Bu konuda sana destek olmak için buradayım. Biraz daha açar mısın, dinliyorum! 🥰`,
+  ];
+  return fallbacks[Math.floor(Math.random() * fallbacks.length)];
 }
+
 
 // Build a rich, personalized system instruction based on student's actual study data
 function buildSystemInstruction(studentName, studentData) {
