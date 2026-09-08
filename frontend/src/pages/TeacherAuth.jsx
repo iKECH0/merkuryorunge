@@ -104,7 +104,7 @@ const TeacherAuth = () => {
             <Briefcase size={36} color="#10b981" />
           </div>
           <h2 className="title text-gradient" style={{ fontSize: '32px', marginBottom: '8px', letterSpacing: '-0.5px' }}>Öğretmen Portalı</h2>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: '15px' }}>Öğrencilerinizi yönetin ve analiz edin.</p>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '15px' }}>{isLogin ? 'Giriş yapın veya yeni öğretmen hesabı oluşturun.' : 'Hesabınız admin onayından sonra aktifleşir.'}</p>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

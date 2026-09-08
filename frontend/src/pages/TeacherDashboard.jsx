@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { getLogs, getStats, addStudentByTeacher, updateStudent, deleteStudentByTeacher, changeTeacherPassword } from '../api';
+import { getLogs, getStats, getAdminStats, addStudentByTeacher, updateStudent, deleteStudentByTeacher, changeTeacherPassword } from '../api';
 import StudentReportPDF from '../components/StudentReportPDF';
 import CurriculumManager from '../components/CurriculumManager';
 import { LayoutDashboard, RefreshCw, Users, Clock, Hash, BookOpen, Download, LogOut, Copy, CheckCircle2, PlusCircle, X, User, Key, GraduationCap, Pencil, Trash2, KeyRound, Eye, EyeOff } from 'lucide-react';
@@ -37,6 +37,8 @@ const TeacherDashboard = () => {
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
   const [addSuccess, setAddSuccess] = useState('');
+  const [leaderTeachers, setLeaderTeachers] = useState([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState('');
 
   // Delete Student Modal State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -68,6 +70,11 @@ const TeacherDashboard = () => {
       return;
     }
     fetchData();
+    if (teacherId === 'ALL') {
+      getAdminStats()
+        .then(data => setLeaderTeachers((data.teachers || []).filter(teacher => teacher.is_approved)))
+        .catch(err => console.error(err));
+    }
   }, [teacherId]);
 
   const handleLogout = () => {
@@ -114,9 +121,9 @@ const TeacherDashboard = () => {
         return;
       }
       
-      const teacherIdForAdd = teacherId === 'ALL' ? null : teacherId; // Admin can technically add orphans, but let's assume valid teacherId. Actually if it's admin, adding student requires a teacher. We'll disable it for admin.
-      if (teacherId === 'ALL') {
-        setAddError('Lider Öğretmen modunda öğrenci eklenemez. Lütfen bir öğretmen olarak giriş yapın.');
+      const teacherIdForAdd = teacherId === 'ALL' ? selectedTeacherId : teacherId;
+      if (teacherId === 'ALL' && !selectedTeacherId) {
+        setAddError('Lütfen öğrencinin bağlı olacağı öğretmeni seçin.');
         setAddLoading(false);
         return;
       }
@@ -128,6 +135,7 @@ const TeacherDashboard = () => {
       setNewStudentPassword('');
       setNewStudentClassName('');
       setNewStudentSchoolLevel('Lise (YKS)');
+      setSelectedTeacherId('');
       fetchData(); // Refresh list to show new student (will appear once they have a log, or we can just show success)
       
       setTimeout(() => {
@@ -382,15 +390,15 @@ const TeacherDashboard = () => {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          {teacherId !== 'ALL' && (
-            <>
-              <button 
+          <>
+            <button 
                 className="btn btn-primary" 
                 style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)' }} 
-                onClick={() => setShowAddModal(true)}
+                onClick={() => { setShowAddModal(true); setAddError(''); setAddSuccess(''); }}
               >
                 <PlusCircle size={16} /> Öğrenci Ekle
-              </button>
+            </button>
+            {teacherId !== 'ALL' && (
               <button 
                 className="btn btn-secondary" 
                 style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }} 
@@ -398,8 +406,8 @@ const TeacherDashboard = () => {
               >
                 <Trash2 size={16} /> Öğrenci Sil
               </button>
-            </>
-          )}
+            )}
+          </>
           <button
             className="btn btn-primary"
             style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '8px', background: showCurriculum ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.1)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.3)' }}
@@ -626,7 +634,7 @@ const TeacherDashboard = () => {
             <h2 className="title" style={{ fontSize: '24px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <PlusCircle size={24} color="var(--color-primary)" /> Yeni Öğrenci
             </h2>
-            <p style={{ color: 'var(--color-text-muted)', marginBottom: '24px', fontSize: '14px' }}>Sınıfınıza manuel olarak öğrenci kaydedin.</p>
+            <p style={{ color: 'var(--color-text-muted)', marginBottom: '24px', fontSize: '14px' }}>{teacherId === 'ALL' ? 'Öğrencinin bağlı olacağı öğretmeni seçerek kayıt oluşturun.' : 'Sınıfınıza manuel olarak öğrenci kaydedin.'}</p>
             
             <form onSubmit={handleAddStudent} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="input-group">
@@ -637,6 +645,17 @@ const TeacherDashboard = () => {
                 <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><User size={16} /> Kullanıcı Adı</label>
                 <input type="text" className="input-field" placeholder="Örn: aliyilmaz" value={newStudentUsername} onChange={(e) => setNewStudentUsername(e.target.value)} required />
               </div>
+              {teacherId === 'ALL' && (
+                <div className="form-group">
+                  <label>Bağlı Olacağı Öğretmen</label>
+                  <select className="input-field" value={selectedTeacherId} onChange={(e) => setSelectedTeacherId(e.target.value)} required style={{ appearance: 'auto' }}>
+                    <option value="">Öğretmen seçin</option>
+                    {leaderTeachers.map(teacher => (
+                      <option key={teacher.id} value={teacher.id}>{teacher.full_name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="form-group">
                 <label>Erişim Şifresi (Sizin belirlediğiniz)</label>
                 <input type="text" className="input-field" placeholder="Örn: gizlisifre123" value={newStudentPassword} onChange={(e) => setNewStudentPassword(e.target.value)} required />

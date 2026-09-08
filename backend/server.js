@@ -210,8 +210,6 @@ const initDB = async () => {
     // Geriye dönük uyumluluk için
     try {
       await pool.query(`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE`);
-      // Mevcut öğretmenleri otomatik onayla
-      await pool.query(`UPDATE teachers SET is_approved = TRUE WHERE is_approved = FALSE OR is_approved IS NULL`);
     } catch(e) {}
 
     await pool.query(`
@@ -393,6 +391,18 @@ app.post("/api/auth/teacher/register", async (req, res) => {
 app.post("/api/auth/teacher/add-student", async (req, res) => {
   try {
     const { fullName, username, password, teacherId, schoolLevel, className } = req.body;
+
+    if (!teacherId || !Number.isInteger(Number(teacherId))) {
+      return res.status(400).json({ error: "Öğrencinin bağlı olacağı öğretmen seçilmelidir." });
+    }
+
+    const teacherResult = await pool.query(
+      "SELECT id FROM teachers WHERE id = $1 AND is_approved = TRUE",
+      [Number(teacherId)]
+    );
+    if (teacherResult.rows.length === 0) {
+      return res.status(400).json({ error: "Seçilen öğretmen bulunamadı veya henüz onaylanmadı." });
+    }
     
     // Check if username exists
     const userExists = await pool.query("SELECT * FROM students WHERE username = $1", [username]);

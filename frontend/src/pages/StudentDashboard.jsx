@@ -104,15 +104,9 @@ const StudentDashboard = ({ studentName }) => {
               notifications: [
                 {
                   title: "Merkür Yörünge Hatırlatması",
-                  body: "Saat 10:30! Günün planını ve ilk raporlarını girmeyi unutma!",
+                  body: "Saat 22:00! Günün raporunu girdin mi? Hadi hemen kaydet!",
                   id: 1,
-                  schedule: { on: { hour: 10, minute: 30 }, allowWhileIdle: true },
-                },
-                {
-                  title: "Merkür Yörünge Hatırlatması",
-                  body: "Saat 22:30! Günün raporunu girdin mi? Hadi hemen kaydet!",
-                  id: 2,
-                  schedule: { on: { hour: 22, minute: 30 }, allowWhileIdle: true },
+                  schedule: { on: { hour: 22, minute: 0 }, allowWhileIdle: true },
                 }
               ]
             });
@@ -130,28 +124,6 @@ const StudentDashboard = ({ studentName }) => {
 
     setupNotifications();
   }, []);
-
-  const sendTestNotification = async () => {
-    if (Capacitor.isNativePlatform()) {
-      await LocalNotifications.schedule({
-        notifications: [
-          {
-            title: "Test Bildirimi",
-            body: "Bu bir test bildirimidir. Bildirim sistemi sorunsuz çalışıyor!",
-            id: 99,
-            schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true },
-          }
-        ]
-      });
-      alert("Test bildirimi 5 saniye sonra çalacak. Lütfen uygulamayı arka plana alın veya ekranı kilitleyin.");
-    } else {
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("Test Bildirimi", { body: "Bu bir web test bildirimidir." });
-      } else {
-        alert("Web bildirimleri aktif değil veya cihaz desteklemiyor.");
-      }
-    }
-  };
 
   const handleOnboardingComplete = () => {
     if (studentUsername) {
@@ -186,16 +158,6 @@ const StudentDashboard = ({ studentName }) => {
         </div>
         <h1 className="title text-gradient" style={{ fontSize: '40px', marginBottom: '8px', lineHeight: 1.1 }}>Merkür Yörünge</h1>
         <p style={{ margin: 0, fontSize: '18px', color: 'var(--color-text-muted)', fontFamily: 'var(--font-primary)', marginBottom: '12px' }}>Merhaba, {studentName} 🚀</p>
-        
-        {studentUsername?.toUpperCase() === 'TESTER' && (
-          <button 
-            onClick={sendTestNotification}
-            className="btn btn-secondary"
-            style={{ padding: '8px 16px', fontSize: '13px', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', margin: '0 auto', display: 'flex' }}
-          >
-            Test Bildirimi Gönder (5sn)
-          </button>
-        )}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'center', animationDelay: '0.2s', width: '100%' }} className="slide-up">
