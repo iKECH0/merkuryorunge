@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { getLogs, getStats, getAdminStats, addStudentByTeacher, updateStudent, deleteStudentByTeacher, changeTeacherPassword } from '../api';
 import StudentReportPDF from '../components/StudentReportPDF';
 import CurriculumManager from '../components/CurriculumManager';
+import TeachingHoursTracker from '../components/TeachingHoursTracker';
 import { LayoutDashboard, RefreshCw, Users, Clock, Hash, BookOpen, Download, LogOut, Copy, CheckCircle2, PlusCircle, X, User, Key, GraduationCap, Pencil, Trash2, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
@@ -546,6 +547,11 @@ const TeacherDashboard = () => {
             </div>
 
           </div>
+
+          {/* Teaching Hours Tracker Component */}
+          {teacherId && teacherId !== 'ALL' && (
+            <TeachingHoursTracker teacherId={teacherId} students={groupedStudents} />
+          )}
 
           {/* Data Table -> Horizontal Grid */}
           <div className="glass-card slide-up" style={{ padding: '32px', animationDelay: '0.4s' }}>

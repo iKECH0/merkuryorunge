@@ -35,23 +35,63 @@ const MerkurAIChat = ({ studentName, studentData }) => {
         filteredHistory.shift();
       }
 
-      const res = await fetch(`${apiBaseUrl}/api/ai?action=chat`, {
+      // Check if user wants analysis
+      const isAnalysisRequest = userMessage.toLowerCase().includes('analiz') || 
+                                userMessage.toLowerCase().includes('rapor') ||
+                                userMessage.toLowerCase().includes('özet');
+
+      let endpoint = `${apiBaseUrl}/api/ai?action=chat`;
+      let requestBody = {
+        studentName,
+        message: userMessage,
+        history: filteredHistory,
+        studentData: studentData || null
+      };
+
+      if (isAnalysisRequest) {
+        endpoint = `${apiBaseUrl}/api/ai?action=analyze`;
+        
+        // Prepare analysis request with structured data
+        const subjects = studentData ? Object.entries(studentData.subjects || {}).map(([subject, data]) => ({
+          subject,
+          minutes: data.minutes || 0,
+          hours: ((data.minutes || 0) / 60).toFixed(2),
+          questions: data.questions || 0,
+          percent: studentData.totalMinutes > 0 ? Math.round((data.minutes / studentData.totalMinutes) * 100) : 0
+        })) : [];
+
+        const strongest = subjects.length > 0 ? subjects.sort((a, b) => b.minutes - a.minutes)[0] : null;
+        const weakest = subjects.length > 0 ? subjects.sort((a, b) => a.minutes - b.minutes)[0] : null;
+
+        requestBody = {
+          studentName,
+          schoolLevel: studentData?.schoolLevel || null,
+          className: studentData?.className || null,
+          goal: studentData?.goal || 0,
+          totalMinutes: studentData?.totalMinutes || 0,
+          totalHours: studentData ? (studentData.totalMinutes / 60).toFixed(2) : "0",
+          totalQuestions: studentData?.totalQuestions || 0,
+          totalSessions: studentData ? Object.values(studentData.subjects || {}).length : 0,
+          activeDaysCount: 7, // Assuming 7-day window
+          subjects,
+          strongest: strongest?.subject || 'Belirsiz',
+          weakest: weakest?.subject || 'Belirsiz'
+        };
+      }
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentName,
-          message: userMessage,
-          history: filteredHistory,
-          studentData: studentData || null   // Pass real study data to AI
-        })
+        body: JSON.stringify(requestBody)
       });
       
       const data = await res.json();
       
-      if (data.error && !data.reply) {
+      if (data.error && !data.reply && !data.message) {
         setMessages(prev => [...prev, { role: 'assistant', content: `Hata: ${data.error}` }]);
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+        const aiResponse = data.reply || data.message || 'Bir sorun oluştu.';
+        setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
       }
     } catch (err) {
       console.error(err);

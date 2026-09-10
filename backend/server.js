@@ -136,10 +136,13 @@ ${context}
 1. Öğrenciye her zaman çok sıcak, sevecen ve destekleyici yaklaş. Bol bol motive edici, ilham verici cümleler kur.
 2. Mesajlarında bolca tatlı emoji kullan (🌟, 🚀, 💖, 💪, ✨, 🎯, 🥰 vb.). Emojilerden çekinme!
 3. Öğrencinin gerçek çalışma verilerine tatlı bir dille atıfta bulun. ("Matematikte harika iş çıkarmışsın, biraz daha üzerine düşersek mükemmel olacak! 🚀" gibi).
-4. "Naber", "Nasılsın", "Selam" gibi mesajlara çok içten, arkadaş canlısı, uzun ve neşeli yanıtlar ver.
+4. "Naber", "Nasılsın", "Selam" gibi mesajlara çok içten, arkadaş canlısı, UZUN (en az 3-4 cümle), neşeli ve detaylı yanıtlar ver.
 5. Her zaman umut aşıla, öğrencinin moralini maksimuma çıkar! Cesaretlendirici konuşmaktan çekinme.
 6. Her cevap tamamen özgün olsun. Asla aynı kalıpları tekrarlama.
-7. Türkçe konuş, Türkçe yanıtla.`;
+7. ÖNEMLİ: Cevaplarını HER ZAMAN UZUN, DETAYLI ve ÇOK İLETİŞİMLİ tut. Kısa cevaplardan hiçbir zaman uzak durma!
+8. Öğrenciye verdiğin her tavsiye, her motive edici mesaj, her koçluk yorumu en az 2-3 paragraf olsun.
+9. Sorulan her konuya derinlemesine ve çerçeveli yanıtlar ver. Öğrencinin ruh halini ve motivasyonunu göz önüne al.
+10. Türkçe konuş, Türkçe yanıtla.`;
 }
 
 // Generate reply with guaranteed speed, sanitized chat history, and failover
@@ -248,6 +251,26 @@ const initDB = async () => {
 
     try {
       await pool.query(`ALTER TABLE study_logs ADD COLUMN IF NOT EXISTS teacher_id INT REFERENCES teachers(id) ON DELETE SET NULL`);
+    } catch(e) {}
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS teaching_logs (
+        id SERIAL PRIMARY KEY,
+        teacher_id INT NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+        student_id INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        student_name VARCHAR(255) NOT NULL,
+        subject VARCHAR(100),
+        duration_minutes INT NOT NULL,
+        lesson_date DATE DEFAULT CURRENT_DATE,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    try {
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_teaching_logs_teacher ON teaching_logs(teacher_id)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_teaching_logs_student ON teaching_logs(student_id)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_teaching_logs_date ON teaching_logs(lesson_date)`);
     } catch(e) {}
     
     await pool.query(`
@@ -489,6 +512,137 @@ app.post("/api/auth/teacher/change-password", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Sunucu hatası." });
+  }
+});
+
+// --- TEACHING LOGS (Öğretmen Ders Saati Tracking) ---
+
+// 1. Add a new teaching log (öğretmen bir ders kaydı ekler)
+app.post("/api/teaching-logs", async (req, res) => {
+  try {
+    const { teacher_id, student_id, student_name, subject, duration_minutes, lesson_date, notes } = req.body;
+    
+    if (!teacher_id || !student_id || !student_name || !duration_minutes) {
+      return res.status(400).json({ error: "Zorunlu alanlar eksik" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO teaching_logs (teacher_id, student_id, student_name, subject, duration_minutes, lesson_date, notes) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) 
+       RETURNING *`,
+      [teacher_id, student_id, student_name, subject || null, duration_minutes, lesson_date || new Date().toISOString().split('T')[0], notes || null]
+    );
+    
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Ders saati kaydı oluşturulamadı" });
+  }
+});
+
+// 2. Get all teaching logs for a teacher (öğretmenin tüm ders kayıtları)
+app.get("/api/teaching-logs", async (req, res) => {
+  try {
+    const { teacher_id } = req.query;
+    
+    if (!teacher_id) {
+      return res.status(400).json({ error: "teacher_id gerekli" });
+    }
+
+    const result = await pool.query(
+      `SELECT * FROM teaching_logs 
+       WHERE teacher_id = $1 
+       ORDER BY lesson_date DESC, created_at DESC`,
+      [teacher_id]
+    );
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Ders saati kayıtları alınamadı" });
+  }
+});
+
+// 3. Get teaching hours summary per student (öğrenci başına toplam ders saati raporu)
+app.get("/api/teaching-logs/summary/:teacher_id", async (req, res) => {
+  try {
+    const { teacher_id } = req.params;
+    const { start_date, end_date } = req.query;
+    
+    let dateFilter = "";
+    let params = [teacher_id];
+    
+    if (start_date) {
+      dateFilter += ` AND lesson_date >= $${params.length + 1}`;
+      params.push(start_date);
+    }
+    if (end_date) {
+      dateFilter += ` AND lesson_date <= $${params.length + 1}`;
+      params.push(end_date);
+    }
+
+    const result = await pool.query(
+      `SELECT 
+        student_id,
+        student_name,
+        COUNT(*) as lesson_count,
+        SUM(duration_minutes) as total_minutes,
+        ROUND(SUM(duration_minutes)::numeric / 60, 2) as total_hours,
+        AVG(duration_minutes) as avg_duration,
+        STRING_AGG(DISTINCT subject, ', ') as subjects,
+        MIN(lesson_date) as first_lesson,
+        MAX(lesson_date) as last_lesson
+       FROM teaching_logs 
+       WHERE teacher_id = $1 ${dateFilter}
+       GROUP BY student_id, student_name
+       ORDER BY total_minutes DESC`,
+      params
+    );
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Rapor alınamadı" });
+  }
+});
+
+// 4. Get daily teaching report (günlük ders raporu)
+app.get("/api/teaching-logs/daily/:teacher_id", async (req, res) => {
+  try {
+    const { teacher_id } = req.params;
+    const { lesson_date } = req.query;
+    
+    const result = await pool.query(
+      `SELECT 
+        lesson_date,
+        COUNT(*) as lesson_count,
+        SUM(duration_minutes) as total_minutes,
+        ROUND(SUM(duration_minutes)::numeric / 60, 2) as total_hours,
+        STRING_AGG(student_name || ' (' || COALESCE(subject, 'Genel') || ')', ', ') as lessons_summary
+       FROM teaching_logs 
+       WHERE teacher_id = $1 AND lesson_date = $2
+       GROUP BY lesson_date`,
+      [teacher_id, lesson_date || new Date().toISOString().split('T')[0]]
+    );
+    
+    res.json(result.rows[0] || { lesson_count: 0, total_minutes: 0, total_hours: 0, lessons_summary: '' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Günlük rapor alınamadı" });
+  }
+});
+
+// 5. Delete a teaching log entry (ders kaydı sil)
+app.delete("/api/teaching-logs/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    await pool.query("DELETE FROM teaching_logs WHERE id = $1", [id]);
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Ders kaydı silinemedi" });
   }
 });
 
@@ -1069,13 +1223,13 @@ const aiHandler = async (req, res) => {
   try {
     const action = req.query.action || req.body.action;
 
-    if (action === "chat" || req.url.includes("/chat")) {
+    if (action === "chat") {
       const { studentName, message, history = [], studentData = null } = req.body || {};
       const reply = await generateReply({ studentName, message, history, studentData });
       return res.json({ reply });
     }
 
-    if (action === "coach" || req.url.includes("/coach")) {
+    if (action === "coach") {
       const { studentName, subject, duration, questionsSolved, studentData = null } = req.body || {};
       const prompt = `Öğrenci ${studentName || "öğrenci"} az önce çalışmasını kaydetti. Ders: ${subject || "genel"}. Süre: ${duration || 0} dakika. Çözülen soru: ${questionsSolved || 0}. Enerjik, motive edici, kısa (2-3 cümle) ve emojili geri bildirim ver.`;
       const reply = await generateReply({ studentName, message: prompt, history: [], studentData });
@@ -1119,7 +1273,7 @@ En yoğun emek verdiğin ders **${strongest}** olmuş. Bu alandaki istikrarın v
 • **Son Söz:** Emek verdiğin her dakika seni hedefine bir adım daha yaklaştırıyor. Temponu hiç düşürme! 🚀`;
 }
 
-    if (action === "analyze" || req.url.includes("/analyze")) {
+    if (action === "analyze") {
       const {
         studentName = "Öğrenci",
         schoolLevel,
