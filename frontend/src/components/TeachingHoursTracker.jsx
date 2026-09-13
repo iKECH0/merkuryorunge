@@ -17,7 +17,6 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
   const [lessonDuration, setLessonDuration] = useState('60');
   const [lessonDate, setLessonDate] = useState(new Date().toISOString().split('T')[0]);
   const [lessonNotes, setLessonNotes] = useState('');
-  const [zoomLink, setZoomLink] = useState('');
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -116,8 +115,7 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
           subject: lessonSubject,
           duration_minutes: parseInt(lessonDuration),
           lesson_date: lessonDate,
-          notes: lessonNotes,
-          zoom_link: zoomLink
+          notes: lessonNotes
         })
       });
 
@@ -135,7 +133,6 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
       setLessonDate(new Date().toISOString().split('T')[0]);
       setLessonSubject('Matematik');
       setLessonNotes('');
-      setZoomLink('');
       
       // Refresh data
       setTimeout(() => {
@@ -414,26 +411,6 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
               />
             </div>
 
-            <div>
-              <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'var(--color-text-main)', fontWeight: 500 }}>
-                🔗 Zoom Linki (İsteğe Bağlı)
-              </label>
-              <input
-                type="url"
-                value={zoomLink}
-                onChange={(e) => setZoomLink(e.target.value)}
-                placeholder="https://zoom.us/j/..."
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--color-border)',
-                  background: 'var(--color-bg-deep)',
-                  color: 'white',
-                  fontSize: '14px'
-                }}
-              />
-            </div>
 
 
             <button
@@ -482,13 +459,6 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
                         <strong>{log.student_name}</strong> - {log.subject} ({log.duration_minutes} dk)
                         <br />
                         <span style={{ color: 'var(--color-text-muted)' }}>📅 {log.lesson_date}</span>
-                        {log.zoom_link && (
-                          <div style={{ marginTop: '4px' }}>
-                            <a href={log.zoom_link} target="_blank" rel="noreferrer" style={{ color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              🔗 Zoom Linki
-                            </a>
-                          </div>
-                        )}
                       </div>
                       <button
                         onClick={() => handleDeleteLog(log.id)}

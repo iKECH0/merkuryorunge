@@ -399,15 +399,13 @@ const TeacherDashboard = () => {
               >
                 <PlusCircle size={16} /> Öğrenci Ekle
             </button>
-            {teacherId !== 'ALL' && (
-              <button 
-                className="btn btn-secondary" 
-                style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }} 
-                onClick={() => setShowDeleteModal(true)}
-              >
-                <Trash2 size={16} /> Öğrenci Sil
-              </button>
-            )}
+            <button 
+              className="btn btn-secondary" 
+              style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }} 
+              onClick={() => setShowDeleteModal(true)}
+            >
+              <Trash2 size={16} /> Öğrenci Sil
+            </button>
           </>
           <button
             className="btn btn-primary"
@@ -604,6 +602,17 @@ const TeacherDashboard = () => {
                       }}
                     >
                       <Pencil size={14} />
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: '8px 12px', fontSize: '13px', background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                      onClick={() => {
+                        setStudentToDelete(student.id || '');
+                        setShowDeleteModal(true);
+                      }}
+                      title="Öğrenciyi Sil"
+                    >
+                      <Trash2 size={14} />
                     </button>
                     <button 
                       className="btn btn-secondary"
