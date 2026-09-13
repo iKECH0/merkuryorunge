@@ -34,7 +34,7 @@ const TeacherAuth = () => {
         setUsername('');
         setPassword('');
         setIsLogin(true); // Giriş sekmesine at
-        setSuccessMsg('Kayıt başarılı! Hesabınız 1 gün içerisinde Lider Öğretmen tarafından onaylanacaktır.');
+        setSuccessMsg('Kayıt başarılı! Hesabınız 1 gün içerisinde Profesyonel Öğretmen tarafından onaylanacaktır.');
       } else {
         if (!username || !password) {
           setError('Kullanıcı adı ve şifre gereklidir.');

@@ -60,8 +60,8 @@ const MerkurAIChat = ({ studentName, studentData }) => {
           percent: studentData.totalMinutes > 0 ? Math.round((data.minutes / studentData.totalMinutes) * 100) : 0
         })) : [];
 
-        const strongest = subjects.length > 0 ? subjects.sort((a, b) => b.minutes - a.minutes)[0] : null;
-        const weakest = subjects.length > 0 ? subjects.sort((a, b) => a.minutes - b.minutes)[0] : null;
+        const strongest = subjects.length > 0 ? [...subjects].sort((a, b) => b.minutes - a.minutes)[0] : null;
+        const weakest = subjects.length > 0 ? [...subjects].sort((a, b) => a.minutes - b.minutes)[0] : null;
 
         requestBody = {
           studentName,
@@ -71,8 +71,8 @@ const MerkurAIChat = ({ studentName, studentData }) => {
           totalMinutes: studentData?.totalMinutes || 0,
           totalHours: studentData ? (studentData.totalMinutes / 60).toFixed(2) : "0",
           totalQuestions: studentData?.totalQuestions || 0,
-          totalSessions: studentData ? Object.values(studentData.subjects || {}).length : 0,
-          activeDaysCount: 7, // Assuming 7-day window
+          totalSessions: studentData?.totalSessions || 0,
+          activeDaysCount: studentData?.activeDaysCount || 0,
           subjects,
           strongest: strongest?.subject || 'Belirsiz',
           weakest: weakest?.subject || 'Belirsiz'
@@ -88,7 +88,7 @@ const MerkurAIChat = ({ studentName, studentData }) => {
       const data = await res.json();
       
       if (data.error && !data.reply && !data.message) {
-        setMessages(prev => [...prev, { role: 'assistant', content: `Hata: ${data.error}` }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: `Merkür AI şu an bağlantı kuramadı: ${data.error}` }]);
       } else {
         const aiResponse = data.reply || data.message || 'Bir sorun oluştu.';
         setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);

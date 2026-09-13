@@ -114,7 +114,7 @@ const SuperAdminDashboard = () => {
   };
 
   if (loading || !data) {
-    return <div className="flex-center text-primary animate-pulse-glow" style={{ minHeight: '80vh', fontSize: '20px' }}>Lider Öğretmen Paneli Yükleniyor...</div>;
+    return <div className="flex-center text-primary animate-pulse-glow" style={{ minHeight: '80vh', fontSize: '20px' }}>Profesyonel Öğretmen Paneli Yükleniyor...</div>;
   }
 
   const { teachers, platformTotals } = data;
@@ -128,7 +128,7 @@ const SuperAdminDashboard = () => {
             <ShieldAlert size={32} color="#ef4444" />
           </div>
           <div>
-            <h1 className="title" style={{ margin: 0, fontSize: '32px', color: '#ef4444' }}>Lider Öğretmen Paneli</h1>
+            <h1 className="title" style={{ margin: 0, fontSize: '32px', color: '#ef4444' }}>Profesyonel Öğretmen Paneli</h1>
             <p style={{ margin: '4px 0 0 0', color: 'var(--color-text-muted)', fontSize: '15px' }}>Merkür Yörünge Platform Özeti</p>
           </div>
         </div>
@@ -153,7 +153,7 @@ const SuperAdminDashboard = () => {
             onClick={() => {
               localStorage.setItem('teacherAuth', 'true');
               localStorage.setItem('teacherId', 'ALL');
-              localStorage.setItem('teacherName', 'Lider Öğretmen');
+              localStorage.setItem('teacherName', 'Profesyonel Öğretmen');
               navigate('/teacher');
             }}
           >
@@ -310,7 +310,7 @@ const SuperAdminDashboard = () => {
             <h2 className="title" style={{ fontSize: '24px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <PlusCircle size={24} color="var(--color-primary)" /> Yeni Öğretmen
             </h2>
-            <p style={{ color: 'var(--color-text-muted)', marginBottom: '24px', fontSize: '14px' }}>Lider Öğretmen tarafından eklenen öğretmenler direkt onaylanır.</p>
+            <p style={{ color: 'var(--color-text-muted)', marginBottom: '24px', fontSize: '14px' }}>Profesyonel Öğretmen tarafından eklenen öğretmenler direkt onaylanır.</p>
             
             <form onSubmit={handleAddTeacher} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="input-group">

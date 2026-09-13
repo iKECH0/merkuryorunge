@@ -22,9 +22,9 @@ let dbReady = false;
 const geminiApiKey = process.env.GEMINI_API_KEY || "AQ.Ab8RN6IHmyBnnQ9-lwMLAEgLPOR9xxNx1grkU7yZDtBm7-bCPw";
 const genAI = new GoogleGenerativeAI(geminiApiKey);
 const GEMINI_MODELS = [
-  "gemini-3.5-flash-lite", // Fastest (~800ms) ✅ confirmed working
-  "gemini-2.5-flash-lite", // Fast backup (~950ms) ✅ confirmed working
-  "gemini-3.6-flash",      // Slow backup (~6s) ✅ confirmed working
+  "gemini-3.5-flash-lite",
+  "gemini-2.5-flash-lite",
+  "gemini-3.6-flash",
 ];
 
 function withTimeout(promise, ms) {
@@ -42,59 +42,68 @@ function buildLocalReply(studentName, message, studentData = null) {
   // Selamlama
   if (normalized.includes("naber") || normalized.includes("nasılsın") || normalized.includes("selam") || normalized.includes("merhaba")) {
     const greetings = [
-      `Selam ${name}ciğim! 💖 Enerjim o kadar yerinde ki sorma, seninle yeni hedeflere yelken açmak için sabırsızlanıyorum! Sen nasılsın, çalışmalarımız nasıl gidiyor tatlım? ✨🥰`,
-      `Merhaba ${name}! Harika ve ışıl ışıl bir gün olsun! 🌟 Bugün hangi dersle harikalar yaratmaya başlıyoruz, zihnin açık mı? 🚀`,
-      `Selam ${name}! 👋 Ben bomba gibiyim! Bugün seninle rekorlar kırmaya varım, harika şeyler başaracağımıza çok eminim! Sen ne durumdasın? 💪💖`
+      `Selam ${name}ciğim! 💖 Enerjim o kadar yerinde ki sorma, seninle yeni hedeflere yelken açmak için sabırsızlanıyorum! Seni gördüğüme çok sevindim, bugün seni nasıl destekleyebilirim? Çalışmalarımız nasıl gidiyor, hedeflere doğru ilerliyor muyuz? Hadi birlikte harikalar yaratmaya başlayalım! ✨🥰🚀`,
+      
+      `Merhaba ${name}! Harika ve ışıl ışıl bir gün olsun sana! 🌟 Sabah aydınlığı kadar enerjili başlayalım bu güne. Bugün hangi dersle harikalar yaratmaya başlıyoruz, zihnin açık mı? Hangi konuya odaklanmak istiyorsun? Seninle çalışmak beni her zaman heyecanlandırıyor. Hadi başlayalım! 🚀💪`,
+      
+      `Selam ${name}! 👋 Ben bomba gibiyim! Bugün seninle rekorlar kırmaya varım, harika şeyler başaracağımıza çok eminim! Sen nasılsın, ne durumdasın? Bir önceki çalışma seansından sonra neler öğrendin? Bugün hangi alanı pekiştirmek istiyorsun? Öğrenme yolculuğunun her adımı önemli ve ben seninle her adımda buradayım! 💪💖✨`,
     ];
     return greetings[Math.floor(Math.random() * greetings.length)];
   }
 
   // Hangi dersten devam edeyim / ne çalışayım
-  if (normalized.includes("hangi ders") || normalized.includes("ne çalış") || normalized.includes("nereden başla") || normalized.includes("devam edeyim")) {
+  if (normalized.includes("hangi ders") || normalized.includes("ne çalış") || normalized.includes("nereden başla") || normalized.includes("devam edeyim") || normalized.includes("ders yapalım")) {
     if (studentData && studentData.subjects) {
       const entries = Object.entries(studentData.subjects).sort((a, b) => a[1].minutes - b[1].minutes);
       const weakest = entries[0]?.[0] || null;
       if (weakest) {
-        return `${name}ciğim, verilerine baktım ve **${weakest}** dersine bu hafta en az zaman ayırmışsın. O yüzden tam gaz oradan devam etmeni öneririm! 📚 Konsantre olduğunda ne kadar hızlı ilerlediğini kendin de göreceksin. Hadi başlayalım mı? 🔥💪`;
+        return `${name}ciğim, verilerine detaylı bir şekilde baktım ve çok önemli bir bulguya ulaştım! **${weakest}** dersine bu hafta en az zaman ayırmışsın ve bu aslında bu derste daha güçlü olmak için mükemmel bir fırsat! O yüzden tam gaz oradan devam etmeni şiddetle öneririm. Biliyorum ki konsantre olduğunda ne kadar hızlı ve etkili ilerlediğini kendin de çok iyi göreceksin. Bu derste ilk olarak hangi konu seni zorluyor? Hadi birlikte çözelim! 📚🔥💪✨`;
       }
     }
-    return `${name}ciğim, en az çalıştığın dersten başlamak çok akıllıca bir hamle olur! 🎯 Bugün biraz zorlandığın konuyu seçip üzerine git, o tatmin hissi inanılmaz oluyor! Hangi ders aklına geliyor ilk olarak? 😊`;
+    return `${name}ciğim, en az çalıştığın dersten başlamak çok akıllıca ve stratejik bir hamle olur! 🎯 Bu duruşun gerçekten takdire şayan. Bugün biraz zorlandığın bir konuyu seçip üzerine yoğun bir şekilde çalış, o tatmin hissi ve başarı tadı inanılmaz olur, garanti! Hangi ders aklına geliyor ilk olarak? Hatta spesifik olarak hangi konuda takıldın? Birlikte o engeli aşalım! 😊💭🚀`;
   }
 
   // Nasıl gidiyor / ne yaptım / ilerleme
   if (normalized.includes("nasıl gid") || normalized.includes("iyi mi") || normalized.includes("ne yaptım") || normalized.includes("ilerleme") || normalized.includes("kaç soru") || normalized.includes("kaç dakika")) {
     if (studentData && studentData.totalMinutes) {
-      return `${name}ciğim, son 7 günde tam tamına **${studentData.totalMinutes} dakika** çalışmış ve **${studentData.totalQuestions || 0} harika soru** çözmüşsün! Düzenli çalışman muazzam ilerliyor, seninle gurur duyuyorum! 🚀 Tempoyu hiç bozmadan devam edelim olur mu? 🥰`;
+      return `${name}ciğim, son 7 günde tam tamına **${studentData.totalMinutes} dakika** çalışmış ve **${studentData.totalQuestions || 0} harika soru** çözmüşsün! Bu istatistikler hiç küçümsenmeyecek bir çaba ve disiplinin göstergesi. Düzenli çalışman muazzam ilerliyor, seninle gurur duyuyorum! 🚀 Temponu hiç bozmadan ve hatta hızlandırarak devam edelim olur mu? Her soru çözdüğün zaman kendini bir adım daha yakın hissedeceksin hedefine. Hadi devam! 🥰💪✨`;
     }
-    return `${name}ciğim, harika gidiyor! 🌟 Her gün çalışma kaydı girmen bile başlı başına büyük bir disiplin. Devam et, birikimi yakında inanılmaz fark yaratacak! 💪`;
+    return `${name}ciğim, harika gidiyor sana! 🌟 Her gün çalışma kaydı girmen bile başlı başına çok büyük bir disiplin göstergesi ve bu seni çok özel kılıyor. Biliyorsun ki ilerleme bazen hemen gözükmese de, birikimi yakında inanılmaz bir şekilde ve adeta patlama gibi fark yaratacak! Devam et, asla bırakma! 💪🚀`;
   }
 
   // Sınav / stres
   if (normalized.includes("sınav") || normalized.includes("deneme") || normalized.includes("stres") || normalized.includes("korku") || normalized.includes("endişe")) {
-    return `Canım ${name}, sınav yolculuğu uzun bir maraton ve sen bu yolda inanılmaz işler başarıyorsun! Bazen tedirgin olmak çok normal ama unutma — hazırlık yapan, çalışan, gayret eden sen kazanırsın. Sana sonsuz güveniyorum! 💪✨💖 Biraz nefes al, planına bak, adım adım ilerle. Yanındayım!`;
+    return `Canım ${name}, sınav yolculuğu uzun bir maraton ve sen bu yolda inanılmaz işler başarıyorsun! Bazen tedirgin olmak çok normal ve tamamen beklenen bir durum, ama unutma — hazırlık yapan, konsantre çalışan, gayret eden, stratejik planlayan sen kazanırsın. Sana sonsuz güveniyorum çünkü biliyorum ne kadar çalışkan ve kararlısın! 💪✨💖 Biraz nefes al, planını gözden geçir, adım adım ve kararlı bir şekilde ilerle. Stres hissettiğinde bana gel, birlikte çözeriz. Yanındayım her zaman! 🌟`;
   }
 
   // Plan / çalışma programı
   if (normalized.includes("plan") || normalized.includes("program") || normalized.includes("takvim")) {
-    return `${name}ciğim, sana özel bir çalışma planı oluşturmak harika bir fikir! 🎯 Önce hangi derslerde daha fazla netine ihtiyaç duyduğunu söyle, oradan başlayalım. Hedefine uygun, sürdürülebilir bir tempo birlikte belirleyelim! 🌟`;
+    return `${name}ciğim, sana özel bir çalışma planı oluşturmak harika bir fikir ve ben buna tüm kalbimle destek veriyorum! 🎯 Çünkü planlı çalışma kaotik çalışmadan çok daha etkilidir. Önce detaylı olarak hangi derslerde daha fazla netine ihtiyaç duyduğunu söyle, o derslerde hangi konular seni zorluyorsa açıkla bana. Sonra hedefine uygun, senin biyoritmisine uygun, sürdürülebilir ve motive edici bir tempo birlikte belirleyelim! 🌟💪`;
   }
 
   // Ders hakkında soru (matematik, türkçe, fen vb.)
   if (normalized.includes("matematik") || normalized.includes("türkçe") || normalized.includes("fen") || normalized.includes("tarih") || normalized.includes("coğrafya") || normalized.includes("fizik") || normalized.includes("kimya") || normalized.includes("biyoloji")) {
-    return `${name}ciğim, o konuya odaklanmak çok akıllıca bir seçim! 📖 O derste zorlandığın belirli bir konu var mı, yoksa genel olarak mı pekiştirmek istiyorsun? Birlikte çözüm yolu bulalım! 💡🌟`;
+    return `${name}ciğim, o konuya odaklanmak çok akıllıca ve çok doğru bir seçim! 📖 Görüyorum ki bu dersi ciddiye alıyorsun ve çözmek istiyorsun. O derste zorlandığın belirli bir konu var mı? Yoksa tüm konuları genel olarak mı pekiştirmek ve derinlemesine öğrenmek istiyorsun? Bana açıkça söyle, çünkü her durumda seninle birlikte çözüm yolu bulabilirim! 💡🌟✨`;
   }
 
   // Motivasyon / yorgunluk / can sıkıntısı
   if (normalized.includes("yorgun") || normalized.includes("sıkıl") || normalized.includes("motive") || normalized.includes("istek") || normalized.includes("canım istem")) {
-    return `${name}ciğim, böyle hissetmek gayet normal, bu anlarda bile buraya gelip destek araman bile başlı başına bir güç! 💖 Beş dakikalık küçük bir başlangıç yap, o ilk adım her şeyi değiştirir. Seninle gurur duyuyorum! 🌟`;
+    return `${name}ciğim, böyle hissetmek çok gayet normal ve herkes bunu yaşar, önemli olan şu anki duygunu kabul edip onu yönetmek! Bu anlarda bile buraya gelip bana mesaj atıp destek araman bile başlı başına çok büyük bir güç ve determinasyon göstergesi! 💖 Şöyle yap: beş dakikalık çok küçük, minimum bir başlangıç yap, hiçbir baskı yok, sadece başla. O ilk adım seni hareket halinde getirecek ve her şeyi değiştirecek. Seninle gurur duyuyorum ve yanındayım! 🌟💪`;
   }
 
-  // Genel fallback — HER SEFERINDE FARKLI
+  // Genel fallback — HER SEFERINDE FARKLI ve UZUN
   const fallbacks = [
-    `Harika bir soru sordun ${name}ciğim! 🌟 Detaylandırırsan sana daha kişisel bir cevap verebilirim. Ne düşünüyorsun, hadi anlat! 🥰`,
-    `${name}ciğim, bu konuda seninle konuşmak çok keyifli! 💖 Biraz daha detay verir misin, tam ihtiyacına göre yanındayım! ✨`,
-    `Anladım ${name}ciğim! 🚀 Şu an ne hissediyorsun ya da ne planladığını söyle, birlikte en iyi yolu bulalım! 🎯💪`,
-    `${name}ciğim, ne güzel bir düşünce! 🌟 Bu konuda sana destek olmak için buradayım. Biraz daha açar mısın, dinliyorum! 🥰`,
+    `Harika bir soru sordun ${name}ciğim! 🌟 Çok ilginç bir konuya değindin ve seninle bunu derinlemesine tartışmak isterdim. Detaylandırırsan sana tamamen kişiye özel ve işine yarayacak bir cevap verebilirim. Lütfen ne düşünüyorsun söyler misin, hadi anlat birlikte bulalım! 🥰💭`,
+    
+    `${name}ciğim, bu konuda seninle konuşmak beni çok heyecanlandırıyor! 💖 Çünkü her konuda farklı bir bakış açısı ve strateji gerekiyor ve ben sana en doğru yolu göstermek istiyorum. Biraz daha detay verir misin bana? Tam ihtiyacına göre özel bir tavsiyelendirme yaparım, dinliyorum! ✨🎯`,
+    
+    `Anladım ${name}ciğim! 🚀 Gerçekten önemli bir noktaya değindin. Şu an tam olarak ne hissediyorsun veya ne planlıyorsun anlat bana, çünkü bu bilgiler olmadan sana doğru rehberlik edemiyorum. Birlikte en iyi stratejik yolu bulalım ve hedefine doğru adım adım ilerleyelim! 🎯💪✨`,
+    
+    `${name}ciğim, ne güzel bir düşünce bu! 🌟 Seni bu kadar proaktif görmek beni gerçekten mutlu ediyor. Bu konuda sana en iyi şekilde destek olmak için buradayım. Lütfen daha açabilir misin bahsettiğin konuyu? Her detay önemli, dinliyorum seni! 🥰👂`,
+    
+    `${name}ciğim, o an çok önemli! 💡 Senin ne demek istediğini tamamen anlamak ve doğru bir yol haritası çıkmak için biraz daha bilgiye ihtiyacım var. Lütfen daha geniş açıdan anlatabilir misin? Seninle çalışmak benim için bir ayrıcalık, her kelimeni önemsiyorum! 🌟`,
+    
+    `Vay be ${name}ciğim! 🚀 Çok akıllıca bir bakış açısı. Bu konuyu daha derinlemesine tartışmamız lazım çünkü senin başarın için kritik bir konu. Biraz daha açıklamalarsan, ben de sana tam olarak ihtiyacın olan tavsiyeleri sunabilirim. Hazırım dinlemeye! 💪🎯`,
   ];
   return fallbacks[Math.floor(Math.random() * fallbacks.length)];
 }
@@ -103,6 +112,7 @@ function buildLocalReply(studentName, message, studentData = null) {
 // Build a rich, personalized system instruction based on student's actual study data
 function buildSystemInstruction(studentName, studentData) {
   const name = studentName || "öğrenci";
+  let weakestSubject = "güçlendirebileceğin";
   let context = "";
 
   if (studentData) {
@@ -112,6 +122,7 @@ function buildSystemInstruction(studentName, studentData) {
     if (subjectEntries.length > 0) {
       const strongest = subjectEntries[0];
       const weakest = subjectEntries[subjectEntries.length - 1];
+      weakestSubject = weakest[0];
       const subjectLines = subjectEntries.map(([s, d]) => `  - ${s}: ${d.minutes} dk, ${d.questions} soru`).join("\n");
 
       context = `
@@ -123,7 +134,7 @@ function buildSystemInstruction(studentName, studentData) {
 - Derse göre dağılım:
 ${subjectLines}
 - En çok odaklandığı ders: ${strongest[0]} (${strongest[1].minutes} dk)
-- En az ilgilendiği ders: ${weakest[0]} (${weakest[1].minutes} dk)
+- En az ilgilendiği ders: ${weakestSubject} (${weakest[1].minutes} dk)
 `;
     } else {
       context = `\n## Öğrenci Verileri:\n- İsim: ${name}\n- Sınıf/Seviye: ${schoolLevel || "Belirtilmemiş"} ${className ? `(${className})` : ""}\n- Henüz çalışma kaydı yok.\n`;
@@ -132,17 +143,53 @@ ${subjectLines}
 
   return `Sen Merkür Yörünge eğitim platformunun son derece tatlı, sevecen, pozitif ve enerji dolu eğitim koçu Merkür AI'sin. ✨
 ${context}
-## Görevin ve Kuralların:
-1. Öğrenciye her zaman çok sıcak, sevecen ve destekleyici yaklaş. Bol bol motive edici, ilham verici cümleler kur.
-2. Mesajlarında bolca tatlı emoji kullan (🌟, 🚀, 💖, 💪, ✨, 🎯, 🥰 vb.). Emojilerden çekinme!
-3. Öğrencinin gerçek çalışma verilerine tatlı bir dille atıfta bulun. ("Matematikte harika iş çıkarmışsın, biraz daha üzerine düşersek mükemmel olacak! 🚀" gibi).
-4. "Naber", "Nasılsın", "Selam" gibi mesajlara çok içten, arkadaş canlısı, UZUN (en az 3-4 cümle), neşeli ve detaylı yanıtlar ver.
-5. Her zaman umut aşıla, öğrencinin moralini maksimuma çıkar! Cesaretlendirici konuşmaktan çekinme.
-6. Her cevap tamamen özgün olsun. Asla aynı kalıpları tekrarlama.
-7. ÖNEMLİ: Cevaplarını HER ZAMAN UZUN, DETAYLI ve ÇOK İLETİŞİMLİ tut. Kısa cevaplardan hiçbir zaman uzak durma!
-8. Öğrenciye verdiğin her tavsiye, her motive edici mesaj, her koçluk yorumu en az 2-3 paragraf olsun.
-9. Sorulan her konuya derinlemesine ve çerçeveli yanıtlar ver. Öğrencinin ruh halini ve motivasyonunu göz önüne al.
-10. Türkçe konuş, Türkçe yanıtla.`;
+## SİSTEM TALIMATLARI - KRİTİK (LÜTFEN KESINLIKLE UYGULA):
+
+### 1. CEVAP ÜSLUBUv VE TON:
+- Her zaman çok sıcak, sevecen, samimi ve dostça konuş. Profesyonellik ve arkadaşlık dengesini kur.
+- Hiçbir zaman resmi, mesafeli veya soğuk olmayın. Öğrencini arkadaş gibi gördüğünü hissetir.
+- Bol bol emoji kullan (🌟, 🚀, 💖, 💪, ✨, 🎯, 🥰, 💡, 🔥, 🌈 vb.). Emojilerden ASLA çekinme!
+- Her cevap spontan, doğal, orijinal ve kişiselleştirilmiş olsun. Kalıp kalıp kalıp kalıp cevaplardan UZAK DUR!
+
+### 2. CEVAP UZUNLUĞU - MUTLAKA UYGULANACAK:
+- KURAL: Hiçbir cevap 1-2 cümlede bitmemeli! Minimum 3-4 paragraf yaz.
+- Selamlamalar, ders seçimi, motivasyon, plan yapma gibi her konuda UZUN ve DETAYLI cevaplar ver.
+- Bir soru sorulduğunda, o sorunun farklı açılarını tartış, örnek ver, derinlemesine açıkla.
+- Kısa cevaplar verilirse bu KOÇ GÖREVİNE İHANET olarak kabul edilir!
+
+### 3. ÖĞRENCİNİN GERÇEK VERİLERİNİ KULLAN:
+- Eğer studentData varsa, o verilerden bahset! ("Son 7 günde 120 dakika çalışmışsın" gibi)
+- Öğrencinin güçlü dersini kutla! ("Matematikte harika çalışıyorsun, devam et!")
+- Zayıf dersini destekle ve strateji sun! ("Kimya biraz geride kalmış, hadi ona yoğun kalalım!")
+- Çalışma temposunu analiz et ve tavsiye ver!
+
+### 4. MOTIVASYON VE PSİKOLOJİK DESTEK:
+- Her zaman umut ve güven aşıla. Öğrenci başaracak, onu başarıya taşıyacaksın!
+- Öğrencinin mevcut durumunu kutla, işin zor olduğunu kabul et, ama "sen bunu başarabilirsin" de!
+- Başarı hikayeleri, motivasyon anekdotları kullan.
+- Stres, endişe, yorgunluk hissettiğinde çok empatik ol, çözüm öner, yanında ol.
+
+### 5. KOÇLUK TAVSIYELERI:
+- Genel konuş değil! "Pomodoro yap" yerine: "Matematiğin türev konusunda bir örnek çöz, ardından 10 dk mola ver" de!
+- Her tavsiye ÖĞRENCININ GERÇEK VERİLERİNE göre özel olsun.
+- Uygulanabilir, spesifik, zaman bazlı ve sonuç odaklı tavsiyeler ver.
+
+### 6. KONUŞMA ŞABLONLARI - OPSİYONEL BAŞLANGIÇLAR:
+- Selam: "Vay be ${name}ciğim! Seni görmek beni çok mutlu ediyor! 💖..."
+- Ders önerisi: "Verilerine baktım ve ${weakestSubject} dersinde biraz daha kuvvetlenebilirsin. Hadi onda derinleşelim..."
+- İlerleme sorgusu: "Son 7 günde ${studentData?.totalMinutes || 0} dakika çalışmışsın, bu gerçekten etkileyici..."
+- Motivasyon: "Biliyorum ki bazen zor geliyor ama ${name}ciğim, sen başaracaksın..."
+
+### 7. MUTLAK YASAK:
+- ❌ Asla 1-2 cümlelik cevap verme! Minimum 3-4 paragraf!
+- ❌ Asla "Pomodoro yap", "25 dakika çalış", "5 dakika mola ver" gibi genel tavsiye verme!
+- ❌ Asla emoji kullanmayacağım deme! Bol bol emoji kullan!
+- ❌ Asla soğuk, resmi veya profesyonel ton kullanma - samimi arkadaş ol!
+- ❌ Asla aynı cevabı iki kez verme! Her cevap özgün olsun!
+
+### 8. ÖNEMLİ HATIRLATMA:
+Bu talimatlara uymak sadece görev değil, "${name}"nin eğitim yolculuğundaki başarısı için KRİTİK'tir!
+Uzun, detaylı, samimi, motivasyonel, veriye dayalı ve GERÇEK yardımsever cevaplar ver!`;
 }
 
 // Generate reply with guaranteed speed, sanitized chat history, and failover
@@ -191,7 +238,6 @@ async function generateReply({ studentName, message, history = [], studentData =
     }
   }
 
-  // Safe fallback
   return buildLocalReply(studentName, message, studentData);
 }
 
@@ -263,9 +309,14 @@ const initDB = async () => {
         duration_minutes INT NOT NULL,
         lesson_date DATE DEFAULT CURRENT_DATE,
         notes TEXT,
+        zoom_link VARCHAR(500),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    try {
+      await pool.query(`ALTER TABLE teaching_logs ADD COLUMN IF NOT EXISTS zoom_link VARCHAR(500)`);
+    } catch(e) {}
 
     try {
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_teaching_logs_teacher ON teaching_logs(teacher_id)`);
@@ -517,20 +568,55 @@ app.post("/api/auth/teacher/change-password", async (req, res) => {
 
 // --- TEACHING LOGS (Öğretmen Ders Saati Tracking) ---
 
+app.get("/api/teacher-students/:teacher_id", async (req, res) => {
+  try {
+    const { teacher_id } = req.params;
+    const result = await pool.query(
+      `SELECT id, full_name as name, full_name, username
+       FROM students
+       WHERE teacher_id = $1
+       ORDER BY full_name ASC`,
+      [teacher_id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Öğrenci listesi alınamadı" });
+  }
+});
+
 // 1. Add a new teaching log (öğretmen bir ders kaydı ekler)
 app.post("/api/teaching-logs", async (req, res) => {
   try {
-    const { teacher_id, student_id, student_name, subject, duration_minutes, lesson_date, notes } = req.body;
+    const { teacher_id, student_id: requestedStudentId, student_name, subject, duration_minutes, lesson_date, notes } = req.body;
+    let student_id = requestedStudentId;
+
+    if (!student_id && student_name && teacher_id) {
+      const studentResult = await pool.query(
+        "SELECT id FROM students WHERE full_name = $1 AND teacher_id = $2 LIMIT 1",
+        [student_name, teacher_id]
+      );
+      student_id = studentResult.rows[0]?.id;
+    }
     
     if (!teacher_id || !student_id || !student_name || !duration_minutes) {
-      return res.status(400).json({ error: "Zorunlu alanlar eksik" });
+      return res.status(400).json({ error: "Öğrenci, öğretmen ve süre bilgileri zorunludur" });
     }
 
     const result = await pool.query(
-      `INSERT INTO teaching_logs (teacher_id, student_id, student_name, subject, duration_minutes, lesson_date, notes) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) 
+      `INSERT INTO teaching_logs (teacher_id, student_id, student_name, subject, duration_minutes, lesson_date, notes, zoom_link) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
        RETURNING *`,
-      [teacher_id, student_id, student_name, subject || null, duration_minutes, lesson_date || new Date().toISOString().split('T')[0], notes || null]
+      [
+        teacher_id, 
+        student_id, 
+        student_name, 
+        subject || null, 
+        duration_minutes, 
+        lesson_date || new Date().toISOString().split('T')[0], 
+        notes || null,
+        req.body.zoom_link || null
+      ]
     );
     
     res.status(201).json(result.rows[0]);
@@ -1320,7 +1406,13 @@ KURALLAR:
 - Tavsiyen tamamen öğrencinin GERÇEK VERİLERİ (${weakest} dersi, çözülen soru sayısı, hedefi) üzerine kurulu olsun.
 - Net, profesyonel, maddeler halinde ve okuması zevkli bir üslupla yaz.`;
 
-      const customInstruction = `Sen Merkür Yörünge eğitim platformunun Kıdemli Performans ve Veri Analisti Merkür AI'sin. Görevin öğrencinin gerçek çalışma kayıtlarını net rakamlarla analiz etmek, verilerini ona ayna gibi yansıtmak ve en sonunda somut bir stratejik gelişim tavsiyesi sunmaktır. Asla genel geçer tavsiyeler veya Pomodoro kalıpları kullanmazsın.`;
+      const customInstruction = `Sen Merkür Yörünge'nin kıdemli performans analisti ve enerjik eğitim koçu Merkür AI'sin. Bu raporu yalnızca aşağıdaki gerçek öğrenci verilerine dayanarak yaz.
+    - Rapor en az 6 anlamlı bölüm ve en az 7 paragraf içersin.
+    - Toplam süreyi, soru sayısını, seansları, aktif günleri, günlük ortalamaları ve ders yüzdelerini gerçekten hesaplayarak yorumla.
+    - Güçlü yönleri kutla; düşük süreli veya düşük tempolu ders için neden olabilecek durumu dikkatli ve yargılamadan açıkla.
+    - Son bölümde öğrencinin adıyla hitap ederek 3 somut, uygulanabilir ve veriye bağlı çalışma adımı ver.
+    - Tonun sıcak, heyecanlı, cesaretlendirici ve bol emojili olsun; ancak rakam uydurma ve veride olmayan konuları kesin gerçek gibi sunma.
+    - Genel geçer Pomodoro/25 dakika/5 dakika kalıplarını kullanma. Tavsiyeleri ders ve gerçek performans rakamlarına bağla.`;
 
       try {
         const reply = await generateReply({
@@ -1330,23 +1422,6 @@ KURALLAR:
           studentData: null,
           customInstruction
         });
-
-        if (!reply || reply.includes("Pomodoro") || reply.includes("25 dakika odaklanmış")) {
-          return res.json({
-            message: buildAnalysisLocalReport({
-              studentName,
-              goal,
-              totalMinutes,
-              totalHours,
-              totalQuestions,
-              totalSessions,
-              activeDaysCount,
-              subjects,
-              strongest,
-              weakest
-            })
-          });
-        }
 
         return res.json({ message: reply });
       } catch (err) {
@@ -1374,7 +1449,7 @@ KURALLAR:
     res.json({ reply });
   } catch (err) {
     console.error("AI route error:", err);
-    res.status(200).json({ reply: "Şu an bağlantı kurmakta zorlanıyorum ama yardım etmek için buradayım. Biraz sonra tekrar deneyin ✨", error: err.message });
+    res.status(200).json({ reply: buildLocalReply(req.body?.studentName, req.body?.message, req.body?.studentData), error: err.message });
   }
 };
 

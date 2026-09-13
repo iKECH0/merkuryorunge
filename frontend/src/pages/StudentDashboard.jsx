@@ -73,6 +73,8 @@ const StudentDashboard = ({ studentName }) => {
           subjects,
           totalMinutes,
           totalQuestions,
+          totalSessions: recentLogs.length,
+          activeDaysCount: new Set(recentLogs.map(log => new Date(log.created_at).toISOString().split('T')[0])).size,
           schoolLevel: infoData?.school_level || null,
           className: infoData?.class_name || null,
           goal: goalData?.target_questions || null

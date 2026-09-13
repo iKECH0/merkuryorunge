@@ -224,8 +224,22 @@ const StudentProfile = ({ studentName }) => {
                 </span>
               )}
             </h2>
-            <div style={{ display: 'flex', gap: '16px', color: 'var(--color-text-muted)', fontSize: '14px' }}>
+            <div style={{ display: 'flex', gap: '16px', color: 'var(--color-text-muted)', fontSize: '14px', flexWrap: 'wrap' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Target size={16} /> Hedef: {goal} Soru</span>
+              <a 
+                href="https://docs.google.com/spreadsheets/d/1IvC7Kme6lZugdHtaQJTsNZ-sYhhYBPEBW5HkEkVmqT0/edit?gid=2037362416#gid=2037362416" 
+                target="_blank" 
+                rel="noreferrer"
+                style={{ 
+                  display: 'flex', alignItems: 'center', gap: '6px', 
+                  color: '#10b981', textDecoration: 'none', 
+                  background: 'rgba(16, 185, 129, 0.1)', 
+                  padding: '4px 12px', borderRadius: '100px', 
+                  border: '1px solid rgba(16, 185, 129, 0.3)'
+                }}
+              >
+                📊 Detaylı Eğitim Danışmanlığı Tablosu
+              </a>
             </div>
           </div>
         </div>

@@ -33,7 +33,7 @@ const TeacherLogin = () => {
           <ShieldCheck size={40} color="#ef4444" />
         </div>
         
-        <h2 className="title text-gradient" style={{ fontSize: '28px', marginBottom: '8px' }}>Lider Öğretmen Girişi</h2>
+        <h2 className="title text-gradient" style={{ fontSize: '28px', marginBottom: '8px' }}>Profesyonel Öğretmen Girişi</h2>
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '32px' }}>Öğretmen paneline erişmek için bilgilerinizi girin.</p>
 
         <form onSubmit={handleLogin}>

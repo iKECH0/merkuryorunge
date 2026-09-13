@@ -5,6 +5,7 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
   const apiBaseUrl = import.meta.env.PROD ? 'https://backend-three-khaki-37.vercel.app' : (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000');
   
   const [teachingLogs, setTeachingLogs] = useState([]);
+  const [availableStudents, setAvailableStudents] = useState([]);
   const [summary, setSummary] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('log'); // 'log' or 'report'
@@ -16,6 +17,7 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
   const [lessonDuration, setLessonDuration] = useState('60');
   const [lessonDate, setLessonDate] = useState(new Date().toISOString().split('T')[0]);
   const [lessonNotes, setLessonNotes] = useState('');
+  const [zoomLink, setZoomLink] = useState('');
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -24,14 +26,46 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
   const [expandedStudent, setExpandedStudent] = useState(null);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
-  const SUBJECTS = ['Matematik', 'Türkçe', 'Fizik', 'Kimya', 'Biyoloji', 'Tarih', 'Coğrafya', 'İngilizce', 'Diğer'];
+  const SUBJECT_GROUPS = [
+    {
+      label: 'Dersler',
+      options: ['Matematik', 'Türkçe', 'Fizik', 'Kimya', 'Biyoloji', 'Tarih', 'Coğrafya', 'İngilizce']
+    },
+    {
+      label: 'Çalışma Türleri',
+      options: ['Kitap Okuma', 'Paragraf Çalışması', 'Deneme Sınavı', 'Soru Çözümü', 'Ödev / Etüt', 'Konu Tekrarı', 'Diğer']
+    }
+  ];
 
   useEffect(() => {
     if (teacherId) {
       fetchTeachingLogs();
       fetchSummary();
+      fetchStudents();
     }
   }, [teacherId]);
+
+  const fetchStudents = async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/teacher-students/${teacherId}`);
+      const data = await response.json();
+      if (response.ok && Array.isArray(data)) setAvailableStudents(data);
+    } catch (err) {
+      console.error('Öğrenci listesi alınamadı:', err);
+    }
+  };
+
+  const formStudents = availableStudents.length > 0 ? availableStudents : students;
+
+  useEffect(() => {
+    if (!selectedStudentId && formStudents.length > 0) {
+      const firstStudent = formStudents.find(student => student.id || student.student_id);
+      if (firstStudent) {
+        setSelectedStudentId(String(firstStudent.id || firstStudent.student_id));
+        setSelectedStudentName(firstStudent.full_name || firstStudent.name || firstStudent.student_name || '');
+      }
+    }
+  }, [formStudents, selectedStudentId]);
 
   const fetchTeachingLogs = async () => {
     try {
@@ -65,8 +99,8 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
     setFormError('');
     setFormSuccess('');
 
-    if (!selectedStudentId || !lessonDuration) {
-      setFormError('Lütfen öğrenci ve ders saatini seçiniz');
+    if (!selectedStudentId || !selectedStudentName || !lessonDuration || Number(lessonDuration) < 1) {
+      setFormError('Lütfen öğrenci ve geçerli bir süre seçiniz');
       return;
     }
 
@@ -82,11 +116,15 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
           subject: lessonSubject,
           duration_minutes: parseInt(lessonDuration),
           lesson_date: lessonDate,
-          notes: lessonNotes
+          notes: lessonNotes,
+          zoom_link: zoomLink
         })
       });
 
-      if (!response.ok) throw new Error('Ders kaydı oluşturulamadı');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Çalışma kaydı oluşturulamadı');
+      }
       
       setFormSuccess('✅ Ders saati başarıyla kaydedildi!');
       
@@ -97,6 +135,7 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
       setLessonDate(new Date().toISOString().split('T')[0]);
       setLessonSubject('Matematik');
       setLessonNotes('');
+      setZoomLink('');
       
       // Refresh data
       setTimeout(() => {
@@ -130,9 +169,9 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
   const handleStudentSelect = (e) => {
     const studentId = e.target.value;
     setSelectedStudentId(studentId);
-    const selected = students.find(s => s.id === parseInt(studentId));
+    const selected = formStudents.find(s => String(s.id || s.student_id) === String(studentId));
     if (selected) {
-      setSelectedStudentName(selected.full_name);
+      setSelectedStudentName(selected.full_name || selected.name || selected.student_name || '');
     }
   };
 
@@ -169,20 +208,20 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
           </div>
           <div>
             <h2 className="title" style={{ fontSize: '20px', margin: 0, color: 'var(--color-text-main)' }}>
-              Ders Saati Yönetimi
+              Ders ve Çalışma Kaydı
             </h2>
             <p style={{ margin: 0, fontSize: '13px', color: 'var(--color-text-muted)' }}>
-              Öğrencilere verilen dersleri kaydedin ve raporunu görün
+              Ders, kitap okuma ve tüm çalışma etkinliklerini kaydedin
             </p>
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', fontSize: '13px' }}>
           <div style={{ padding: '8px 12px', background: 'rgba(6, 182, 212, 0.1)', borderRadius: '8px', color: '#06b6d4', fontWeight: 600 }}>
-            📊 {totalLessons} ders
+            📊 {totalLessons} çalışma
           </div>
           <div style={{ padding: '8px 12px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px', color: '#3b82f6', fontWeight: 600 }}>
-            ⏱️ {totalTeachingHours.toFixed(1)} saat
+                ⏱️ {totalTeachingHours.toFixed(1)} saat çalışma
           </div>
         </div>
       </div>
@@ -270,15 +309,19 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
                   }}
                 >
                   <option value="">-- Öğrenci Seçiniz --</option>
-                  {students.map(s => (
-                    <option key={s.id} value={s.id}>{s.full_name}</option>
-                  ))}
+                  {formStudents.map(student => {
+                    const studentId = student.id || student.student_id;
+                    const studentName = student.full_name || student.name || student.student_name;
+                    return (
+                    <option key={studentId} value={studentId}>{studentName}</option>
+                    );
+                  })}
                 </select>
               </div>
 
               <div>
                 <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'var(--color-text-main)', fontWeight: 500 }}>
-                  📚 Ders
+                  📚 Ders / Çalışma Türü
                 </label>
                 <select
                   value={lessonSubject}
@@ -293,8 +336,12 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
                     fontSize: '14px'
                   }}
                 >
-                  {SUBJECTS.map(s => (
-                    <option key={s} value={s}>{s}</option>
+                  {SUBJECT_GROUPS.map(group => (
+                    <optgroup key={group.label} label={group.label}>
+                      {group.options.map(option => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
@@ -303,7 +350,7 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'var(--color-text-main)', fontWeight: 500 }}>
-                  📅 Ders Tarihi
+                  📅 Çalışma Tarihi
                 </label>
                 <input
                   type="date"
@@ -323,7 +370,7 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
 
               <div>
                 <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'var(--color-text-main)', fontWeight: 500 }}>
-                  ⏱️ Ders Süresi (dakika)
+                  ⏱️ Süre (dakika)
                 </label>
                 <input
                   type="number"
@@ -351,7 +398,7 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
               <textarea
                 value={lessonNotes}
                 onChange={(e) => setLessonNotes(e.target.value)}
-                placeholder="Ders hakkında not yazınız..."
+                placeholder="Kitap adı, sayfa aralığı, paragraf konusu veya ders notu..."
                 style={{
                   width: '100%',
                   padding: '10px',
@@ -366,6 +413,28 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
                 }}
               />
             </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'var(--color-text-main)', fontWeight: 500 }}>
+                🔗 Zoom Linki (İsteğe Bağlı)
+              </label>
+              <input
+                type="url"
+                value={zoomLink}
+                onChange={(e) => setZoomLink(e.target.value)}
+                placeholder="https://zoom.us/j/..."
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--color-border)',
+                  background: 'var(--color-bg-deep)',
+                  color: 'white',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+
 
             <button
               type="submit"
@@ -386,14 +455,14 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
                 gap: '8px'
               }}
             >
-              <Plus size={18} /> {submitting ? 'Kaydediliyor...' : 'Ders Saatini Kaydet'}
+              <Plus size={18} /> {submitting ? 'Kaydediliyor...' : 'Çalışma Kaydını Kaydet'}
             </button>
 
             {/* Recent Logs */}
             {getRecentLogs().length > 0 && (
               <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--color-border)' }}>
                 <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'var(--color-text-main)' }}>
-                  Son Kaydedilen Dersler
+                  Son Kaydedilen Çalışmalar
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
                   {getRecentLogs().map(log => (
@@ -413,6 +482,13 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
                         <strong>{log.student_name}</strong> - {log.subject} ({log.duration_minutes} dk)
                         <br />
                         <span style={{ color: 'var(--color-text-muted)' }}>📅 {log.lesson_date}</span>
+                        {log.zoom_link && (
+                          <div style={{ marginTop: '4px' }}>
+                            <a href={log.zoom_link} target="_blank" rel="noreferrer" style={{ color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              🔗 Zoom Linki
+                            </a>
+                          </div>
+                        )}
                       </div>
                       <button
                         onClick={() => handleDeleteLog(log.id)}
@@ -502,7 +578,7 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
             {/* Summary Stats */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
               <div style={{ padding: '16px', background: 'rgba(6, 182, 212, 0.1)', borderRadius: '8px', borderLeft: '3px solid #06b6d4' }}>
-                <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>Toplam Dersler</div>
+                <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>Toplam Çalışma</div>
                 <div style={{ fontSize: '24px', fontWeight: 700, color: '#06b6d4' }}>{totalLessons}</div>
               </div>
               <div style={{ padding: '16px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px', borderLeft: '3px solid #3b82f6' }}>
@@ -510,7 +586,7 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
                 <div style={{ fontSize: '24px', fontWeight: 700, color: '#3b82f6' }}>{totalTeachingHours.toFixed(1)}h</div>
               </div>
               <div style={{ padding: '16px', background: 'rgba(139, 92, 246, 0.1)', borderRadius: '8px', borderLeft: '3px solid #8b5cf6' }}>
-                <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>Ortalama Ders</div>
+                <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>Öğrenci Başına Ortalama</div>
                 <div style={{ fontSize: '24px', fontWeight: 700, color: '#8b5cf6' }}>
                   {summary.length > 0 ? (totalLessons / summary.length).toFixed(1) : 0}
                 </div>
@@ -543,7 +619,7 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
                           👤 {student.student_name}
                         </div>
                         <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                          {student.lesson_count} ders • {student.total_hours} saat • Ort. {student.avg_duration} dk/ders
+                          {student.lesson_count} çalışma • {student.total_hours} saat • Ort. {student.avg_duration} dk/kayıt
                         </div>
                       </div>
                       <div>
@@ -554,7 +630,7 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
                     {expandedStudent === student.student_id && (
                       <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--color-border)', fontSize: '13px' }}>
                         <div style={{ marginBottom: '8px' }}>
-                          <strong>📚 Dersler:</strong> {student.subjects}
+                          <strong>📚 Dersler / Çalışmalar:</strong> {student.subjects}
                         </div>
                         <div style={{ marginBottom: '8px' }}>
                           <strong>📅 Tarih Aralığı:</strong> {student.first_lesson} → {student.last_lesson}

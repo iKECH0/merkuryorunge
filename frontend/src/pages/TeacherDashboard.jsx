@@ -383,7 +383,7 @@ const TeacherDashboard = () => {
           </div>
           <div>
             <h1 className="title text-gradient" style={{ margin: 0, fontSize: '32px' }}>
-              {teacherId === 'ALL' ? 'Lider Öğretmen Paneli' : `${teacherName} - Paneli`}
+              {teacherId === 'ALL' ? 'Profesyonel Öğretmen Paneli' : `${teacherName} - Paneli`}
             </h1>
             <p style={{ margin: '4px 0 0 0', color: 'var(--color-text-muted)', fontSize: '15px' }}>
               {teacherId === 'ALL' ? 'Sistemdeki tüm öğrenci ve çalışma verileri' : 'Sınıfınızın istatistikleri'}
