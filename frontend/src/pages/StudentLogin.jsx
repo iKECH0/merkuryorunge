@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { registerStudent, loginStudent } from '../api';
-import { Sparkles, User, ArrowRight, ArrowLeft, UserPlus, Key, Link as LinkIcon, LogIn } from 'lucide-react';
+import { User, ArrowRight, ArrowLeft, UserPlus, Key, Link as LinkIcon } from 'lucide-react';
+import BrandLogo from '../components/BrandLogo';
 
 const StudentLogin = ({ onLogin }) => {
   const [searchParams] = useSearchParams();
@@ -102,7 +103,7 @@ const StudentLogin = ({ onLogin }) => {
 
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div style={{ display: 'inline-flex', padding: '18px', background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(59, 130, 246, 0.2))', borderRadius: '24px', border: '1px solid rgba(6, 182, 212, 0.3)', marginBottom: '20px', boxShadow: '0 0 30px rgba(6, 182, 212, 0.2)' }}>
-            <Sparkles size={36} color="var(--color-primary)" />
+            <BrandLogo size={58} iconSize={36} />
           </div>
           <h2 className="title text-gradient" style={{ fontSize: '32px', marginBottom: '8px', letterSpacing: '-0.5px' }}>Merkür Yörünge</h2>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '15px' }}>

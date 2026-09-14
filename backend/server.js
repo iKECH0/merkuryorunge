@@ -282,6 +282,9 @@ const initDB = async () => {
     try {
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS class_name VARCHAR(50) DEFAULT NULL`);
     } catch(e) {}
+    try {
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS tracking_document_key VARCHAR(30) DEFAULT NULL`);
+    } catch(e) {}
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS study_logs (
@@ -370,7 +373,17 @@ const initDB = async () => {
   }
 };
 
-initDB();
+const dbInitialization = initDB();
+
+app.use('/api', async (req, res, next) => {
+  try {
+    await dbInitialization;
+    next();
+  } catch (err) {
+    console.error('Database initialization failed:', err);
+    res.status(503).json({ error: 'Veritabanı hazır değil. Lütfen tekrar deneyin.' });
+  }
+});
 
 // API Endpoints
 
@@ -464,7 +477,7 @@ app.post("/api/auth/teacher/register", async (req, res) => {
 
 app.post("/api/auth/teacher/add-student", async (req, res) => {
   try {
-    const { fullName, username, password, teacherId, schoolLevel, className } = req.body;
+    const { fullName, username, password, teacherId, schoolLevel, className, trackingDocumentKey } = req.body;
 
     if (!teacherId || !Number.isInteger(Number(teacherId))) {
       return res.status(400).json({ error: "Öğrencinin bağlı olacağı öğretmen seçilmelidir." });
@@ -490,8 +503,8 @@ app.post("/api/auth/teacher/add-student", async (req, res) => {
 
     // Insert new user directly under the teacher
     const result = await pool.query(
-      "INSERT INTO students (full_name, username, password_hash, teacher_id, school_level, class_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, full_name, username, teacher_id, school_level, class_name",
-      [fullName, username, passwordHash, teacherId, schoolLevel || 'Lise (YKS)', className || null]
+      "INSERT INTO students (full_name, username, password_hash, teacher_id, school_level, class_name, tracking_document_key) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, full_name, username, teacher_id, school_level, class_name, tracking_document_key",
+      [fullName, username, passwordHash, teacherId, schoolLevel || 'Lise (YKS)', className || null, trackingDocumentKey || null]
     );
 
     res.status(201).json(result.rows[0]);
@@ -779,7 +792,7 @@ app.get("/api/student-info/:studentName", async (req, res) => {
   try {
     const { studentName } = req.params;
     const result = await pool.query(
-      "SELECT school_level, class_name FROM students WHERE full_name = $1 LIMIT 1",
+      "SELECT school_level, class_name, tracking_document_key FROM students WHERE full_name = $1 LIMIT 1",
       [studentName]
     );
     if (result.rows.length === 0) {
@@ -839,45 +852,65 @@ app.post("/api/goals", async (req, res) => {
   }
 });
 
-// 3. Get leaderboard (Sum of durations grouped by student)
+// 3. Return only the signed-in student's score and rank; never expose other students.
 app.get("/api/leaderboard", async (req, res) => {
   try {
+    const { username } = req.query;
+    if (!username) return res.status(400).json({ error: "Kullanıcı adı gereklidir." });
+
     const result = await pool.query(`
-      SELECT l.student_name, 
-             SUM(l.duration_minutes) as total_duration, 
-             SUM(l.questions_solved) as total_questions,
-             (SUM(l.duration_minutes) + (SUM(l.questions_solved) * 2)) as total_points,
-             MAX(s.school_level) as school_level
-      FROM study_logs l
-      LEFT JOIN students s ON l.student_name = s.full_name
-      GROUP BY l.student_name 
-      ORDER BY total_points DESC, total_duration DESC
-      LIMIT 50
-    `);
-    res.json(result.rows);
+      WITH totals AS (
+        SELECT student_name,
+               SUM(duration_minutes) AS total_duration,
+               SUM(duration_minutes) + (SUM(COALESCE(questions_solved, 0)) * 2) AS total_points
+        FROM study_logs
+        GROUP BY student_name
+      ), ranked AS (
+        SELECT student_name, total_points,
+               RANK() OVER (ORDER BY total_points DESC, total_duration DESC) AS rank
+        FROM totals
+      )
+      SELECT ranked.rank, ranked.total_points
+      FROM students
+      LEFT JOIN ranked ON ranked.student_name = students.full_name
+      WHERE students.username = $1
+      LIMIT 1
+    `, [username]);
+    const row = result.rows[0];
+    res.json(row ? { rank: row.rank, total_points: row.total_points || 0 } : { rank: null, total_points: 0 });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// 3.1 Get Daily Leaderboard
+// 3.1 Return only the signed-in student's daily score and rank.
 app.get("/api/leaderboard/daily", async (req, res) => {
   try {
+    const { username } = req.query;
+    if (!username) return res.status(400).json({ error: "Kullanıcı adı gereklidir." });
+
     const result = await pool.query(`
-      SELECT l.student_name, 
-             SUM(l.duration_minutes) as total_duration, 
-             SUM(l.questions_solved) as total_questions,
-             (SUM(l.duration_minutes) + (SUM(l.questions_solved) * 2)) as total_points,
-             MAX(s.school_level) as school_level
-      FROM study_logs l
-      LEFT JOIN students s ON l.student_name = s.full_name
-      WHERE DATE(l.created_at) = CURRENT_DATE
-      GROUP BY l.student_name 
-      ORDER BY total_points DESC, total_duration DESC
-      LIMIT 50
-    `);
-    res.json(result.rows);
+      WITH totals AS (
+        SELECT student_name,
+               SUM(duration_minutes) AS total_duration,
+               SUM(duration_minutes) + (SUM(COALESCE(questions_solved, 0)) * 2) AS total_points
+        FROM study_logs
+        WHERE DATE(created_at) = CURRENT_DATE
+        GROUP BY student_name
+      ), ranked AS (
+        SELECT student_name, total_points,
+               RANK() OVER (ORDER BY total_points DESC, total_duration DESC) AS rank
+        FROM totals
+      )
+      SELECT ranked.rank, ranked.total_points
+      FROM students
+      LEFT JOIN ranked ON ranked.student_name = students.full_name
+      WHERE students.username = $1
+      LIMIT 1
+    `, [username]);
+    const row = result.rows[0];
+    res.json(row ? { rank: row.rank, total_points: row.total_points || 0 } : { rank: null, total_points: 0 });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
@@ -923,7 +956,7 @@ app.get("/api/stats", async (req, res) => {
     `, queryParams);
 
     const allStudentsQuery = await pool.query(`
-      SELECT id, full_name as name, class_name, school_level, username
+       SELECT id, full_name as name, class_name, school_level, tracking_document_key, username
       FROM students 
       ${filterClause}
       ORDER BY full_name ASC
@@ -1047,10 +1080,10 @@ app.post("/api/admin/add-teacher", async (req, res) => {
 app.put("/api/students/:studentId", async (req, res) => {
   try {
     const { studentId } = req.params;
-    const { className, schoolLevel } = req.body;
+    const { className, schoolLevel, trackingDocumentKey } = req.body;
     const result = await pool.query(
-      "UPDATE students SET class_name = $1, school_level = $2 WHERE id = $3 RETURNING id, full_name, class_name, school_level",
-      [className || null, schoolLevel, studentId]
+      "UPDATE students SET class_name = $1, school_level = $2, tracking_document_key = $3 WHERE id = $4 RETURNING id, full_name, class_name, school_level, tracking_document_key",
+      [className || null, schoolLevel, trackingDocumentKey || null, studentId]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Öğrenci bulunamadı." });

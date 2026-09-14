@@ -12,8 +12,8 @@ export const loginTeacher = async (username, password) => {
   return response.data;
 };
 
-export const addStudentByTeacher = async (fullName, username, password, teacherId, schoolLevel, className) => {
-  const response = await axios.post(`${API_URL}/auth/teacher/add-student`, { fullName, username, password, teacherId, schoolLevel, className });
+export const addStudentByTeacher = async (fullName, username, password, teacherId, schoolLevel, className, trackingDocumentKey) => {
+  const response = await axios.post(`${API_URL}/auth/teacher/add-student`, { fullName, username, password, teacherId, schoolLevel, className, trackingDocumentKey });
   return response.data;
 };
 
@@ -62,13 +62,17 @@ export const setStudentGoal = async (studentName, targetQuestions) => {
   return response.data;
 };
 
-export const getLeaderboard = async () => {
-  const response = await axios.get(`${API_URL}/leaderboard`);
+export const getLeaderboard = async (studentUsername) => {
+  const username = (studentUsername || '').trim();
+  if (!username || username === 'null' || username === 'undefined') return { rank: null, total_points: 0 };
+  const response = await axios.get(`${API_URL}/leaderboard`, { params: { username } });
   return response.data;
 };
 
-export const getDailyLeaderboard = async () => {
-  const response = await axios.get(`${API_URL}/leaderboard/daily`);
+export const getDailyLeaderboard = async (studentUsername) => {
+  const username = (studentUsername || '').trim();
+  if (!username || username === 'null' || username === 'undefined') return { rank: null, total_points: 0 };
+  const response = await axios.get(`${API_URL}/leaderboard/daily`, { params: { username } });
   return response.data;
 };
 
@@ -103,8 +107,8 @@ export const deleteTeacher = async (teacherId) => {
   return response.data;
 };
 
-export const updateStudent = async (studentId, className, schoolLevel) => {
-  const response = await axios.put(`${API_URL}/students/${studentId}`, { className, schoolLevel });
+export const updateStudent = async (studentId, className, schoolLevel, trackingDocumentKey) => {
+  const response = await axios.put(`${API_URL}/students/${studentId}`, { className, schoolLevel, trackingDocumentKey });
   return response.data;
 };
 

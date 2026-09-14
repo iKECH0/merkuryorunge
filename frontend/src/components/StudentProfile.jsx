@@ -4,6 +4,7 @@ import { getStudentLogs, getStudentGoal, setStudentGoal, getStudentInfo } from '
 import { Target, Bot, Sparkles, TrendingUp, Palette, CalendarDays, Clock, BookOpen, Hash, Trash2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid } from 'recharts';
 import ReactMarkdown from 'react-markdown';
+import { getTrackingDocument } from '../data/trackingDocuments';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
@@ -14,6 +15,7 @@ const StudentProfile = ({ studentName }) => {
   const [inputGoal, setInputGoal] = useState('');
   const [schoolLevel, setSchoolLevel] = useState('');
   const [className, setClassName] = useState('');
+  const [trackingDocumentKey, setTrackingDocumentKey] = useState('');
   const [aiMessage, setAiMessage] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [bgTheme, setBgTheme] = useState(localStorage.getItem('profileBackground') || 'bg-default');
@@ -42,6 +44,7 @@ const StudentProfile = ({ studentName }) => {
       if (infoData && infoData.class_name) {
         setClassName(infoData.class_name);
       }
+      setTrackingDocumentKey(infoData?.tracking_document_key || '');
     } catch (err) {
       console.error(err);
     }
@@ -117,6 +120,7 @@ const StudentProfile = ({ studentName }) => {
   const dailyData = processDailyData();
   const subjectData = processSubjectData();
   const dailyReport = processDailyReport();
+  const trackingDocument = getTrackingDocument(className, trackingDocumentKey);
 
   const generateAIInsight = async () => {
     setIsAiLoading(true);
@@ -226,10 +230,10 @@ const StudentProfile = ({ studentName }) => {
             </h2>
             <div style={{ display: 'flex', gap: '16px', color: 'var(--color-text-muted)', fontSize: '14px', flexWrap: 'wrap' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Target size={16} /> Hedef: {goal} Soru</span>
-              <a 
-                href="https://docs.google.com/spreadsheets/d/1IvC7Kme6lZugdHtaQJTsNZ-sYhhYBPEBW5HkEkVmqT0/edit?gid=2037362416#gid=2037362416" 
-                target="_blank" 
-                rel="noreferrer"
+              {trackingDocument && <a
+                href={trackingDocument.url}
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{ 
                   display: 'flex', alignItems: 'center', gap: '6px', 
                   color: '#10b981', textDecoration: 'none', 
@@ -238,8 +242,8 @@ const StudentProfile = ({ studentName }) => {
                   border: '1px solid rgba(16, 185, 129, 0.3)'
                 }}
               >
-                📊 Detaylı Eğitim Danışmanlığı Tablosu
-              </a>
+                📊 {trackingDocument.label}
+              </a>}
             </div>
           </div>
         </div>

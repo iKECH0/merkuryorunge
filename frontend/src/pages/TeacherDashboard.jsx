@@ -7,6 +7,7 @@ import CurriculumManager from '../components/CurriculumManager';
 import TeachingHoursTracker from '../components/TeachingHoursTracker';
 import { LayoutDashboard, RefreshCw, Users, Clock, Hash, BookOpen, Download, LogOut, Copy, CheckCircle2, PlusCircle, X, User, Key, GraduationCap, Pencil, Trash2, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { TRACKING_DOCUMENT_OPTIONS } from '../data/trackingDocuments';
 
 const COLORS = ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
 
@@ -25,6 +26,7 @@ const TeacherDashboard = () => {
   const [editingStudent, setEditingStudent] = useState(null); // { id, name, class_name, school_level }
   const [editClassName, setEditClassName] = useState('');
   const [editSchoolLevel, setEditSchoolLevel] = useState('Lise (YKS)');
+  const [editTrackingDocumentKey, setEditTrackingDocumentKey] = useState('');
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState('');
 
@@ -35,6 +37,7 @@ const TeacherDashboard = () => {
   const [newStudentPassword, setNewStudentPassword] = useState('');
   const [newStudentSchoolLevel, setNewStudentSchoolLevel] = useState('Lise (YKS)');
   const [newStudentClassName, setNewStudentClassName] = useState('');
+  const [newStudentTrackingDocumentKey, setNewStudentTrackingDocumentKey] = useState('');
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
   const [addSuccess, setAddSuccess] = useState('');
@@ -129,13 +132,14 @@ const TeacherDashboard = () => {
         return;
       }
 
-      await addStudentByTeacher(newStudentFullName.trim(), newStudentUsername.trim().toLowerCase(), newStudentPassword, teacherIdForAdd, newStudentSchoolLevel, newStudentClassName.trim() || null);
+      await addStudentByTeacher(newStudentFullName.trim(), newStudentUsername.trim().toLowerCase(), newStudentPassword, teacherIdForAdd, newStudentSchoolLevel, newStudentClassName.trim() || null, newStudentTrackingDocumentKey);
       setAddSuccess('Öğrenci başarıyla eklendi!');
       setNewStudentFullName('');
       setNewStudentUsername('');
       setNewStudentPassword('');
       setNewStudentClassName('');
       setNewStudentSchoolLevel('Lise (YKS)');
+      setNewStudentTrackingDocumentKey('');
       setSelectedTeacherId('');
       fetchData(); // Refresh list to show new student (will appear once they have a log, or we can just show success)
       
@@ -598,6 +602,7 @@ const TeacherDashboard = () => {
                         setEditingStudent(studentInfo || { name: student.name });
                         setEditClassName(studentInfo?.class_name || '');
                         setEditSchoolLevel(studentInfo?.school_level || 'Lise (YKS)');
+                        setEditTrackingDocumentKey(studentInfo?.tracking_document_key || '');
                         setEditError('');
                       }}
                     >
@@ -687,6 +692,12 @@ const TeacherDashboard = () => {
                   <option value="Lise (YKS)">Lise (YKS)</option>
                 </select>
               </div>
+              <div className="form-group">
+                <label>Takip Dokümanı</label>
+                <select className="input-field" value={newStudentTrackingDocumentKey} onChange={(e) => setNewStudentTrackingDocumentKey(e.target.value)} style={{ appearance: 'auto' }}>
+                  {TRACKING_DOCUMENT_OPTIONS.map(option => <option key={option.value || 'auto'} value={option.value}>{option.label}</option>)}
+                </select>
+              </div>
 
               {addError && <div style={{ color: '#ef4444', fontSize: '14px', background: 'rgba(239,68,68,0.1)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)' }}>{addError}</div>}
               {addSuccess && <div style={{ color: '#10b981', fontSize: '14px', background: 'rgba(16,185,129,0.1)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.2)' }}>{addSuccess}</div>}
@@ -731,6 +742,12 @@ const TeacherDashboard = () => {
                   <option value="Lise (YKS)">Lise (YKS)</option>
                 </select>
               </div>
+              <div className="form-group">
+                <label>Takip Dokümanı</label>
+                <select className="input-field" value={editTrackingDocumentKey} onChange={(e) => setEditTrackingDocumentKey(e.target.value)} style={{ appearance: 'auto' }}>
+                  {TRACKING_DOCUMENT_OPTIONS.map(option => <option key={option.value || 'auto'} value={option.value}>{option.label}</option>)}
+                </select>
+              </div>
 
               {editError && <div style={{ color: '#ef4444', fontSize: '14px', background: 'rgba(239,68,68,0.1)', padding: '12px', borderRadius: '8px' }}>{editError}</div>}
 
@@ -742,10 +759,10 @@ const TeacherDashboard = () => {
                   if (!editingStudent.id) { setEditError('Öğrenci ID bulunamadı. Sayfayı yenileyin.'); return; }
                   setEditLoading(true);
                   try {
-                    await updateStudent(editingStudent.id, editClassName || null, editSchoolLevel);
+                    await updateStudent(editingStudent.id, editClassName || null, editSchoolLevel, editTrackingDocumentKey);
                     setEditingStudent(null);
                     fetchData();
-                  } catch (e) {
+                  } catch {
                     setEditError('Güncelleme başarısız oldu.');
                   } finally {
                     setEditLoading(false);

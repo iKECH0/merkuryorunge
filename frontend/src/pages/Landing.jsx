@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { GraduationCap, Presentation, Sparkles, ChevronRight } from 'lucide-react';
+import { GraduationCap, Presentation, ChevronRight } from 'lucide-react';
+import BrandLogo from '../components/BrandLogo';
 
 const TYPEWRITER_TEXTS = [
   "Yapay Zeka Destekli Akıllı Asistan",
@@ -122,7 +123,7 @@ const Landing = () => {
         
         <div style={{ marginBottom: '48px' }}>
           <div className="orbit-pulse" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15))', marginBottom: '24px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-            <Sparkles size={40} color="#3b82f6" />
+            <BrandLogo size={64} iconSize={40} />
           </div>
           <h1 className="title metallic-text" style={{ fontSize: '46px', marginBottom: '16px', letterSpacing: '-1px', fontWeight: '800' }}>Merkür Yörünge</h1>
           <p style={{ fontSize: '18px', color: 'var(--color-text-muted)', maxWidth: '500px', margin: '0 auto' }}>Platforma giriş yapmak veya kayıt olmak için lütfen profilinizi seçin.</p>

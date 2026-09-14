@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 import ManualLogForm from '../components/ManualLogForm';
@@ -9,15 +8,15 @@ import StudentProfile from '../components/StudentProfile';
 import Onboarding from '../components/Onboarding';
 import MerkurAIChat from '../components/MerkurAIChat';
 import TopicTracker from '../components/TopicTracker';
-import { Rocket, Clock, Trophy, Sparkles, Lock, User, LogOut, BotMessageSquare, BookOpen } from 'lucide-react';
+import { Rocket, Clock, Trophy, User, LogOut, BotMessageSquare, BookOpen } from 'lucide-react';
 import { getStudentInfo, getStudentLogs, getStudentGoal } from '../api';
+import BrandLogo from '../components/BrandLogo';
 
 const StudentDashboard = ({ studentName }) => {
   const [activeTab, setActiveTab] = useState('profile');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [studentClassName, setStudentClassName] = useState(null);
   const [studentData, setStudentData] = useState(null);
-  const navigate = useNavigate();
   
   // Track studentUsername so we can key the onboarding to the user
   const studentUsername = localStorage.getItem('studentUsername');
@@ -156,7 +155,7 @@ const StudentDashboard = ({ studentName }) => {
 
       <div className="text-center" style={{ marginBottom: '40px', marginTop: '20px' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '20px', background: 'linear-gradient(135deg, rgba(6,182,212,0.2), rgba(59,130,246,0.2))', border: '1px solid rgba(6,182,212,0.3)', marginBottom: '16px' }}>
-          <Sparkles size={32} color="var(--color-primary)" />
+          <BrandLogo size={52} iconSize={32} />
         </div>
         <h1 className="title text-gradient" style={{ fontSize: '40px', marginBottom: '8px', lineHeight: 1.1 }}>Merkür Yörünge</h1>
         <p style={{ margin: 0, fontSize: '18px', color: 'var(--color-text-muted)', fontFamily: 'var(--font-primary)', marginBottom: '12px' }}>Merhaba, {studentName} 🚀</p>
@@ -167,7 +166,7 @@ const StudentDashboard = ({ studentName }) => {
           {activeTab === 'profile' && <StudentProfile studentName={studentName} />}
           {activeTab === 'manual' && <ManualLogForm studentName={studentName} />}
           {activeTab === 'tracker' && <SessionTracker studentName={studentName} />}
-          {activeTab === 'leaderboard' && <Leaderboard />}
+          {activeTab === 'leaderboard' && <Leaderboard studentUsername={studentUsername} />}
           {activeTab === 'topics' && <TopicTracker studentName={studentName} studentClass={studentClassName} />}
           {activeTab === 'ai' && <MerkurAIChat studentName={studentName} studentData={studentData} />}
         </div>
