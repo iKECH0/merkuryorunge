@@ -6,5 +6,10 @@
     "url": "https://merkuryorunge.vercel.app",
     "cleartext": true
   },
+  "plugins": {
+    "LocalNotifications": {
+      "presentationOptions": ["badge", "sound", "banner", "list"]
+    }
+  },
   "bundledWebRuntime": false
 }

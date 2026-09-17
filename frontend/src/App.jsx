@@ -8,8 +8,8 @@ import TeacherAuth from './pages/TeacherAuth';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import Landing from './pages/Landing';
 import PrivacyPolicy from './pages/PrivacyPolicy';
-import Onboarding from './components/Onboarding';
 import AccountDeletion from './pages/AccountDeletion';
+import { setupDailyReminder } from './notifications';
 import './index.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -33,13 +33,24 @@ const GizlilikRedirect = () => {
 
 function App() {
   const [studentName, setStudentName] = useState(localStorage.getItem('studentName'));
-  const [studentUsername, setStudentUsername] = useState(localStorage.getItem('studentUsername'));
+
+  useEffect(() => {
+    setupDailyReminder({ askForExactAlarm: true });
+
+    const refreshReminder = () => {
+      if (document.visibilityState === 'visible') {
+        setupDailyReminder({ askForExactAlarm: false });
+      }
+    };
+
+    document.addEventListener('visibilitychange', refreshReminder);
+    return () => document.removeEventListener('visibilitychange', refreshReminder);
+  }, []);
 
   const handleStudentLogin = (fullName, username) => {
     localStorage.setItem('studentName', fullName);
     localStorage.setItem('studentUsername', username);
     setStudentName(fullName);
-    setStudentUsername(username);
   };
 
   return (

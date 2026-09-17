@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { LocalNotifications } from '@capacitor/local-notifications';
-import { Capacitor } from '@capacitor/core';
 import ManualLogForm from '../components/ManualLogForm';
 import SessionTracker from '../components/SessionTracker';
 import Leaderboard from '../components/Leaderboard';
@@ -84,47 +82,6 @@ const StudentDashboard = ({ studentName }) => {
     };
     loadStudentData();
   }, [studentName]);
-
-  // 10:30 & 22:30 Local Notifications
-  useEffect(() => {
-    const setupNotifications = async () => {
-      if (Capacitor.isNativePlatform()) {
-        try {
-          let permStatus = await LocalNotifications.checkPermissions();
-          if (permStatus.display !== 'granted') {
-            permStatus = await LocalNotifications.requestPermissions();
-          }
-          
-          if (permStatus.display === 'granted') {
-            const pending = await LocalNotifications.getPending();
-            if (pending.notifications.length > 0) {
-              await LocalNotifications.cancel(pending);
-            }
-            
-            await LocalNotifications.schedule({
-              notifications: [
-                {
-                  title: "Merkür Yörünge Hatırlatması",
-                  body: "Saat 22:00! Günün raporunu girdin mi? Hadi hemen kaydet!",
-                  id: 1,
-                  schedule: { on: { hour: 22, minute: 0 }, allowWhileIdle: true },
-                }
-              ]
-            });
-          }
-        } catch (e) {
-          console.error("Bildirim hatası:", e);
-        }
-      } else {
-        // Web için basit bildirim
-        if ("Notification" in window && Notification.permission === "default") {
-          Notification.requestPermission();
-        }
-      }
-    };
-
-    setupNotifications();
-  }, []);
 
   const handleOnboardingComplete = () => {
     if (studentUsername) {
