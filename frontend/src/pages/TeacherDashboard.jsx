@@ -622,7 +622,7 @@ const TeacherDashboard = () => {
                     <button 
                       className="btn btn-secondary"
                       style={{ padding: '8px 16px', fontSize: '13px', background: 'rgba(6, 182, 212, 0.1)', color: 'var(--color-primary)', border: '1px solid rgba(6, 182, 212, 0.3)' }}
-                      onClick={() => handleGeneratePDF(student)}
+                      onClick={() => handleGenerateReport(student)}
                       disabled={generatingStudent === student.name}
                     >
                       {generatingStudent === student.name ? 'Hazırlanıyor...' : 'PDF İndir'}
