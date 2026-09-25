@@ -301,7 +301,7 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
               <FormField label="Ders tarihi"><input type="date" value={lessonDate} onChange={event => setLessonDate(event.target.value)} required style={controlStyle} /></FormField>
               <FormField label="Ders süresi (dakika)">
                 <input type="number" value={lessonDuration} onChange={event => setLessonDuration(event.target.value)} min="1" required style={controlStyle} />
-                <div style={{ display: 'flex', gap: '6px', marginTop: '7px', flexWrap: 'wrap' }}>{[30, 60, 90, 120].map(minutes => <button key={minutes} type="button" onClick={() => setLessonDuration(String(minutes))} style={presetStyle(lessonDuration === String(minutes))}>{formatDuration(minutes)}</button>)}</div>
+                <div style={{ display: 'flex', gap: '6px', marginTop: '7px', flexWrap: 'wrap' }}>{[40, 60, 80, 100].map(minutes => <button key={minutes} type="button" onClick={() => setLessonDuration(String(minutes))} style={presetStyle(lessonDuration === String(minutes))}>{formatDuration(minutes)}</button>)}</div>
               </FormField>
             </div>
             <FormField label="Not (isteğe bağlı)"><textarea value={lessonNotes} onChange={event => setLessonNotes(event.target.value)} placeholder="Dersle ilgili kısa bir not ekleyebilirsiniz..." style={{ ...controlStyle, resize: 'vertical', minHeight: '76px', fontFamily: 'inherit' }} /></FormField>
