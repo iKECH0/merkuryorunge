@@ -1,624 +1,333 @@
-import React, { useState, useEffect } from 'react';
-import { Clock, Plus, Trash2, TrendingUp, Calendar, User, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Calendar, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Plus, Trash2 } from 'lucide-react';
+
+const pad = value => String(value).padStart(2, '0');
+const toDateValue = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+const parseDate = value => {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day, 12);
+};
+const addDays = (value, amount) => {
+  const date = typeof value === 'string' ? parseDate(value) : new Date(value);
+  date.setDate(date.getDate() + amount);
+  return date;
+};
+const getWeekRange = value => {
+  const date = value ? parseDate(value) : new Date();
+  const mondayOffset = date.getDay() === 0 ? -6 : 1 - date.getDay();
+  const start = addDays(date, mondayOffset);
+  return { start: toDateValue(start), end: toDateValue(addDays(start, 6)) };
+};
+const formatRange = ({ start, end }) => {
+  if (!start || !end) return 'Tarih aralığı seçin';
+  const first = parseDate(start).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+  const last = parseDate(end).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' });
+  return `${first} – ${last}`;
+};
+const formatDuration = value => {
+  const minutes = Number(value) || 0;
+  if (!minutes) return '—';
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (hours && remainder) return `${hours} sa ${remainder} dk`;
+  if (hours) return `${hours} saat`;
+  return `${remainder} dk`;
+};
+const getStudentId = student => student?.id ?? student?.student_id;
+const getStudentName = student => student?.full_name || student?.name || student?.student_name || 'İsimsiz öğrenci';
 
 const TeachingHoursTracker = ({ teacherId, students = [] }) => {
-  const apiBaseUrl = import.meta.env.PROD ? 'https://backend-three-khaki-37.vercel.app' : (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000');
-  
+  const apiBaseUrl = import.meta.env.PROD
+    ? 'https://backend-three-khaki-37.vercel.app'
+    : (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000');
   const [teachingLogs, setTeachingLogs] = useState([]);
   const [availableStudents, setAvailableStudents] = useState([]);
   const [summary, setSummary] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('log'); // 'log' or 'report'
-  
-  // Form states
+  const [activeTab, setActiveTab] = useState('report');
+  const [expandedStudent, setExpandedStudent] = useState(null);
+  const [dateRange, setDateRange] = useState(() => getWeekRange());
+
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [selectedStudentName, setSelectedStudentName] = useState('');
   const [lessonSubject, setLessonSubject] = useState('Matematik');
   const [lessonDuration, setLessonDuration] = useState('60');
-  const [lessonDate, setLessonDate] = useState(new Date().toISOString().split('T')[0]);
+  const [lessonDate, setLessonDate] = useState(toDateValue(new Date()));
   const [lessonNotes, setLessonNotes] = useState('');
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Report filter states
-  const [expandedStudent, setExpandedStudent] = useState(null);
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
-
-  const SUBJECT_GROUPS = [
-    {
-      label: 'Dersler',
-      options: ['Matematik', 'Türkçe', 'Fizik', 'Kimya', 'Biyoloji', 'Tarih', 'Coğrafya', 'İngilizce']
-    },
-    {
-      label: 'Çalışma Türleri',
-      options: ['Kitap Okuma', 'Paragraf Çalışması', 'Deneme Sınavı', 'Soru Çözümü', 'Ödev / Etüt', 'Konu Tekrarı', 'Diğer']
-    }
+  const subjectGroups = [
+    { label: 'Dersler', options: ['Matematik', 'Türkçe', 'Fizik', 'Kimya', 'Biyoloji', 'Tarih', 'Coğrafya', 'İngilizce'] },
+    { label: 'Çalışma Türleri', options: ['Kitap Okuma', 'Paragraf Çalışması', 'Deneme Sınavı', 'Soru Çözümü', 'Ödev / Etüt', 'Konu Tekrarı', 'Diğer'] }
   ];
-
-  useEffect(() => {
-    if (teacherId) {
-      fetchTeachingLogs();
-      fetchSummary();
-      fetchStudents();
-    }
-  }, [teacherId]);
+  const formStudents = useMemo(
+    () => (availableStudents.length ? availableStudents : students),
+    [availableStudents, students]
+  );
 
   const fetchStudents = async () => {
     try {
       const response = await fetch(`${apiBaseUrl}/api/teacher-students/${teacherId}`);
       const data = await response.json();
       if (response.ok && Array.isArray(data)) setAvailableStudents(data);
-    } catch (err) {
-      console.error('Öğrenci listesi alınamadı:', err);
+    } catch (error) {
+      console.error('Öğrenci listesi alınamadı:', error);
     }
   };
-
-  const formStudents = availableStudents.length > 0 ? availableStudents : students;
-
-  useEffect(() => {
-    if (!selectedStudentId && formStudents.length > 0) {
-      const firstStudent = formStudents.find(student => student.id || student.student_id);
-      if (firstStudent) {
-        setSelectedStudentId(String(firstStudent.id || firstStudent.student_id));
-        setSelectedStudentName(firstStudent.full_name || firstStudent.name || firstStudent.student_name || '');
-      }
-    }
-  }, [formStudents, selectedStudentId]);
-
   const fetchTeachingLogs = async () => {
     try {
       setLoading(true);
       const response = await fetch(`${apiBaseUrl}/api/teaching-logs?teacher_id=${teacherId}`);
       const data = await response.json();
-      setTeachingLogs(data);
-    } catch (err) {
-      console.error('Ders saati kayıtları alınamadı:', err);
+      setTeachingLogs(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Ders kayıtları alınamadı:', error);
     } finally {
       setLoading(false);
     }
   };
-
-  const fetchSummary = async () => {
+  const fetchSummary = async (range = dateRange) => {
     try {
-      let url = `${apiBaseUrl}/api/teaching-logs/summary/${teacherId}`;
-      if (dateRange.start) url += `?start_date=${dateRange.start}`;
-      if (dateRange.end) url += `${dateRange.start ? '&' : '?'}end_date=${dateRange.end}`;
-      
-      const response = await fetch(url);
+      const params = new URLSearchParams({ start_date: range.start, end_date: range.end });
+      const response = await fetch(`${apiBaseUrl}/api/teaching-logs/summary/${teacherId}?${params}`);
       const data = await response.json();
-      setSummary(data);
-    } catch (err) {
-      console.error('Rapor alınamadı:', err);
+      setSummary(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Haftalık rapor alınamadı:', error);
     }
   };
 
-  const handleAddLesson = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (!teacherId) return;
+    fetchTeachingLogs();
+    fetchStudents();
+  }, [teacherId]);
+  useEffect(() => {
+    if (!teacherId || !dateRange.start || !dateRange.end) return;
+    fetchSummary(dateRange);
+  }, [teacherId, dateRange.start, dateRange.end]);
+  useEffect(() => {
+    if (selectedStudentId || !formStudents.length) return;
+    const firstStudent = formStudents.find(student => getStudentId(student));
+    if (!firstStudent) return;
+    setSelectedStudentId(String(getStudentId(firstStudent)));
+    setSelectedStudentName(getStudentName(firstStudent));
+  }, [formStudents, selectedStudentId]);
+
+  const weeklyRows = useMemo(() => {
+    const byStudent = new Map(summary.map(item => [String(item.student_id), item]));
+    return formStudents.map(student => {
+      const studentId = getStudentId(student);
+      const item = byStudent.get(String(studentId));
+      return {
+        studentId,
+        studentName: getStudentName(student),
+        lessonCount: Number(item?.lesson_count) || 0,
+        totalMinutes: Number(item?.total_minutes) || 0,
+        subjects: item?.subjects || '',
+        firstLesson: item?.first_lesson,
+        lastLesson: item?.last_lesson
+      };
+    }).sort((a, b) => a.studentName.localeCompare(b.studentName, 'tr'));
+  }, [formStudents, summary]);
+  const totalLessons = weeklyRows.reduce((sum, row) => sum + row.lessonCount, 0);
+  const totalMinutes = weeklyRows.reduce((sum, row) => sum + row.totalMinutes, 0);
+  const activeStudents = weeklyRows.filter(row => row.lessonCount > 0).length;
+
+  const handleStudentSelect = event => {
+    const id = event.target.value;
+    setSelectedStudentId(id);
+    const selected = formStudents.find(student => String(getStudentId(student)) === id);
+    setSelectedStudentName(selected ? getStudentName(selected) : '');
+  };
+  const handleAddForStudent = row => {
+    setSelectedStudentId(String(row.studentId));
+    setSelectedStudentName(row.studentName);
+    const today = toDateValue(new Date());
+    setLessonDate(today >= dateRange.start && today <= dateRange.end ? today : dateRange.start);
     setFormError('');
     setFormSuccess('');
-
-    if (!selectedStudentId || !selectedStudentName || !lessonDuration || Number(lessonDuration) < 1) {
-      setFormError('Lütfen öğrenci ve geçerli bir süre seçiniz');
+    setActiveTab('log');
+  };
+  const handleAddLesson = async event => {
+    event.preventDefault();
+    setFormError('');
+    setFormSuccess('');
+    if (!selectedStudentId || !selectedStudentName || Number(lessonDuration) < 1) {
+      setFormError('Lütfen öğrenci ve geçerli bir ders süresi seçin.');
       return;
     }
-
     try {
       setSubmitting(true);
       const response = await fetch(`${apiBaseUrl}/api/teaching-logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          teacher_id: parseInt(teacherId),
-          student_id: parseInt(selectedStudentId),
+          teacher_id: Number(teacherId),
+          student_id: Number(selectedStudentId),
           student_name: selectedStudentName,
           subject: lessonSubject,
-          duration_minutes: parseInt(lessonDuration),
+          duration_minutes: Number(lessonDuration),
           lesson_date: lessonDate,
           notes: lessonNotes
         })
       });
-
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Çalışma kaydı oluşturulamadı');
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Ders kaydı oluşturulamadı');
       }
-      
-      setFormSuccess('✅ Ders saati başarıyla kaydedildi!');
-      
-      // Reset form
-      setSelectedStudentId('');
-      setSelectedStudentName('');
+      setFormSuccess(`${selectedStudentName} için ${formatDuration(lessonDuration)} ders kaydedildi.`);
       setLessonDuration('60');
-      setLessonDate(new Date().toISOString().split('T')[0]);
-      setLessonSubject('Matematik');
       setLessonNotes('');
-      
-      // Refresh data
-      setTimeout(() => {
-        fetchTeachingLogs();
-        fetchSummary();
-      }, 500);
-    } catch (err) {
-      setFormError('Hata: ' + err.message);
+      await Promise.all([fetchTeachingLogs(), fetchSummary(dateRange)]);
+    } catch (error) {
+      setFormError(`Hata: ${error.message}`);
     } finally {
       setSubmitting(false);
     }
   };
-
-  const handleDeleteLog = async (logId) => {
+  const handleDeleteLog = async id => {
     if (!window.confirm('Bu ders kaydını silmek istediğinize emin misiniz?')) return;
-    
     try {
-      const response = await fetch(`${apiBaseUrl}/api/teaching-logs/${logId}`, {
-        method: 'DELETE'
-      });
-      
-      if (!response.ok) throw new Error('Silinemedi');
-      
-      setTeachingLogs(teachingLogs.filter(log => log.id !== logId));
-      fetchSummary();
-    } catch (err) {
-      console.error('Silme hatası:', err);
+      const response = await fetch(`${apiBaseUrl}/api/teaching-logs/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Kayıt silinemedi');
+      await Promise.all([fetchTeachingLogs(), fetchSummary(dateRange)]);
+    } catch (error) {
+      console.error('Silme hatası:', error);
     }
   };
-
-  const handleStudentSelect = (e) => {
-    const studentId = e.target.value;
-    setSelectedStudentId(studentId);
-    const selected = formStudents.find(s => String(s.id || s.student_id) === String(studentId));
-    if (selected) {
-      setSelectedStudentName(selected.full_name || selected.name || selected.student_name || '');
-    }
+  const shiftWeek = days => {
+    setDateRange(current => ({
+      start: toDateValue(addDays(current.start, days)),
+      end: toDateValue(addDays(current.end, days))
+    }));
+    setExpandedStudent(null);
   };
-
-  const handleDateRangeChange = async () => {
-    await fetchSummary();
-  };
-
-  const getRecentLogs = () => {
-    return teachingLogs.slice(0, 10);
-  };
-
-  const totalTeachingHours = summary.reduce((sum, s) => sum + (parseFloat(s.total_hours) || 0), 0);
-  const totalLessons = summary.reduce((sum, s) => sum + (s.lesson_count || 0), 0);
 
   return (
     <div className="glass-card slide-up">
-      <div style={{ 
-        padding: '20px', 
-        borderBottom: '1px solid var(--color-border)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '16px',
-        flexWrap: 'wrap'
-      }}>
+      <div style={headerStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ 
-            padding: '10px', 
-            background: 'var(--color-bg-deep)', 
-            borderRadius: '12px', 
-            color: '#06b6d4' 
-          }}>
-            <Clock size={24} />
-          </div>
+          <div style={{ padding: '10px', background: 'var(--color-bg-deep)', borderRadius: '12px', color: '#06b6d4' }}><Clock size={24} /></div>
           <div>
-            <h2 className="title" style={{ fontSize: '20px', margin: 0, color: 'var(--color-text-main)' }}>
-              Ders ve Çalışma Kaydı
-            </h2>
-            <p style={{ margin: 0, fontSize: '13px', color: 'var(--color-text-muted)' }}>
-              Ders, kitap okuma ve tüm çalışma etkinliklerini kaydedin
-            </p>
+            <h2 className="title" style={{ fontSize: '20px', margin: 0, color: 'var(--color-text-main)' }}>Haftalık Ders Takibi</h2>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--color-text-muted)' }}>Öğrencilerin ders adetlerini ve toplam sürelerini hafta hafta takip edin</p>
           </div>
         </div>
-
-        <div style={{ display: 'flex', gap: '8px', fontSize: '13px' }}>
-          <div style={{ padding: '8px 12px', background: 'rgba(6, 182, 212, 0.1)', borderRadius: '8px', color: '#06b6d4', fontWeight: 600 }}>
-            📊 {totalLessons} çalışma
-          </div>
-          <div style={{ padding: '8px 12px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px', color: '#3b82f6', fontWeight: 600 }}>
-                ⏱️ {totalTeachingHours.toFixed(1)} saat çalışma
-          </div>
+        <div style={{ display: 'flex', gap: '8px', fontSize: '13px', flexWrap: 'wrap' }}>
+          <Badge color="#06b6d4">{totalLessons} ders</Badge>
+          <Badge color="#3b82f6">{formatDuration(totalMinutes)}</Badge>
         </div>
       </div>
 
-      {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)' }}>
-        <button
-          onClick={() => setActiveTab('log')}
-          style={{
-            flex: 1,
-            padding: '12px',
-            background: activeTab === 'log' ? 'rgba(6, 182, 212, 0.1)' : 'transparent',
-            color: activeTab === 'log' ? '#06b6d4' : 'var(--color-text-muted)',
-            border: 'none',
-            cursor: 'pointer',
-            fontWeight: activeTab === 'log' ? 600 : 400,
-            fontSize: '14px',
-            borderBottom: activeTab === 'log' ? '2px solid #06b6d4' : 'none'
-          }}
-        >
-          ➕ Ders Kaydı Ekle
-        </button>
-        <button
-          onClick={() => setActiveTab('report')}
-          style={{
-            flex: 1,
-            padding: '12px',
-            background: activeTab === 'report' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-            color: activeTab === 'report' ? '#3b82f6' : 'var(--color-text-muted)',
-            border: 'none',
-            cursor: 'pointer',
-            fontWeight: activeTab === 'report' ? 600 : 400,
-            fontSize: '14px',
-            borderBottom: activeTab === 'report' ? '2px solid #3b82f6' : 'none'
-          }}
-        >
-          📋 Rapor & Özet
-        </button>
+        <TabButton active={activeTab === 'report'} color="#3b82f6" onClick={() => setActiveTab('report')}>Haftalık Tablo</TabButton>
+        <TabButton active={activeTab === 'log'} color="#06b6d4" onClick={() => setActiveTab('log')}>Ders Kaydı Ekle</TabButton>
       </div>
 
       <div style={{ padding: '20px' }}>
-        {/* LOG TAB */}
-        {activeTab === 'log' && (
-          <form onSubmit={handleAddLesson} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {formError && (
-              <div style={{
-                padding: '12px',
-                background: 'rgba(239, 68, 68, 0.1)',
-                color: '#ef4444',
-                borderRadius: '8px',
-                fontSize: '14px'
-              }}>
-                {formError}
-              </div>
-            )}
-            {formSuccess && (
-              <div style={{
-                padding: '12px',
-                background: 'rgba(16, 185, 129, 0.1)',
-                color: '#10b981',
-                borderRadius: '8px',
-                fontSize: '14px'
-              }}>
-                {formSuccess}
-              </div>
-            )}
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'var(--color-text-main)', fontWeight: 500 }}>
-                  🎓 Öğrenci Seç
-                </label>
-                <select
-                  value={selectedStudentId}
-                  onChange={handleStudentSelect}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-bg-deep)',
-                    color: 'white',
-                    fontSize: '14px'
-                  }}
-                >
-                  <option value="">-- Öğrenci Seçiniz --</option>
-                  {formStudents.map(student => {
-                    const studentId = student.id || student.student_id;
-                    const studentName = student.full_name || student.name || student.student_name;
-                    return (
-                    <option key={studentId} value={studentId}>{studentName}</option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'var(--color-text-main)', fontWeight: 500 }}>
-                  📚 Ders / Çalışma Türü
-                </label>
-                <select
-                  value={lessonSubject}
-                  onChange={(e) => setLessonSubject(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-bg-deep)',
-                    color: 'white',
-                    fontSize: '14px'
-                  }}
-                >
-                  {SUBJECT_GROUPS.map(group => (
-                    <optgroup key={group.label} label={group.label}>
-                      {group.options.map(option => (
-                        <option key={option} value={option}>{option}</option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'var(--color-text-main)', fontWeight: 500 }}>
-                  📅 Çalışma Tarihi
-                </label>
-                <input
-                  type="date"
-                  value={lessonDate}
-                  onChange={(e) => setLessonDate(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-bg-deep)',
-                    color: 'white',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'var(--color-text-main)', fontWeight: 500 }}>
-                  ⏱️ Süre (dakika)
-                </label>
-                <input
-                  type="number"
-                  value={lessonDuration}
-                  onChange={(e) => setLessonDuration(e.target.value)}
-                  min="1"
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-bg-deep)',
-                    color: 'white',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'var(--color-text-main)', fontWeight: 500 }}>
-                📝 Notlar (İsteğe Bağlı)
-              </label>
-              <textarea
-                value={lessonNotes}
-                onChange={(e) => setLessonNotes(e.target.value)}
-                placeholder="Kitap adı, sayfa aralığı, paragraf konusu veya ders notu..."
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--color-border)',
-                  background: 'var(--color-bg-deep)',
-                  color: 'white',
-                  fontSize: '14px',
-                  resize: 'vertical',
-                  minHeight: '80px',
-                  fontFamily: 'inherit'
-                }}
-              />
-            </div>
-
-
-
-            <button
-              type="submit"
-              disabled={submitting}
-              style={{
-                padding: '12px',
-                background: 'linear-gradient(135deg, #06b6d4, #0891b2)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: 600,
-                cursor: submitting ? 'not-allowed' : 'pointer',
-                opacity: submitting ? 0.7 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px'
-              }}
-            >
-              <Plus size={18} /> {submitting ? 'Kaydediliyor...' : 'Çalışma Kaydını Kaydet'}
-            </button>
-
-            {/* Recent Logs */}
-            {getRecentLogs().length > 0 && (
-              <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--color-border)' }}>
-                <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'var(--color-text-main)' }}>
-                  Son Kaydedilen Çalışmalar
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
-                  {getRecentLogs().map(log => (
-                    <div
-                      key={log.id}
-                      style={{
-                        padding: '10px',
-                        background: 'rgba(255,255,255,0.03)',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        fontSize: '13px'
-                      }}
-                    >
-                      <div>
-                        <strong>{log.student_name}</strong> - {log.subject} ({log.duration_minutes} dk)
-                        <br />
-                        <span style={{ color: 'var(--color-text-muted)' }}>📅 {log.lesson_date}</span>
-                      </div>
-                      <button
-                        onClick={() => handleDeleteLog(log.id)}
-                        style={{
-                          background: 'rgba(239, 68, 68, 0.2)',
-                          color: '#ef4444',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '6px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          fontSize: '12px'
-                        }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </form>
-        )}
-
-        {/* REPORT TAB */}
         {activeTab === 'report' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Date Range Filter */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <div style={rangeBoxStyle}>
               <div>
-                <label style={{ fontSize: '12px', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>
-                  Başlangıç Tarihi
-                </label>
-                <input
-                  type="date"
-                  value={dateRange.start}
-                  onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-bg-deep)',
-                    color: 'white',
-                    fontSize: '12px'
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '12px', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>
-                  Bitiş Tarihi
-                </label>
-                <input
-                  type="date"
-                  value={dateRange.end}
-                  onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-bg-deep)',
-                    color: 'white',
-                    fontSize: '12px'
-                  }}
-                />
-              </div>
-              <button
-                onClick={handleDateRangeChange}
-                style={{
-                  padding: '8px 16px',
-                  background: 'var(--color-primary)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  alignSelf: 'flex-end'
-                }}
-              >
-                Filtrele
-              </button>
-            </div>
-
-            {/* Summary Stats */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-              <div style={{ padding: '16px', background: 'rgba(6, 182, 212, 0.1)', borderRadius: '8px', borderLeft: '3px solid #06b6d4' }}>
-                <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>Toplam Çalışma</div>
-                <div style={{ fontSize: '24px', fontWeight: 700, color: '#06b6d4' }}>{totalLessons}</div>
-              </div>
-              <div style={{ padding: '16px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px', borderLeft: '3px solid #3b82f6' }}>
-                <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>Toplam Saat</div>
-                <div style={{ fontSize: '24px', fontWeight: 700, color: '#3b82f6' }}>{totalTeachingHours.toFixed(1)}h</div>
-              </div>
-              <div style={{ padding: '16px', background: 'rgba(139, 92, 246, 0.1)', borderRadius: '8px', borderLeft: '3px solid #8b5cf6' }}>
-                <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>Öğrenci Başına Ortalama</div>
-                <div style={{ fontSize: '24px', fontWeight: 700, color: '#8b5cf6' }}>
-                  {summary.length > 0 ? (totalLessons / summary.length).toFixed(1) : 0}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', color: 'var(--color-text-main)', fontWeight: 700 }}>
+                  <Calendar size={17} /> {formatRange(dateRange)}
                 </div>
+                <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Tarihleri değiştirerek özel bir hafta aralığı da görüntüleyebilirsiniz.</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+                <button type="button" onClick={() => shiftWeek(-7)} aria-label="Önceki hafta" style={navButtonStyle}><ChevronLeft size={17} /></button>
+                <DateInput label="Başlangıç" value={dateRange.start} onChange={value => setDateRange(current => ({ start: value, end: current.end < value ? toDateValue(addDays(value, 6)) : current.end }))} />
+                <DateInput label="Bitiş" value={dateRange.end} min={dateRange.start} onChange={value => setDateRange(current => ({ ...current, end: value }))} />
+                <button type="button" onClick={() => shiftWeek(7)} aria-label="Sonraki hafta" style={navButtonStyle}><ChevronRight size={17} /></button>
+                <button type="button" onClick={() => { setDateRange(getWeekRange()); setExpandedStudent(null); }} style={{ ...navButtonStyle, width: 'auto', padding: '0 12px', fontSize: '12px', fontWeight: 600 }}>Bu hafta</button>
               </div>
             </div>
 
-            {/* Student Summary List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 12px 0', color: 'var(--color-text-main)' }}>
-                📊 Öğrenci Başına Rapor
-              </h3>
-              {summary.length === 0 ? (
-                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                  Henüz ders kaydı yok
-                </div>
-              ) : (
-                summary.map(student => (
-                  <div key={student.student_id} style={{
-                    padding: '12px',
-                    background: 'rgba(255,255,255,0.03)',
-                    borderRadius: '8px',
-                    border: '1px solid var(--color-border)',
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => setExpandedStudent(expandedStudent === student.student_id ? null : student.student_id)}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontWeight: 600, color: 'white', marginBottom: '4px' }}>
-                          👤 {student.student_name}
-                        </div>
-                        <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                          {student.lesson_count} çalışma • {student.total_hours} saat • Ort. {student.avg_duration} dk/kayıt
-                        </div>
-                      </div>
-                      <div>
-                        {expandedStudent === student.student_id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                      </div>
-                    </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
+              <SummaryCard label="Toplam ders" value={totalLessons} color="#06b6d4" />
+              <SummaryCard label="Toplam süre" value={formatDuration(totalMinutes)} color="#3b82f6" />
+              <SummaryCard label="Ders yapılan öğrenci" value={`${activeStudents} / ${weeklyRows.length}`} color="#8b5cf6" />
+            </div>
 
-                    {expandedStudent === student.student_id && (
-                      <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--color-border)', fontSize: '13px' }}>
-                        <div style={{ marginBottom: '8px' }}>
-                          <strong>📚 Dersler / Çalışmalar:</strong> {student.subjects}
-                        </div>
-                        <div style={{ marginBottom: '8px' }}>
-                          <strong>📅 Tarih Aralığı:</strong> {student.first_lesson} → {student.last_lesson}
-                        </div>
-                        <div>
-                          <strong>📊 Detay:</strong> {student.total_minutes} dakika ({student.total_hours} saat)
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
+            <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: '10px' }}>
+              <table style={{ width: '100%', minWidth: '680px', borderCollapse: 'collapse', color: 'var(--color-text-main)' }}>
+                <thead><tr style={{ background: 'rgba(255,255,255,.05)', textAlign: 'left' }}>
+                  <th style={thStyle}>Öğrenci</th><th style={thStyle}>Ders adedi</th><th style={thStyle}>Toplam süre</th><th style={thStyle}>Dersler</th><th style={{ ...thStyle, textAlign: 'right' }}>İşlem</th>
+                </tr></thead>
+                <tbody>
+                  {weeklyRows.map(row => (
+                    <React.Fragment key={row.studentId}>
+                      <tr style={{ borderTop: '1px solid var(--color-border)' }}>
+                        <td style={tdStyle}><div style={{ display: 'flex', alignItems: 'center', gap: '9px', fontWeight: 600 }}>
+                          <span style={avatarStyle(row.lessonCount)}>{row.studentName.charAt(0).toLocaleUpperCase('tr-TR')}</span>{row.studentName}
+                        </div></td>
+                        <td style={tdStyle}><span style={{ fontWeight: 700, color: row.lessonCount ? '#06b6d4' : 'var(--color-text-muted)' }}>{row.lessonCount} ders</span></td>
+                        <td style={tdStyle}>{formatDuration(row.totalMinutes)}</td>
+                        <td style={{ ...tdStyle, maxWidth: '210px', color: row.subjects ? 'var(--color-text-main)' : 'var(--color-text-muted)' }}>{row.subjects || 'Henüz kayıt yok'}</td>
+                        <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {row.lessonCount > 0 && <button type="button" aria-label={`${row.studentName} detayları`} onClick={() => setExpandedStudent(expandedStudent === row.studentId ? null : row.studentId)} style={{ ...smallButtonStyle, marginRight: '6px', background: 'rgba(255,255,255,.06)', color: 'var(--color-text-muted)' }}>{expandedStudent === row.studentId ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</button>}
+                          <button type="button" onClick={() => handleAddForStudent(row)} style={smallButtonStyle}><Plus size={15} /> Ders ekle</button>
+                        </td>
+                      </tr>
+                      {expandedStudent === row.studentId && row.lessonCount > 0 && <tr style={{ background: 'rgba(59,130,246,.05)', borderTop: '1px solid var(--color-border)' }}><td colSpan="5" style={{ padding: '10px 14px', fontSize: '12px', color: 'var(--color-text-muted)' }}>İlk ders: <strong>{row.firstLesson}</strong> · Son ders: <strong>{row.lastLesson}</strong> · Toplam: <strong>{row.totalMinutes} dakika</strong></td></tr>}
+                    </React.Fragment>
+                  ))}
+                  {!weeklyRows.length && <tr><td colSpan="5" style={{ padding: '28px', textAlign: 'center', color: 'var(--color-text-muted)' }}>Bu öğretmene atanmış öğrenci bulunamadı.</td></tr>}
+                </tbody>
+              </table>
             </div>
           </div>
+        )}
+
+        {activeTab === 'log' && (
+          <form onSubmit={handleAddLesson} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {formError && <div style={errorStyle}>{formError}</div>}
+            {formSuccess && <div style={successStyle}>✓ {formSuccess}</div>}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+              <FormField label="Öğrenci"><select value={selectedStudentId} onChange={handleStudentSelect} required style={controlStyle}><option value="">Öğrenci seçin</option>{formStudents.map(student => <option key={getStudentId(student)} value={getStudentId(student)}>{getStudentName(student)}</option>)}</select></FormField>
+              <FormField label="Ders / çalışma türü"><select value={lessonSubject} onChange={event => setLessonSubject(event.target.value)} style={controlStyle}>{subjectGroups.map(group => <optgroup key={group.label} label={group.label}>{group.options.map(option => <option key={option} value={option}>{option}</option>)}</optgroup>)}</select></FormField>
+              <FormField label="Ders tarihi"><input type="date" value={lessonDate} onChange={event => setLessonDate(event.target.value)} required style={controlStyle} /></FormField>
+              <FormField label="Ders süresi (dakika)">
+                <input type="number" value={lessonDuration} onChange={event => setLessonDuration(event.target.value)} min="1" required style={controlStyle} />
+                <div style={{ display: 'flex', gap: '6px', marginTop: '7px', flexWrap: 'wrap' }}>{[30, 60, 90, 120].map(minutes => <button key={minutes} type="button" onClick={() => setLessonDuration(String(minutes))} style={presetStyle(lessonDuration === String(minutes))}>{formatDuration(minutes)}</button>)}</div>
+              </FormField>
+            </div>
+            <FormField label="Not (isteğe bağlı)"><textarea value={lessonNotes} onChange={event => setLessonNotes(event.target.value)} placeholder="Dersle ilgili kısa bir not ekleyebilirsiniz..." style={{ ...controlStyle, resize: 'vertical', minHeight: '76px', fontFamily: 'inherit' }} /></FormField>
+            <button type="submit" disabled={submitting} style={submitStyle(submitting)}><Plus size={18} /> {submitting ? 'Kaydediliyor...' : 'Ders Kaydını Kaydet'}</button>
+            {loading && <div style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Kayıtlar yükleniyor...</div>}
+            {!loading && teachingLogs.length > 0 && <RecentLogs logs={teachingLogs.slice(0, 10)} onDelete={handleDeleteLog} />}
+          </form>
         )}
       </div>
     </div>
   );
 };
+
+const Badge = ({ color, children }) => <div style={{ padding: '8px 12px', background: `${color}16`, borderRadius: '8px', color, fontWeight: 600 }}>{children}</div>;
+const TabButton = ({ active, color, onClick, children }) => <button type="button" onClick={onClick} style={{ flex: 1, padding: '12px', background: active ? `${color}16` : 'transparent', color: active ? color : 'var(--color-text-muted)', border: 'none', borderBottom: active ? `2px solid ${color}` : '2px solid transparent', cursor: 'pointer', fontWeight: active ? 600 : 400, fontSize: '14px' }}>{children}</button>;
+const DateInput = ({ label, value, min, onChange }) => <div><label style={dateLabelStyle}>{label}</label><input type="date" value={value} min={min} onChange={event => onChange(event.target.value)} style={dateInputStyle} /></div>;
+const SummaryCard = ({ label, value, color }) => <div style={{ padding: '14px', background: `${color}16`, borderRadius: '8px', borderLeft: `3px solid ${color}` }}><div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>{label}</div><div style={{ fontSize: '21px', fontWeight: 700, color }}>{value}</div></div>;
+const FormField = ({ label, children }) => <div><label style={{ display: 'block', fontSize: '13px', marginBottom: '6px', color: 'var(--color-text-main)', fontWeight: 600 }}>{label}</label>{children}</div>;
+const RecentLogs = ({ logs, onDelete }) => <div style={{ marginTop: '8px', paddingTop: '18px', borderTop: '1px solid var(--color-border)' }}><h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'var(--color-text-main)' }}>Son ders kayıtları</h3><div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>{logs.map(log => <div key={log.id} style={recentLogStyle}><div><strong>{log.student_name}</strong> · {log.subject || 'Ders'} · {formatDuration(log.duration_minutes)}<br /><span style={{ color: 'var(--color-text-muted)' }}>{log.lesson_date}</span></div><button type="button" onClick={() => onDelete(log.id)} aria-label="Ders kaydını sil" style={deleteStyle}><Trash2 size={14} /></button></div>)}</div></div>;
+
+const headerStyle = { padding: '20px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' };
+const rangeBoxStyle = { padding: '14px', background: 'rgba(255,255,255,.03)', border: '1px solid var(--color-border)', borderRadius: '10px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' };
+const navButtonStyle = { width: '34px', height: '34px', padding: 0, borderRadius: '7px', border: '1px solid var(--color-border)', background: 'rgba(255,255,255,.05)', color: 'var(--color-text-main)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
+const dateLabelStyle = { fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' };
+const dateInputStyle = { padding: '8px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-bg-deep)', color: 'white', fontSize: '12px' };
+const thStyle = { padding: '11px 14px', fontSize: '12px', color: 'var(--color-text-muted)', fontWeight: 600 };
+const tdStyle = { padding: '12px 14px', fontSize: '13px', verticalAlign: 'middle' };
+const avatarStyle = active => ({ width: '30px', height: '30px', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: active ? 'rgba(6,182,212,.16)' : 'rgba(255,255,255,.06)', color: active ? '#06b6d4' : 'var(--color-text-muted)' });
+const smallButtonStyle = { padding: '7px 10px', border: 'none', borderRadius: '7px', background: 'rgba(6,182,212,.14)', color: '#06b6d4', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 600 };
+const controlStyle = { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-deep)', color: 'white', fontSize: '14px', boxSizing: 'border-box' };
+const presetStyle = active => ({ padding: '5px 9px', borderRadius: '6px', border: `1px solid ${active ? '#06b6d4' : 'var(--color-border)'}`, background: active ? 'rgba(6,182,212,.12)' : 'transparent', color: active ? '#06b6d4' : 'var(--color-text-muted)', cursor: 'pointer', fontSize: '11px' });
+const submitStyle = disabled => ({ padding: '12px', background: 'linear-gradient(135deg, #06b6d4, #0891b2)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? .7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' });
+const errorStyle = { padding: '12px', background: 'rgba(239,68,68,.1)', color: '#ef4444', borderRadius: '8px', fontSize: '14px' };
+const successStyle = { padding: '12px', background: 'rgba(16,185,129,.1)', color: '#10b981', borderRadius: '8px', fontSize: '14px' };
+const recentLogStyle = { padding: '10px', background: 'rgba(255,255,255,.03)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', fontSize: '13px' };
+const deleteStyle = { background: 'rgba(239,68,68,.16)', color: '#ef4444', border: 'none', borderRadius: '6px', padding: '7px', cursor: 'pointer', display: 'flex', alignItems: 'center' };
 
 export default TeachingHoursTracker;
