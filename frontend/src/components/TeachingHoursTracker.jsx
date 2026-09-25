@@ -24,6 +24,15 @@ const formatRange = ({ start, end }) => {
   const last = parseDate(end).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' });
   return `${first} – ${last}`;
 };
+const formatDisplayDate = value => {
+  if (!value) return '—';
+  const datePart = String(value).slice(0, 10);
+  return parseDate(datePart).toLocaleDateString('tr-TR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+};
 const formatDuration = value => {
   const minutes = Number(value) || 0;
   if (!minutes) return '—';
@@ -272,7 +281,7 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
                           <button type="button" onClick={() => handleAddForStudent(row)} style={smallButtonStyle}><Plus size={15} /> Ders ekle</button>
                         </td>
                       </tr>
-                      {expandedStudent === row.studentId && row.lessonCount > 0 && <tr style={{ background: 'rgba(59,130,246,.05)', borderTop: '1px solid var(--color-border)' }}><td colSpan="5" style={{ padding: '10px 14px', fontSize: '12px', color: 'var(--color-text-muted)' }}>İlk ders: <strong>{row.firstLesson}</strong> · Son ders: <strong>{row.lastLesson}</strong> · Toplam: <strong>{row.totalMinutes} dakika</strong></td></tr>}
+                      {expandedStudent === row.studentId && row.lessonCount > 0 && <tr style={{ background: 'rgba(59,130,246,.05)', borderTop: '1px solid var(--color-border)' }}><td colSpan="5" style={{ padding: '10px 14px', fontSize: '12px', color: 'var(--color-text-muted)' }}>İlk ders: <strong>{formatDisplayDate(row.firstLesson)}</strong> · Son ders: <strong>{formatDisplayDate(row.lastLesson)}</strong> · Toplam: <strong>{formatDuration(row.totalMinutes)}</strong></td></tr>}
                     </React.Fragment>
                   ))}
                   {!weeklyRows.length && <tr><td colSpan="5" style={{ padding: '28px', textAlign: 'center', color: 'var(--color-text-muted)' }}>Bu öğretmene atanmış öğrenci bulunamadı.</td></tr>}
