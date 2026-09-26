@@ -643,8 +643,8 @@ const TeacherDashboard = () => {
 
       {/* Add Student Modal */}
       {showAddModal && (
-        <div className="fade-in" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(10px)' }}>
-          <div className="glass-card slide-up" style={{ width: '100%', maxWidth: '400px', padding: '32px', position: 'relative' }}>
+        <div className="fade-in" style={{ position: 'fixed', inset: 0, padding: '20px', boxSizing: 'border-box', background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(10px)', overflowY: 'auto' }}>
+          <div className="glass-card slide-up" style={{ width: '100%', maxWidth: '400px', maxHeight: 'calc(100vh - 40px)', padding: '32px', boxSizing: 'border-box', position: 'relative', overflowY: 'auto', margin: 'auto' }}>
             <button 
               onClick={() => { setShowAddModal(false); setAddError(''); setAddSuccess(''); }}
               style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}
