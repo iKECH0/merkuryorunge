@@ -643,8 +643,8 @@ const TeacherDashboard = () => {
 
       {/* Add Student Modal */}
       {showAddModal && (
-        <div className="fade-in" style={{ position: 'fixed', inset: 0, padding: '20px', boxSizing: 'border-box', background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(10px)', overflowY: 'auto' }}>
-          <div className="glass-card slide-up" style={{ width: '100%', maxWidth: '400px', maxHeight: 'calc(100vh - 40px)', padding: '32px', boxSizing: 'border-box', position: 'relative', overflowY: 'auto', margin: 'auto' }}>
+        <div className="fade-in" style={{ position: 'fixed', inset: 0, height: '100dvh', padding: '12px', boxSizing: 'border-box', background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(10px)', overflowY: 'auto' }}>
+          <div className="glass-card slide-up" style={{ width: '100%', maxWidth: '400px', maxHeight: 'calc(100dvh - 24px)', padding: 'clamp(20px, 5vw, 32px)', boxSizing: 'border-box', position: 'relative', overflowY: 'auto', margin: 'auto' }}>
             <button 
               onClick={() => { setShowAddModal(false); setAddError(''); setAddSuccess(''); }}
               style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}
@@ -702,9 +702,11 @@ const TeacherDashboard = () => {
               {addError && <div style={{ color: '#ef4444', fontSize: '14px', background: 'rgba(239,68,68,0.1)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)' }}>{addError}</div>}
               {addSuccess && <div style={{ color: '#10b981', fontSize: '14px', background: 'rgba(16,185,129,0.1)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.2)' }}>{addSuccess}</div>}
 
-              <button type="submit" className="btn btn-primary" disabled={addLoading} style={{ padding: '14px', marginTop: '8px' }}>
-                {addLoading ? 'Kaydediliyor...' : 'Öğrenciyi Kaydet'}
-              </button>
+              <div style={{ position: 'sticky', bottom: '-20px', padding: '16px 0 max(16px, env(safe-area-inset-bottom))', background: 'linear-gradient(to bottom, transparent, var(--color-bg-deep) 30%)', zIndex: 1 }}>
+                <button type="submit" className="btn btn-primary" disabled={addLoading} style={{ width: '100%', padding: '14px', marginTop: '8px', boxShadow: '0 -8px 20px rgba(15, 23, 42, 0.35)' }}>
+                  {addLoading ? 'Kaydediliyor...' : 'Öğrenciyi Kaydet'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
