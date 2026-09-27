@@ -1002,6 +1002,50 @@ app.get("/api/admin/stats", async (req, res) => {
   }
 });
 
+// Full platform backup. This intentionally returns rows (including password hashes),
+// so a future restore can preserve existing account access. It is only exposed from
+// the Professional Teacher panel and must never be shared as a public file.
+app.get("/api/admin/backup", async (req, res) => {
+  try {
+    const tables = [
+      "teachers",
+      "students",
+      "study_logs",
+      "teaching_logs",
+      "student_goals",
+      "topic_curriculum",
+      "student_topic_progress",
+      "deletion_requests"
+    ];
+
+    const results = await Promise.all(
+      tables.map(async (table) => {
+        const orderBy = table === "student_goals" ? "student_name" : "id";
+        const result = await pool.query(`SELECT * FROM ${table} ORDER BY ${orderBy} ASC`);
+        return [table, result.rows];
+      })
+    );
+
+    const data = Object.fromEntries(results);
+    const counts = Object.fromEntries(
+      Object.entries(data).map(([table, rows]) => [table, rows.length])
+    );
+
+    res.setHeader("Cache-Control", "no-store, private");
+    res.json({
+      format: "merkuryorunge-backup",
+      version: 1,
+      exported_at: new Date().toISOString(),
+      timezone: "Europe/Istanbul",
+      counts,
+      data
+    });
+  } catch (err) {
+    console.error("Backup export error:", err);
+    res.status(500).json({ error: "Yedek hazırlanırken sunucu hatası oluştu." });
+  }
+});
+
 // 6. Approve Teacher
 app.post("/api/admin/approve-teacher", async (req, res) => {
   try {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAdminStats, approveTeacher, deleteTeacher, addTeacherByAdmin, getDeletionRequests, deleteDeletionRequest } from '../api';
-import { LayoutDashboard, Users, CheckCircle, Clock, ShieldCheck, LogOut, RefreshCw, BarChart2, Trash2, PlusCircle, X, User, Key, Briefcase, Sparkles, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { getAdminStats, approveTeacher, deleteTeacher, addTeacherByAdmin, getDeletionRequests, deleteDeletionRequest, downloadPlatformBackup } from '../api';
+import { LayoutDashboard, Users, CheckCircle, Clock, ShieldCheck, LogOut, RefreshCw, BarChart2, Trash2, PlusCircle, X, User, Key, Briefcase, Sparkles, ShieldAlert, AlertTriangle, Database, Download } from 'lucide-react';
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
@@ -9,6 +9,7 @@ const SuperAdminDashboard = () => {
   const [deletionRequests, setDeletionRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
 
   // Add Teacher Modal States
   const [showAddModal, setShowAddModal] = useState(false);
@@ -48,6 +49,29 @@ const SuperAdminDashboard = () => {
   const handleLogout = () => {
     localStorage.removeItem('superAdminAuth');
     navigate('/');
+  };
+
+  const handleBackupDownload = async () => {
+    setIsBackingUp(true);
+    try {
+      const backup = await downloadPlatformBackup();
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const stamp = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Istanbul' }).replace(/[ :]/g, '-');
+      link.href = url;
+      link.download = `merkuryorunge-yedek-${stamp}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      alert(`Yedek indirildi. ${backup.counts.students || 0} öğrenci ve ${backup.counts.teachers || 0} öğretmen kaydı içeriyor.`);
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.error || 'Yedek indirilemedi. Lütfen tekrar deneyin.');
+    } finally {
+      setIsBackingUp(false);
+    }
   };
 
   const handleApprove = async (teacherId) => {
@@ -159,6 +183,15 @@ const SuperAdminDashboard = () => {
           >
             <BarChart2 size={16} /> Tüm Öğrenci Verilerini Görüntüle
           </button>
+          <button
+            className="btn btn-primary"
+            style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(139, 92, 246, 0.15)', color: '#c4b5fd', border: '1px solid rgba(139, 92, 246, 0.35)' }}
+            onClick={handleBackupDownload}
+            disabled={isBackingUp}
+            title="Öğrenci, öğretmen ve tüm çalışma verilerini JSON olarak indirir"
+          >
+            {isBackingUp ? <RefreshCw size={16} className="animate-pulse" /> : <Database size={16} />} {isBackingUp ? 'Yedek Hazırlanıyor...' : 'JSON Yedek İndir'}
+          </button>
           <button 
             className="btn btn-primary" 
             style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '8px', background: '#ef4444', border: '1px solid #ef4444' }} 
@@ -168,6 +201,16 @@ const SuperAdminDashboard = () => {
             <RefreshCw size={16} className={isRefreshing ? 'animate-pulse' : ''} style={{ transform: isRefreshing ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.5s ease' }} /> 
             Yenile
           </button>
+        </div>
+      </div>
+
+      <div className="glass-card" style={{ padding: '18px 22px', marginBottom: '28px', border: '1px solid rgba(139, 92, 246, 0.25)', background: 'rgba(139, 92, 246, 0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <Download size={20} color="#c4b5fd" style={{ marginTop: '2px', flexShrink: 0 }} />
+          <div>
+            <strong style={{ color: '#ede9fe' }}>Günlük yedek önerisi</strong>
+            <p style={{ margin: '6px 0 0', color: 'var(--color-text-muted)', fontSize: '13px', lineHeight: 1.55 }}>Her gün bu panelden JSON yedeğini indirip güvenli bir klasörde saklayın. Dosya, gerektiğinde öğrenci ve öğretmen hesaplarıyla çalışma kayıtlarının geri yüklenebilmesi için parola özetlerini de içerir; kesinlikle WhatsApp veya e-posta ile paylaşmayın.</p>
+          </div>
         </div>
       </div>
 

@@ -87,6 +87,11 @@ export const getAdminStats = async () => {
   return response.data;
 };
 
+export const downloadPlatformBackup = async () => {
+  const response = await axios.get(`${API_URL}/admin/backup`);
+  return response.data;
+};
+
 export const getDeletionRequests = async () => {
   const response = await axios.get(`${API_URL}/deletion-requests`);
   return response.data;
