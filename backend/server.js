@@ -585,13 +585,15 @@ app.get("/api/teacher-students/:teacher_id", async (req, res) => {
   try {
     const { teacher_id } = req.params;
     const isProfessionalView = teacher_id === 'ALL';
-    const result = await pool.query(
-      `SELECT id, full_name as name, full_name, username
-       FROM students
-       ${isProfessionalView ? '' : 'WHERE teacher_id = $1'}
-       ORDER BY full_name ASC`,
-      isProfessionalView ? [] : [teacher_id]
-    );
+    const result = isProfessionalView
+      ? await pool.query(`SELECT id, full_name as name, full_name, username FROM students ORDER BY full_name ASC`)
+      : await pool.query(
+          `SELECT id, full_name as name, full_name, username
+           FROM students
+           WHERE teacher_id = $1
+           ORDER BY full_name ASC`,
+          [teacher_id]
+        );
     res.setHeader("Cache-Control", "no-store, private");
     res.json(result.rows);
   } catch (err) {
