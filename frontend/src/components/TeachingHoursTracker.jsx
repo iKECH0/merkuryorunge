@@ -61,6 +61,7 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
   const [selectedStudentName, setSelectedStudentName] = useState('');
   const [lessonSubject, setLessonSubject] = useState('Matematik');
   const [lessonDuration, setLessonDuration] = useState('60');
+  const [lessonCount, setLessonCount] = useState(1);
   const [lessonDate, setLessonDate] = useState(toDateValue(new Date()));
   const [lessonNotes, setLessonNotes] = useState('');
   const [formError, setFormError] = useState('');
@@ -71,14 +72,20 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
     { label: 'Dersler', options: ['Matematik', 'Türkçe', 'Fizik', 'Kimya', 'Biyoloji', 'Tarih', 'Coğrafya', 'İngilizce'] },
     { label: 'Çalışma Türleri', options: ['Kitap Okuma', 'Paragraf Çalışması', 'Deneme Sınavı', 'Soru Çözümü', 'Ödev / Etüt', 'Konu Tekrarı', 'Diğer'] }
   ];
-  const formStudents = useMemo(
-    () => (availableStudents.length ? availableStudents : students),
-    [availableStudents, students]
-  );
+  // API'den alınan liste ile panelin güncel listesini birleştir. Böylece yeni
+  // eklenen ve henüz ders kaydı olmayan öğrenciler de hemen seçilebilir olur.
+  const formStudents = useMemo(() => {
+    const byId = new Map();
+    [...availableStudents, ...students].forEach(student => {
+      const id = getStudentId(student);
+      if (id !== undefined && id !== null) byId.set(String(id), student);
+    });
+    return [...byId.values()].sort((a, b) => getStudentName(a).localeCompare(getStudentName(b), 'tr'));
+  }, [availableStudents, students]);
 
   const fetchStudents = async () => {
     try {
-      const response = await fetch(`${apiBaseUrl}/api/teacher-students/${teacherId}`);
+      const response = await fetch(`${apiBaseUrl}/api/teacher-students/${teacherId}`, { cache: 'no-store' });
       const data = await response.json();
       if (response.ok && Array.isArray(data)) setAvailableStudents(data);
     } catch (error) {
@@ -164,31 +171,33 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
     event.preventDefault();
     setFormError('');
     setFormSuccess('');
-    if (!selectedStudentId || !selectedStudentName || Number(lessonDuration) < 1) {
+    if (!selectedStudentId || !selectedStudentName || Number(lessonDuration) < 1 || ![1, 2].includes(lessonCount)) {
       setFormError('Lütfen öğrenci ve geçerli bir ders süresi seçin.');
       return;
     }
     try {
       setSubmitting(true);
-      const response = await fetch(`${apiBaseUrl}/api/teaching-logs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teacher_id: Number(teacherId),
-          student_id: Number(selectedStudentId),
-          student_name: selectedStudentName,
-          subject: lessonSubject,
-          duration_minutes: Number(lessonDuration),
-          lesson_date: lessonDate,
-          notes: lessonNotes
-        })
-      });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
+      const payload = {
+        teacher_id: Number(teacherId),
+        student_id: Number(selectedStudentId),
+        student_name: selectedStudentName,
+        subject: lessonSubject,
+        duration_minutes: Number(lessonDuration),
+        lesson_date: lessonDate,
+        notes: lessonNotes
+      };
+      const responses = await Promise.all(Array.from({ length: lessonCount }, () => fetch(`${apiBaseUrl}/api/teaching-logs`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      })));
+      const failedResponse = responses.find(response => !response.ok);
+      if (failedResponse) {
+        const data = await failedResponse.json().catch(() => ({}));
         throw new Error(data.error || 'Ders kaydı oluşturulamadı');
       }
-      setFormSuccess(`${selectedStudentName} için ${formatDuration(lessonDuration)} ders kaydedildi.`);
+      const totalMinutes = Number(lessonDuration) * lessonCount;
+      setFormSuccess(`${selectedStudentName} için ${lessonCount} ders (${formatDuration(totalMinutes)}) kaydedildi.`);
       setLessonDuration('60');
+      setLessonCount(1);
       setLessonNotes('');
       await Promise.all([fetchTeachingLogs(), fetchSummary(dateRange)]);
     } catch (error) {
@@ -302,6 +311,11 @@ const TeachingHoursTracker = ({ teacherId, students = [] }) => {
               <FormField label="Ders süresi (dakika)">
                 <input type="number" value={lessonDuration} onChange={event => setLessonDuration(event.target.value)} min="1" required style={controlStyle} />
                 <div style={{ display: 'flex', gap: '6px', marginTop: '7px', flexWrap: 'wrap' }}>{[40, 60, 80, 100].map(minutes => <button key={minutes} type="button" onClick={() => setLessonDuration(String(minutes))} style={presetStyle(lessonDuration === String(minutes))}>{minutes} dakika</button>)}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginRight: '2px' }}>Ders adedi:</span>
+                  {[1, 2].map(count => <button key={count} type="button" onClick={() => setLessonCount(count)} style={presetStyle(lessonCount === count)}>{count} ders</button>)}
+                  <span style={{ fontSize: '12px', color: '#06b6d4', fontWeight: 600 }}>Toplam: {Number(lessonDuration || 0) * lessonCount} dakika</span>
+                </div>
               </FormField>
             </div>
             <FormField label="Not (isteğe bağlı)"><textarea value={lessonNotes} onChange={event => setLessonNotes(event.target.value)} placeholder="Dersle ilgili kısa bir not ekleyebilirsiniz..." style={{ ...controlStyle, resize: 'vertical', minHeight: '76px', fontFamily: 'inherit' }} /></FormField>
