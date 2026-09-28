@@ -929,9 +929,11 @@ app.get("/api/stats", async (req, res) => {
       queryParams = [teacher_id];
     }
 
+    // Öğrenci sayısı çalışma kayıtlarından değil doğrudan öğrenciler tablosundan
+    // alınmalı. Yeni eklenen bir öğrenci ilk çalışmasını girmeden de panelde sayılır.
     const totalQuery = await pool.query(`
-      SELECT 
-        COUNT(DISTINCT student_name) as total_students,
+      SELECT
+        (SELECT COUNT(*) FROM students ${filterClause}) as total_students,
         COALESCE(SUM(duration_minutes), 0) as total_duration,
         COALESCE(SUM(questions_solved), 0) as total_questions
       FROM study_logs
@@ -1031,6 +1033,7 @@ app.get("/api/admin/backup", async (req, res) => {
       Object.entries(data).map(([table, rows]) => [table, rows.length])
     );
 
+    res.setHeader("Cache-Control", "no-store, private");
     res.setHeader("Cache-Control", "no-store, private");
     res.json({
       format: "merkuryorunge-backup",

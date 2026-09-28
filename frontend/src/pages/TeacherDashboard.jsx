@@ -141,7 +141,7 @@ const TeacherDashboard = () => {
       setNewStudentSchoolLevel('Lise (YKS)');
       setNewStudentTrackingDocumentKey('');
       setSelectedTeacherId('');
-      fetchData(); // Refresh list to show new student (will appear once they have a log, or we can just show success)
+      await fetchData(); // Öğrenci sayısı ve liste, kayıt tamamlanınca hemen güncellensin.
       
       setTimeout(() => {
         setShowAddModal(false);
