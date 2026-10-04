@@ -6,7 +6,7 @@ const TEMPLATE_FILE_IDS = {
   '11': '1PLraX9LZXgKxg51fnRJni0ZBldxvdakiTh-Ka9cg7LQ',
   '10': '1NcmjgSZLJ6iue5kwxRz2ki9S7lXqO-WwH-LuZ-gwkOk',
   '9': '10F627AiFy3VcE-6_Knge18pZRX-XaE_Ch3dPhL8muP8',
-  '8': '1aEeA4zYRH_l20Xn8z4hvRxsPBnCg5OLixGkb2IfiLFM',
+  '8': '1BBVvFVZlYqVpFYfds_ko5lFXb8Q7A9wYKVOl7AusE4k',
   '7': '1Mqj7qgXIumzJtbqapbfvmaQHATyVYN-46xBYPIr3W3E',
   '6': '1upajaQ0jszFrdzDCtBRj8n_TIucshMLQSrvq7bc_JpA',
   '5': '1Fm0Ka9ZYjYEvV6zhzyhRcK5__cg_ihn1kRyvmuGi1y0'
