@@ -64,6 +64,19 @@ const googleRequest = async (url, accessToken, options = {}) => {
   return data;
 };
 
+const ensureTrackingDocumentPanelAccess = async (fileId, accessToken = null) => {
+  if (!fileId) return;
+  const token = accessToken || await getAccessToken();
+  await googleRequest(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions?supportsAllDrives=true`,
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify({ type: 'anyone', role: 'reader', allowFileDiscovery: false })
+    }
+  );
+};
+
 const createPersonalTrackingDocument = async ({
   fullName,
   googleEmail,
@@ -99,6 +112,8 @@ const createPersonalTrackingDocument = async ({
     }
   );
 
+  await ensureTrackingDocumentPanelAccess(copiedFile.id, accessToken);
+
   return {
     fileId: copiedFile.id,
     url: copiedFile.webViewLink || `https://docs.google.com/spreadsheets/d/${copiedFile.id}/edit`
@@ -107,6 +122,7 @@ const createPersonalTrackingDocument = async ({
 
 module.exports = {
   createPersonalTrackingDocument,
+  ensureTrackingDocumentPanelAccess,
   isGoogleDriveConfigured,
   resolveTemplateFileId
 };

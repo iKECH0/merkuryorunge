@@ -4,7 +4,7 @@ const cors = require("cors");
 const { Pool } = require("pg");
 const bcrypt = require("bcryptjs");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const { createPersonalTrackingDocument, isGoogleDriveConfigured } = require("./googleDrive");
+const { createPersonalTrackingDocument, ensureTrackingDocumentPanelAccess, isGoogleDriveConfigured } = require("./googleDrive");
 
 const app = express();
 app.use(cors({
@@ -1203,6 +1203,13 @@ app.put("/api/students/:studentId", async (req, res) => {
       } catch (documentError) {
         console.error('Kişisel dokümanı yeniden oluşturma hatası:', documentError);
         documentWarning = 'Öğrenci güncellendi ancak kişisel Google dokümanı oluşturulamadı.';
+      }
+    } else if (student.tracking_document_file_id && isGoogleDriveConfigured()) {
+      try {
+        await ensureTrackingDocumentPanelAccess(student.tracking_document_file_id);
+      } catch (documentError) {
+        console.error('Panel doküman erişimi güncelleme hatası:', documentError);
+        documentWarning = 'Öğrenci güncellendi ancak panel doküman erişimi yenilenemedi.';
       }
     }
 

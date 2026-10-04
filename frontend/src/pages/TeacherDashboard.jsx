@@ -5,7 +5,7 @@ import { getLogs, getStats, getAdminStats, addStudentByTeacher, updateStudent, d
 import StudentReportPDF from '../components/StudentReportPDF';
 import CurriculumManager from '../components/CurriculumManager';
 import TeachingHoursTracker from '../components/TeachingHoursTracker';
-import { LayoutDashboard, RefreshCw, Users, Clock, Hash, BookOpen, Download, LogOut, Copy, CheckCircle2, PlusCircle, X, User, Key, GraduationCap, Pencil, Trash2, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { LayoutDashboard, RefreshCw, Users, Clock, Hash, BookOpen, Download, LogOut, Copy, CheckCircle2, PlusCircle, X, User, Key, GraduationCap, Pencil, Trash2, KeyRound, Eye, EyeOff, ExternalLink } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { TRACKING_DOCUMENT_OPTIONS } from '../data/trackingDocuments';
 
@@ -607,6 +607,18 @@ const TeacherDashboard = () => {
                   </div>
 
                   <div style={{ flex: '1 1 100%', display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    {student.trackingDocumentUrl && (
+                      <a
+                        className="btn btn-secondary"
+                        href={student.trackingDocumentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ padding: '8px 14px', fontSize: '13px', background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', textDecoration: 'none' }}
+                        title="Öğrencinin kişisel takip dokümanını aç"
+                      >
+                        <ExternalLink size={14} /> Dokümanı Aç
+                      </a>
+                    )}
                     <button
                       className="btn btn-secondary"
                       style={{ padding: '8px 12px', fontSize: '13px', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
