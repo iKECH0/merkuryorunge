@@ -1,5 +1,5 @@
 const TEMPLATE_FILE_IDS = {
-  'yks-sayisal': '1l644ea88QT-2s5Ow5DdnmSu2Wfhqvhf6us55M9lGMDU',
+  'yks-sayisal': '11frJzxBuJj6XtBtUmf2TAQlSCM30tdthgAaPvqndgxQ',
   'yks-ea': '1HIhdjN1-ih-_-m8uW4wgZzHLUik-z5iA42JcioCRtBo',
   'yks-sozel': '1Mmp_xSe7rKCscnM7o9gukKzwkD6fkEPxE4nnvUScKJo',
   '12': '1olLZjIQ369s369NkrbQnnKODDpx6owIaISDpyl1PDLo',
