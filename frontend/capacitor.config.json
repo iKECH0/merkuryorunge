@@ -1,11 +1,7 @@
 {
-  "appId": "com.kodivas.merkuryorunge",
+  "appId": "com.merkuryorunge.app",
   "appName": "Merkür Yörünge",
   "webDir": "dist",
-  "server": {
-    "url": "https://merkuryorunge.vercel.app",
-    "cleartext": true
-  },
   "plugins": {
     "LocalNotifications": {
       "presentationOptions": ["badge", "sound", "banner", "list"]
