@@ -15,7 +15,7 @@ export default function AccountDeletion() {
     e.preventDefault();
     try {
       const API_URL = import.meta.env.PROD
-        ? "https://backend-kodivas-projects.vercel.app/api"
+        ? "https://backend-three-khaki-37.vercel.app/api"
         : "http://localhost:5000/api";
         
       await fetch(`${API_URL}/deletion-requests`, {

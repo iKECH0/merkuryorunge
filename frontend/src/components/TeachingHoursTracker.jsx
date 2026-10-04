@@ -47,7 +47,7 @@ const getStudentName = student => student?.full_name || student?.name || student
 
 const TeachingHoursTracker = ({ teacherId, students = [] }) => {
   const apiBaseUrl = import.meta.env.PROD
-    ? 'https://backend-kodivas-projects.vercel.app'
+    ? 'https://backend-three-khaki-37.vercel.app'
     : (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000');
   const [teachingLogs, setTeachingLogs] = useState([]);
   const [availableStudents, setAvailableStudents] = useState([]);
