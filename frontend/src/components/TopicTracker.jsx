@@ -5,7 +5,7 @@ import { getTopicProgress, markTopicComplete, unmarkTopicComplete } from "../api
 import axios from "axios";
 
 const API_URL = import.meta.env.PROD
-  ? "https://backend-three-khaki-37.vercel.app/api"
+  ? "https://backend-kodivas-projects.vercel.app/api"
   : "http://localhost:5000/api";
 
 const SUBJECT_COLORS = {
