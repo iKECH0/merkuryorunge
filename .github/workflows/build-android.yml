@@ -1,14 +1,25 @@
-name: Build Android App Bundle (AAB)
+name: Android Quality Gate and AAB
 
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  verify-and-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout Repository
@@ -18,6 +29,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Setup Java 21
         uses: actions/setup-java@v4
@@ -28,33 +41,111 @@ jobs:
       - name: Verify Java Version
         run: java -version
 
+      - name: Setup Gradle Cache
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Install Dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Scan Frontend Source
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Block Critical Runtime Vulnerabilities
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=critical
+
+      - name: Verify Production Configuration
+        shell: bash
         run: |
-          cd frontend
-          npm install
+          node <<'NODE'
+          const fs = require('node:fs');
+          const capacitor = JSON.parse(fs.readFileSync('frontend/capacitor.config.json', 'utf8'));
+          const gradle = fs.readFileSync('frontend/android/app/build.gradle', 'utf8');
+
+          const versionCode = gradle.match(/versionCode\s+(\d+)/)?.[1];
+          const versionName = gradle.match(/versionName\s+["']([^"']+)["']/)?.[1];
+
+          if (capacitor.appId !== 'com.merkuryorunge.app') {
+            throw new Error(`Unexpected application id: ${capacitor.appId}`);
+          }
+          if (capacitor.webDir !== 'dist') {
+            throw new Error(`Capacitor webDir must be dist, found: ${capacitor.webDir}`);
+          }
+          if (capacitor.server?.url) {
+            throw new Error('Production builds must not use a remote Capacitor server.url');
+          }
+          if (!versionCode || !versionName) {
+            throw new Error('Android versionCode/versionName could not be read');
+          }
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version_code=${versionCode}\nversion_name=${versionName}\n`);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Android release candidate\n- Package: \`${capacitor.appId}\`\n- Version: \`${versionName}\` (code \`${versionCode}\`)\n- Web assets: bundled locally\n`);
+          NODE
+        id: version
 
       - name: Build Web App
+        working-directory: frontend
+        run: npm run build
+
+      - name: Verify Web Build Output
+        shell: bash
         run: |
-          cd frontend
-          npm run build
+          test -s frontend/dist/index.html
+          find frontend/dist/assets -type f -name '*.js' -size +100c | grep -q .
 
       - name: Sync Capacitor
+        working-directory: frontend
+        run: npx cap sync android
+
+      - name: Run Android Lint and Unit Tests
+        working-directory: frontend/android
         run: |
-          cd frontend
-          npx cap sync android
+          chmod +x gradlew
+          ./gradlew --no-daemon lintRelease testReleaseUnitTest
+
+      - name: Upload Android Lint Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-lint-${{ github.run_number }}
+          path: |
+            frontend/android/app/build/reports/lint-results-release.html
+            frontend/android/app/build/reports/lint-results-release.xml
+            frontend/android/app/build/reports/lint-results-release.txt
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Build Android Release Bundle (AAB)
+        if: github.event_name != 'pull_request'
+        working-directory: frontend/android
         run: |
-          cd frontend/android
-          chmod +x gradlew
           ./gradlew bundleRelease \
             -Pandroid.injected.signing.store.file=$(pwd)/app/upload.keystore \
             -Pandroid.injected.signing.store.password=merkuryorunge \
             -Pandroid.injected.signing.key.alias=upload \
             -Pandroid.injected.signing.key.password=merkuryorunge
 
+      - name: Verify Release Bundle Contents
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          AAB=frontend/android/app/build/outputs/bundle/release/app-release.aab
+          test -s "$AAB"
+          test "$(stat -c%s "$AAB")" -gt 1000000
+          unzip -l "$AAB" | grep -q 'base/manifest/AndroidManifest.xml'
+          unzip -l "$AAB" | grep -q 'base/assets/public/index.html'
+          sha256sum "$AAB" | tee "$AAB.sha256"
+          echo "- AAB verification: passed" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload AAB Artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: frontend/android/app/build/outputs/bundle/release/app-release.aab
+          name: app-release-${{ steps.version.outputs.version_name }}-code${{ steps.version.outputs.version_code }}
+          path: |
+            frontend/android/app/build/outputs/bundle/release/app-release.aab
+            frontend/android/app/build/outputs/bundle/release/app-release.aab.sha256
+          if-no-files-found: error
+          retention-days: 30
