@@ -1182,7 +1182,31 @@ app.put("/api/students/:studentId", async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Öğrenci bulunamadı." });
     }
-    res.json(result.rows[0]);
+    let student = result.rows[0];
+    let documentWarning = null;
+
+    if (!student.tracking_document_url && student.google_email && isGoogleDriveConfigured()) {
+      try {
+        const personalDocument = await createPersonalTrackingDocument({
+          fullName: student.full_name,
+          googleEmail: student.google_email,
+          className: student.class_name,
+          trackingDocumentKey: student.tracking_document_key
+        });
+        const updated = await pool.query(
+          `UPDATE students
+           SET tracking_document_url = $1, tracking_document_file_id = $2, tracking_document_created_at = CURRENT_TIMESTAMP
+           WHERE id = $3 RETURNING id, full_name, class_name, school_level, tracking_document_key, google_email, tracking_document_url, tracking_document_file_id`,
+          [personalDocument.url, personalDocument.fileId, student.id]
+        );
+        student = updated.rows[0];
+      } catch (documentError) {
+        console.error('Kişisel dokümanı yeniden oluşturma hatası:', documentError);
+        documentWarning = 'Öğrenci güncellendi ancak kişisel Google dokümanı oluşturulamadı.';
+      }
+    }
+
+    res.json({ ...student, document_warning: documentWarning });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
