@@ -4,6 +4,7 @@ const cors = require("cors");
 const { Pool } = require("pg");
 const bcrypt = require("bcryptjs");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { createPersonalTrackingDocument, isGoogleDriveConfigured } = require("./googleDrive");
 
 const app = express();
 app.use(cors({
@@ -285,6 +286,12 @@ const initDB = async () => {
     try {
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS tracking_document_key VARCHAR(30) DEFAULT NULL`);
     } catch(e) {}
+    try {
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS google_email VARCHAR(255) DEFAULT NULL`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS tracking_document_url TEXT DEFAULT NULL`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS tracking_document_file_id VARCHAR(255) DEFAULT NULL`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS tracking_document_created_at TIMESTAMP DEFAULT NULL`);
+    } catch(e) {}
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS study_logs (
@@ -477,7 +484,14 @@ app.post("/api/auth/teacher/register", async (req, res) => {
 
 app.post("/api/auth/teacher/add-student", async (req, res) => {
   try {
-    const { fullName, username, password, teacherId, schoolLevel, className, trackingDocumentKey } = req.body;
+    const { fullName, username, password, teacherId, schoolLevel, className, trackingDocumentKey, googleEmail, trackingDocumentUrl } = req.body;
+
+    if (googleEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(googleEmail.trim())) {
+      return res.status(400).json({ error: "Geçerli bir Google e-posta adresi girin." });
+    }
+    if (trackingDocumentUrl && !/^https:\/\/docs\.google\.com\/spreadsheets\/d\/[a-zA-Z0-9_-]+/.test(trackingDocumentUrl.trim())) {
+      return res.status(400).json({ error: "Geçerli bir Google E-Tablolar bağlantısı girin." });
+    }
 
     if (!teacherId || !Number.isInteger(Number(teacherId))) {
       return res.status(400).json({ error: "Öğrencinin bağlı olacağı öğretmen seçilmelidir." });
@@ -503,11 +517,34 @@ app.post("/api/auth/teacher/add-student", async (req, res) => {
 
     // Insert new user directly under the teacher
     const result = await pool.query(
-      "INSERT INTO students (full_name, username, password_hash, teacher_id, school_level, class_name, tracking_document_key) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, full_name, username, teacher_id, school_level, class_name, tracking_document_key",
-      [fullName, username, passwordHash, teacherId, schoolLevel || 'Lise (YKS)', className || null, trackingDocumentKey || null]
+      "INSERT INTO students (full_name, username, password_hash, teacher_id, school_level, class_name, tracking_document_key, google_email, tracking_document_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, full_name, username, teacher_id, school_level, class_name, tracking_document_key, google_email, tracking_document_url, tracking_document_file_id",
+      [fullName, username, passwordHash, teacherId, schoolLevel || 'Lise (YKS)', className || null, trackingDocumentKey || null, googleEmail?.trim().toLowerCase() || null, trackingDocumentUrl?.trim() || null]
     );
+    let student = result.rows[0];
+    let documentWarning = null;
 
-    res.status(201).json(result.rows[0]);
+    if (!student.tracking_document_url && student.google_email && isGoogleDriveConfigured()) {
+      try {
+        const personalDocument = await createPersonalTrackingDocument({
+          fullName: student.full_name,
+          googleEmail: student.google_email,
+          className: student.class_name,
+          trackingDocumentKey: student.tracking_document_key
+        });
+        const updated = await pool.query(
+          `UPDATE students
+           SET tracking_document_url = $1, tracking_document_file_id = $2, tracking_document_created_at = CURRENT_TIMESTAMP
+           WHERE id = $3 RETURNING id, full_name, username, teacher_id, school_level, class_name, tracking_document_key, google_email, tracking_document_url, tracking_document_file_id`,
+          [personalDocument.url, personalDocument.fileId, student.id]
+        );
+        student = updated.rows[0];
+      } catch (documentError) {
+        console.error('Kişisel doküman oluşturma hatası:', documentError);
+        documentWarning = 'Öğrenci kaydedildi ancak kişisel Google dokümanı oluşturulamadı.';
+      }
+    }
+
+    res.status(201).json({ ...student, document_warning: documentWarning });
   } catch (err) {
     console.error(err);
     if (err.code === '23503') {
@@ -796,7 +833,7 @@ app.get("/api/student-info/:studentName", async (req, res) => {
   try {
     const { studentName } = req.params;
     const result = await pool.query(
-      "SELECT school_level, class_name, tracking_document_key FROM students WHERE full_name = $1 LIMIT 1",
+      "SELECT school_level, class_name, tracking_document_key, google_email, tracking_document_url, tracking_document_file_id FROM students WHERE full_name = $1 LIMIT 1",
       [studentName]
     );
     if (result.rows.length === 0) {
@@ -962,7 +999,7 @@ app.get("/api/stats", async (req, res) => {
     `, queryParams);
 
     const allStudentsQuery = await pool.query(`
-       SELECT id, full_name as name, class_name, school_level, tracking_document_key, username
+       SELECT id, full_name as name, class_name, school_level, tracking_document_key, google_email, tracking_document_url, tracking_document_file_id, username
       FROM students 
       ${filterClause}
       ORDER BY full_name ASC
@@ -1131,10 +1168,16 @@ app.post("/api/admin/add-teacher", async (req, res) => {
 app.put("/api/students/:studentId", async (req, res) => {
   try {
     const { studentId } = req.params;
-    const { className, schoolLevel, trackingDocumentKey } = req.body;
+    const { className, schoolLevel, trackingDocumentKey, googleEmail, trackingDocumentUrl } = req.body;
+    if (googleEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(googleEmail.trim())) {
+      return res.status(400).json({ error: "Geçerli bir Google e-posta adresi girin." });
+    }
+    if (trackingDocumentUrl && !/^https:\/\/docs\.google\.com\/spreadsheets\/d\/[a-zA-Z0-9_-]+/.test(trackingDocumentUrl.trim())) {
+      return res.status(400).json({ error: "Geçerli bir Google E-Tablolar bağlantısı girin." });
+    }
     const result = await pool.query(
-      "UPDATE students SET class_name = $1, school_level = $2, tracking_document_key = $3 WHERE id = $4 RETURNING id, full_name, class_name, school_level, tracking_document_key",
-      [className || null, schoolLevel, trackingDocumentKey || null, studentId]
+      "UPDATE students SET class_name = $1, school_level = $2, tracking_document_key = $3, google_email = $4, tracking_document_url = $5 WHERE id = $6 RETURNING id, full_name, class_name, school_level, tracking_document_key, google_email, tracking_document_url, tracking_document_file_id",
+      [className || null, schoolLevel, trackingDocumentKey || null, googleEmail?.trim().toLowerCase() || null, trackingDocumentUrl?.trim() || null, studentId]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Öğrenci bulunamadı." });
