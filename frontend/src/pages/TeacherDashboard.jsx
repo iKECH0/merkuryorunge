@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { getLogs, getStats, getAdminStats, addStudentByTeacher, updateStudent, deleteStudentByTeacher, changeTeacherPassword } from '../api';
+import { getLogs, getStats, getAdminStats, addStudentByTeacher, updateStudent, deleteStudentByTeacher, changeTeacherPassword, refreshStudentDocumentAccess, regenerateStudentDocument } from '../api';
 import StudentReportPDF from '../components/StudentReportPDF';
 import CurriculumManager from '../components/CurriculumManager';
 import TeachingHoursTracker from '../components/TeachingHoursTracker';
-import { LayoutDashboard, RefreshCw, Users, Clock, Hash, BookOpen, Download, LogOut, Copy, CheckCircle2, PlusCircle, X, User, Key, GraduationCap, Pencil, Trash2, KeyRound, Eye, EyeOff, ExternalLink } from 'lucide-react';
+import { LayoutDashboard, RefreshCw, Users, Clock, Hash, BookOpen, Download, LogOut, Copy, CheckCircle2, PlusCircle, X, User, Key, GraduationCap, Pencil, Trash2, KeyRound, Eye, EyeOff, ExternalLink, Mail, FileSpreadsheet, ShieldCheck } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { TRACKING_DOCUMENT_OPTIONS } from '../data/trackingDocuments';
 
@@ -31,6 +31,9 @@ const TeacherDashboard = () => {
   const [editTrackingDocumentUrl, setEditTrackingDocumentUrl] = useState('');
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState('');
+  const [editSuccess, setEditSuccess] = useState('');
+  const [documentAction, setDocumentAction] = useState({ studentId: null, type: null, message: '', error: '' });
+  const [confirmRegenerateStudentId, setConfirmRegenerateStudentId] = useState(null);
 
   // Add Student Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -231,6 +234,11 @@ const TeacherDashboard = () => {
           name: student.name,
           googleEmail: student.google_email || '',
           trackingDocumentUrl: student.tracking_document_url || '',
+          trackingDocumentKey: student.tracking_document_key || '',
+          trackingDocumentFileId: student.tracking_document_file_id || '',
+          trackingDocumentCreatedAt: student.tracking_document_created_at || null,
+          className: student.class_name || '',
+          schoolLevel: student.school_level || '',
           totalDuration: 0,
           totalQuestions: 0,
           subjects: {},
@@ -257,6 +265,45 @@ const TeacherDashboard = () => {
     });
     return Object.values(map).sort((a, b) => b.totalDuration - a.totalDuration);
   }, [logs, stats]);
+
+  const trackingDocumentLabel = (key, className) => {
+    const resolvedKey = key || String(className || '');
+    return TRACKING_DOCUMENT_OPTIONS.find(option => option.value === resolvedKey)?.label || 'Otomatik / sınıfa göre';
+  };
+
+  const openStudentEditor = (student) => {
+    const studentInfo = stats?.allStudents?.find(item => item.id === student.id) || student;
+    setEditingStudent(studentInfo);
+    setEditClassName(studentInfo?.class_name || studentInfo?.className || '');
+    setEditSchoolLevel(studentInfo?.school_level || studentInfo?.schoolLevel || 'Lise (YKS)');
+    setEditTrackingDocumentKey(studentInfo?.tracking_document_key || studentInfo?.trackingDocumentKey || '');
+    setEditGoogleEmail(studentInfo?.google_email || studentInfo?.googleEmail || '');
+    setEditTrackingDocumentUrl(studentInfo?.tracking_document_url || studentInfo?.trackingDocumentUrl || '');
+    setEditError('');
+    setEditSuccess('');
+  };
+
+  const handleRefreshDocumentAccess = async (student) => {
+    setDocumentAction({ studentId: student.id, type: 'access', message: '', error: '' });
+    try {
+      const result = await refreshStudentDocumentAccess(student.id);
+      setDocumentAction({ studentId: student.id, type: null, message: result.message, error: '' });
+    } catch (err) {
+      setDocumentAction({ studentId: student.id, type: null, message: '', error: err.response?.data?.error || 'Doküman erişimi yenilenemedi.' });
+    }
+  };
+
+  const handleRegenerateDocument = async (student) => {
+    setDocumentAction({ studentId: student.id, type: 'regenerate', message: '', error: '' });
+    try {
+      const result = await regenerateStudentDocument(student.id);
+      setDocumentAction({ studentId: student.id, type: null, message: result.message, error: '' });
+      setConfirmRegenerateStudentId(null);
+      await fetchData();
+    } catch (err) {
+      setDocumentAction({ studentId: student.id, type: null, message: '', error: err.response?.data?.error || 'Yeni kişisel doküman oluşturulamadı.' });
+    }
+  };
 
   const handleGenerateReport = (student) => {
     setPdfTargetStudent(student);
@@ -585,6 +632,26 @@ const TeacherDashboard = () => {
                         {student.trackingDocumentUrl ? 'Kişisel doküman hazır' : 'Ortak şablon kullanılıyor'}
                       </span>
                     </div>
+                    <div style={{ marginTop: '12px', display: 'grid', gap: '7px', fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '7px', wordBreak: 'break-word' }}>
+                        <Mail size={14} color={student.googleEmail ? '#38bdf8' : '#f59e0b'} />
+                        <span><strong style={{ color: '#cbd5e1' }}>Google hesabı:</strong> {student.googleEmail || 'Eklenmemiş'}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                        <FileSpreadsheet size={14} color="#10b981" />
+                        <span><strong style={{ color: '#cbd5e1' }}>Şablon:</strong> {trackingDocumentLabel(student.trackingDocumentKey, student.className)}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                        <ShieldCheck size={14} color={student.trackingDocumentFileId ? '#10b981' : '#f59e0b'} />
+                        <span>
+                          <strong style={{ color: '#cbd5e1' }}>Bağlantı türü:</strong>{' '}
+                          {student.trackingDocumentFileId ? 'Sistem tarafından oluşturulan kişisel kopya' : student.trackingDocumentUrl ? 'Elle eklenen bağlantı' : 'Henüz oluşturulmadı'}
+                        </span>
+                      </div>
+                      {student.trackingDocumentCreatedAt && (
+                        <div><strong style={{ color: '#cbd5e1' }}>Oluşturulma:</strong> {new Date(student.trackingDocumentCreatedAt).toLocaleString('tr-TR')}</div>
+                      )}
+                    </div>
                   </div>
                   
                   <div style={{ display: 'flex', gap: '32px', flex: '2 1 300px', flexWrap: 'wrap' }}>
@@ -606,7 +673,13 @@ const TeacherDashboard = () => {
                     </div>
                   </div>
 
-                  <div style={{ flex: '1 1 100%', display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                  {documentAction.studentId === student.id && (documentAction.message || documentAction.error) && (
+                    <div style={{ flex: '1 1 100%', padding: '10px 12px', borderRadius: '10px', fontSize: '13px', color: documentAction.error ? '#fca5a5' : '#6ee7b7', background: documentAction.error ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', border: `1px solid ${documentAction.error ? 'rgba(239,68,68,0.25)' : 'rgba(16,185,129,0.25)'}` }}>
+                      {documentAction.error || documentAction.message}
+                    </div>
+                  )}
+
+                  <div style={{ flex: '1 1 100%', display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px', flexWrap: 'wrap' }}>
                     {student.trackingDocumentUrl && (
                       <a
                         className="btn btn-secondary"
@@ -619,22 +692,48 @@ const TeacherDashboard = () => {
                         <ExternalLink size={14} /> Dokümanı Aç
                       </a>
                     )}
+                    {student.trackingDocumentFileId && (
+                      <button
+                        className="btn btn-secondary"
+                        disabled={documentAction.studentId === student.id && documentAction.type === 'access'}
+                        style={{ padding: '8px 14px', fontSize: '13px', background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }}
+                        onClick={() => handleRefreshDocumentAccess(student)}
+                        title="Kayıtlı Google hesabına düzenleme yetkisini yeniden uygula"
+                      >
+                        <ShieldCheck size={14} /> {documentAction.studentId === student.id && documentAction.type === 'access' ? 'Yenileniyor...' : 'Erişimi Yenile'}
+                      </button>
+                    )}
                     <button
                       className="btn btn-secondary"
                       style={{ padding: '8px 12px', fontSize: '13px', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
-                      onClick={() => {
-                        const studentInfo = stats?.allStudents?.find(s => s.name === student.name);
-                        setEditingStudent(studentInfo || { name: student.name });
-                        setEditClassName(studentInfo?.class_name || '');
-                        setEditSchoolLevel(studentInfo?.school_level || 'Lise (YKS)');
-                        setEditTrackingDocumentKey(studentInfo?.tracking_document_key || '');
-                        setEditGoogleEmail(studentInfo?.google_email || '');
-                        setEditTrackingDocumentUrl(studentInfo?.tracking_document_url || '');
-                        setEditError('');
-                      }}
+                      onClick={() => openStudentEditor(student)}
+                      title="Sınıf, şablon, Google hesabı veya doküman bağlantısını değiştir"
                     >
-                      <Pencil size={14} />
+                      <Pencil size={14} /> Dokümanı Değiştir
                     </button>
+                    {confirmRegenerateStudentId === student.id ? (
+                      <>
+                        <button
+                          className="btn btn-secondary"
+                          disabled={documentAction.studentId === student.id && documentAction.type === 'regenerate'}
+                          style={{ padding: '8px 14px', fontSize: '13px', background: 'rgba(239,68,68,0.12)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.35)' }}
+                          onClick={() => handleRegenerateDocument(student)}
+                        >
+                          {documentAction.studentId === student.id && documentAction.type === 'regenerate' ? 'Oluşturuluyor...' : 'Evet, Yeni Kopya Oluştur'}
+                        </button>
+                        <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '13px' }} onClick={() => setConfirmRegenerateStudentId(null)}>Vazgeç</button>
+                      </>
+                    ) : (
+                      <button
+                        className="btn btn-secondary"
+                        disabled={!student.googleEmail}
+                        style={{ padding: '8px 14px', fontSize: '13px', background: 'rgba(139,92,246,0.1)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)', opacity: student.googleEmail ? 1 : 0.55 }}
+                        onClick={() => setConfirmRegenerateStudentId(student.id)}
+                        title={student.googleEmail ? 'Şablondan yeni bir kişisel kopya oluşturur; eski dosyayı silmez' : 'Önce Google e-posta adresini ekleyin'}
+                      >
+                        <Copy size={14} /> Yeni Kişisel Kopya
+                      </button>
+                    )}
                     <button
                       className="btn btn-secondary"
                       style={{ padding: '8px 12px', fontSize: '13px', background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
@@ -751,7 +850,7 @@ const TeacherDashboard = () => {
       {/* Edit Student Modal */}
       {editingStudent && (
         <div className="fade-in" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(10px)' }}>
-          <div className="glass-card slide-up" style={{ width: '100%', maxWidth: '380px', padding: '32px', position: 'relative' }}>
+          <div className="glass-card slide-up" style={{ width: 'calc(100% - 24px)', maxWidth: '520px', maxHeight: 'calc(100vh - 24px)', overflowY: 'auto', padding: '32px', position: 'relative' }}>
             <button onClick={() => setEditingStudent(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
               <X size={24} />
             </button>
@@ -780,43 +879,56 @@ const TeacherDashboard = () => {
                 </select>
               </div>
               <div className="form-group">
-                <label>Takip Dokümanı</label>
+                <label>Takip Dokümanı Şablonu</label>
                 <select className="input-field" value={editTrackingDocumentKey} onChange={(e) => setEditTrackingDocumentKey(e.target.value)} style={{ appearance: 'auto' }}>
                   {TRACKING_DOCUMENT_OPTIONS.map(option => <option key={option.value || 'auto'} value={option.value}>{option.label}</option>)}
                 </select>
               </div>
               <div className="form-group">
-                <label>Google E-posta</label>
+                <label>Düzenleme Yetkisi Verilecek Google E-posta</label>
                 <input type="email" className="input-field" placeholder="ogrenci@gmail.com" value={editGoogleEmail} onChange={(e) => setEditGoogleEmail(e.target.value)} />
+                <div style={{ marginTop: '6px', color: 'var(--color-text-muted)', fontSize: '12px' }}>Kaydettiğinizde sistem tarafından oluşturulmuş mevcut dokümana bu hesap için düzenleme yetkisi uygulanır.</div>
               </div>
               <div className="form-group">
                 <label>Kişisel Doküman Linki</label>
                 <input type="url" className="input-field" placeholder="https://docs.google.com/spreadsheets/d/..." value={editTrackingDocumentUrl} onChange={(e) => setEditTrackingDocumentUrl(e.target.value)} />
-                <div style={{ marginTop: '6px', color: 'var(--color-text-muted)', fontSize: '12px' }}>Bu alan doluysa öğrenci ortak şablon yerine yalnızca kendi dokümanını görür.</div>
+                <div style={{ marginTop: '6px', color: 'var(--color-text-muted)', fontSize: '12px' }}>
+                  Mevcut kişisel bağlantıyı koruyabilir veya başka bir Google E-Tablo bağlantısı girebilirsiniz. Elle girilen bağlantıların Drive izinlerini sistem yönetemez.
+                </div>
+              </div>
+
+              <div style={{ padding: '12px', borderRadius: '10px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', color: '#bfdbfe', fontSize: '12px', lineHeight: 1.5 }}>
+                Yeni ve bağımsız bir dosya gerekiyorsa önce buradaki e-posta ile şablonu kaydedin, ardından öğrenci kartındaki <strong>Yeni Kişisel Kopya</strong> düğmesini kullanın. Eski dosya otomatik silinmez.
               </div>
 
               {editError && <div style={{ color: '#ef4444', fontSize: '14px', background: 'rgba(239,68,68,0.1)', padding: '12px', borderRadius: '8px' }}>{editError}</div>}
+              {editSuccess && <div style={{ color: '#10b981', fontSize: '14px', background: 'rgba(16,185,129,0.1)', padding: '12px', borderRadius: '8px' }}>{editSuccess}</div>}
 
-              <button
-                className="btn btn-primary"
-                disabled={editLoading || !editingStudent.id}
-                style={{ padding: '14px' }}
-                onClick={async () => {
-                  if (!editingStudent.id) { setEditError('Öğrenci ID bulunamadı. Sayfayı yenileyin.'); return; }
-                  setEditLoading(true);
-                  try {
-                    await updateStudent(editingStudent.id, editClassName || null, editSchoolLevel, editTrackingDocumentKey, editGoogleEmail, editTrackingDocumentUrl);
-                    setEditingStudent(null);
-                    fetchData();
-                  } catch {
-                    setEditError('Güncelleme başarısız oldu.');
-                  } finally {
-                    setEditLoading(false);
-                  }
-                }}
-              >
-                {editLoading ? 'Kaydediliyor...' : 'Kaydet'}
-              </button>
+              <div style={{ position: 'sticky', bottom: '-32px', padding: '18px 0 max(18px, env(safe-area-inset-bottom))', background: 'linear-gradient(to bottom, transparent, var(--color-bg-deep) 32%)', zIndex: 1 }}>
+                <button
+                  className="btn btn-primary"
+                  disabled={editLoading || !editingStudent.id}
+                  style={{ padding: '14px', width: '100%' }}
+                  onClick={async () => {
+                    if (!editingStudent.id) { setEditError('Öğrenci ID bulunamadı. Sayfayı yenileyin.'); return; }
+                    setEditLoading(true);
+                    setEditError('');
+                    setEditSuccess('');
+                    try {
+                      const result = await updateStudent(editingStudent.id, editClassName || null, editSchoolLevel, editTrackingDocumentKey, editGoogleEmail, editTrackingDocumentUrl);
+                      setEditTrackingDocumentUrl(result.tracking_document_url || '');
+                      setEditSuccess(result.document_warning || 'Öğrenci ve doküman bilgileri güncellendi.');
+                      await fetchData();
+                    } catch (err) {
+                      setEditError(err.response?.data?.error || 'Güncelleme başarısız oldu.');
+                    } finally {
+                      setEditLoading(false);
+                    }
+                  }}
+                >
+                  {editLoading ? 'Kaydediliyor...' : 'Bilgileri ve Erişimi Kaydet'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

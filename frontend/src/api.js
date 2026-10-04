@@ -117,6 +117,16 @@ export const updateStudent = async (studentId, className, schoolLevel, trackingD
   return response.data;
 };
 
+export const refreshStudentDocumentAccess = async (studentId) => {
+  const response = await axios.post(`${API_URL}/students/${studentId}/tracking-document/access`);
+  return response.data;
+};
+
+export const regenerateStudentDocument = async (studentId) => {
+  const response = await axios.post(`${API_URL}/students/${studentId}/tracking-document/regenerate`);
+  return response.data;
+};
+
 export const addTeacherByAdmin = async (fullName, username, password) => {
   const response = await axios.post(`${API_URL}/admin/add-teacher`, { fullName, username, password });
   return response.data;

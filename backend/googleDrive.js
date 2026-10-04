@@ -64,9 +64,31 @@ const googleRequest = async (url, accessToken, options = {}) => {
   return data;
 };
 
+const getFilePermissions = async (fileId, accessToken) => {
+  const data = await googleRequest(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions?supportsAllDrives=true&fields=permissions(id,type,role,emailAddress)`,
+    accessToken
+  );
+  return data.permissions || [];
+};
+
 const ensureTrackingDocumentPanelAccess = async (fileId, accessToken = null) => {
   if (!fileId) return;
   const token = accessToken || await getAccessToken();
+  const permissions = await getFilePermissions(fileId, token);
+  const publicPermission = permissions.find(permission => permission.type === 'anyone');
+
+  if (publicPermission?.role === 'reader' || publicPermission?.role === 'writer') return;
+
+  if (publicPermission) {
+    await googleRequest(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions/${encodeURIComponent(publicPermission.id)}?supportsAllDrives=true`,
+      token,
+      { method: 'PATCH', body: JSON.stringify({ role: 'reader' }) }
+    );
+    return;
+  }
+
   await googleRequest(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions?supportsAllDrives=true`,
     token,
@@ -75,6 +97,42 @@ const ensureTrackingDocumentPanelAccess = async (fileId, accessToken = null) => 
       body: JSON.stringify({ type: 'anyone', role: 'reader', allowFileDiscovery: false })
     }
   );
+};
+
+const ensureTrackingDocumentUserAccess = async (fileId, googleEmail, accessToken = null) => {
+  if (!fileId || !googleEmail) return;
+  const token = accessToken || await getAccessToken();
+  const normalizedEmail = googleEmail.trim().toLowerCase();
+  const permissions = await getFilePermissions(fileId, token);
+  const userPermission = permissions.find(permission =>
+    permission.type === 'user' && permission.emailAddress?.toLowerCase() === normalizedEmail
+  );
+
+  if (userPermission?.role === 'writer' || userPermission?.role === 'owner') return;
+
+  if (userPermission) {
+    await googleRequest(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions/${encodeURIComponent(userPermission.id)}?supportsAllDrives=true`,
+      token,
+      { method: 'PATCH', body: JSON.stringify({ role: 'writer' }) }
+    );
+    return;
+  }
+
+  await googleRequest(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions?supportsAllDrives=true&sendNotificationEmail=true`,
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify({ type: 'user', role: 'writer', emailAddress: normalizedEmail })
+    }
+  );
+};
+
+const refreshTrackingDocumentAccess = async (fileId, googleEmail) => {
+  const accessToken = await getAccessToken();
+  await ensureTrackingDocumentUserAccess(fileId, googleEmail, accessToken);
+  await ensureTrackingDocumentPanelAccess(fileId, accessToken);
 };
 
 const createPersonalTrackingDocument = async ({
@@ -103,15 +161,7 @@ const createPersonalTrackingDocument = async ({
     { method: 'POST', body: JSON.stringify(metadata) }
   );
 
-  await googleRequest(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(copiedFile.id)}/permissions?supportsAllDrives=true&sendNotificationEmail=true`,
-    accessToken,
-    {
-      method: 'POST',
-      body: JSON.stringify({ type: 'user', role: 'writer', emailAddress: googleEmail })
-    }
-  );
-
+  await ensureTrackingDocumentUserAccess(copiedFile.id, googleEmail, accessToken);
   await ensureTrackingDocumentPanelAccess(copiedFile.id, accessToken);
 
   return {
@@ -123,6 +173,8 @@ const createPersonalTrackingDocument = async ({
 module.exports = {
   createPersonalTrackingDocument,
   ensureTrackingDocumentPanelAccess,
+  ensureTrackingDocumentUserAccess,
+  refreshTrackingDocumentAccess,
   isGoogleDriveConfigured,
   resolveTemplateFileId
 };

@@ -4,7 +4,7 @@ const cors = require("cors");
 const { Pool } = require("pg");
 const bcrypt = require("bcryptjs");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const { createPersonalTrackingDocument, ensureTrackingDocumentPanelAccess, isGoogleDriveConfigured } = require("./googleDrive");
+const { createPersonalTrackingDocument, refreshTrackingDocumentAccess, isGoogleDriveConfigured } = require("./googleDrive");
 
 const app = express();
 app.use(cors({
@@ -999,7 +999,7 @@ app.get("/api/stats", async (req, res) => {
     `, queryParams);
 
     const allStudentsQuery = await pool.query(`
-       SELECT id, full_name as name, class_name, school_level, tracking_document_key, google_email, tracking_document_url, tracking_document_file_id, username
+       SELECT id, full_name as name, class_name, school_level, tracking_document_key, google_email, tracking_document_url, tracking_document_file_id, tracking_document_created_at, username
       FROM students 
       ${filterClause}
       ORDER BY full_name ASC
@@ -1175,9 +1175,41 @@ app.put("/api/students/:studentId", async (req, res) => {
     if (trackingDocumentUrl && !/^https:\/\/docs\.google\.com\/spreadsheets\/d\/[a-zA-Z0-9_-]+/.test(trackingDocumentUrl.trim())) {
       return res.status(400).json({ error: "Geçerli bir Google E-Tablolar bağlantısı girin." });
     }
+    const currentResult = await pool.query(
+      "SELECT tracking_document_url, tracking_document_file_id, tracking_document_created_at FROM students WHERE id = $1",
+      [studentId]
+    );
+    if (currentResult.rows.length === 0) {
+      return res.status(404).json({ error: "Öğrenci bulunamadı." });
+    }
+
+    const normalizedUrl = trackingDocumentUrl?.trim() || null;
+    const current = currentResult.rows[0];
+    const keepsManagedDocument = Boolean(
+      normalizedUrl && current.tracking_document_file_id && normalizedUrl === current.tracking_document_url
+    );
     const result = await pool.query(
-      "UPDATE students SET class_name = $1, school_level = $2, tracking_document_key = $3, google_email = $4, tracking_document_url = $5 WHERE id = $6 RETURNING id, full_name, class_name, school_level, tracking_document_key, google_email, tracking_document_url, tracking_document_file_id",
-      [className || null, schoolLevel, trackingDocumentKey || null, googleEmail?.trim().toLowerCase() || null, trackingDocumentUrl?.trim() || null, studentId]
+      `UPDATE students
+       SET class_name = $1,
+           school_level = $2,
+           tracking_document_key = $3,
+           google_email = $4,
+           tracking_document_url = $5,
+           tracking_document_file_id = $6,
+           tracking_document_created_at = $7
+       WHERE id = $8
+       RETURNING id, full_name, class_name, school_level, tracking_document_key, google_email,
+                 tracking_document_url, tracking_document_file_id, tracking_document_created_at`,
+      [
+        className || null,
+        schoolLevel,
+        trackingDocumentKey || null,
+        googleEmail?.trim().toLowerCase() || null,
+        normalizedUrl,
+        keepsManagedDocument ? current.tracking_document_file_id : null,
+        keepsManagedDocument ? current.tracking_document_created_at : null,
+        studentId
+      ]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Öğrenci bulunamadı." });
@@ -1204,12 +1236,12 @@ app.put("/api/students/:studentId", async (req, res) => {
         console.error('Kişisel dokümanı yeniden oluşturma hatası:', documentError);
         documentWarning = 'Öğrenci güncellendi ancak kişisel Google dokümanı oluşturulamadı.';
       }
-    } else if (student.tracking_document_file_id && isGoogleDriveConfigured()) {
+    } else if (student.tracking_document_file_id && student.google_email && isGoogleDriveConfigured()) {
       try {
-        await ensureTrackingDocumentPanelAccess(student.tracking_document_file_id);
+        await refreshTrackingDocumentAccess(student.tracking_document_file_id, student.google_email);
       } catch (documentError) {
         console.error('Panel doküman erişimi güncelleme hatası:', documentError);
-        documentWarning = 'Öğrenci güncellendi ancak panel doküman erişimi yenilenemedi.';
+        documentWarning = 'Öğrenci güncellendi ancak Google dokümanı düzenleme izni yenilenemedi.';
       }
     }
 
@@ -1217,6 +1249,81 @@ app.put("/api/students/:studentId", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Re-apply the student's writer permission without replacing or deleting the document.
+app.post("/api/students/:studentId/tracking-document/access", async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const result = await pool.query(
+      `SELECT id, full_name, google_email, tracking_document_url, tracking_document_file_id
+       FROM students WHERE id = $1`,
+      [studentId]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: "Öğrenci bulunamadı." });
+
+    const student = result.rows[0];
+    if (!student.tracking_document_file_id) {
+      return res.status(400).json({ error: "Bu bağlantı sistem tarafından oluşturulmuş kişisel bir doküman değil." });
+    }
+    if (!student.google_email) {
+      return res.status(400).json({ error: "Önce öğrencinin Google e-posta adresini kaydedin." });
+    }
+    if (!isGoogleDriveConfigured()) {
+      return res.status(503).json({ error: "Google Drive bağlantısı yapılandırılmamış." });
+    }
+
+    await refreshTrackingDocumentAccess(student.tracking_document_file_id, student.google_email);
+    res.json({ success: true, message: `${student.google_email} adresine düzenleme erişimi verildi.` });
+  } catch (err) {
+    console.error("Doküman erişimi yenileme hatası:", err);
+    res.status(500).json({ error: err.message || "Doküman erişimi yenilenemedi." });
+  }
+});
+
+// Create a new personal copy. The previous Drive file is deliberately preserved.
+app.post("/api/students/:studentId/tracking-document/regenerate", async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const result = await pool.query(
+      `SELECT id, full_name, class_name, tracking_document_key, google_email
+       FROM students WHERE id = $1`,
+      [studentId]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: "Öğrenci bulunamadı." });
+
+    const student = result.rows[0];
+    if (!student.google_email) {
+      return res.status(400).json({ error: "Yeni kopya için öğrencinin Google e-posta adresi gerekli." });
+    }
+    if (!isGoogleDriveConfigured()) {
+      return res.status(503).json({ error: "Google Drive bağlantısı yapılandırılmamış." });
+    }
+
+    const personalDocument = await createPersonalTrackingDocument({
+      fullName: student.full_name,
+      googleEmail: student.google_email,
+      className: student.class_name,
+      trackingDocumentKey: student.tracking_document_key
+    });
+    const updated = await pool.query(
+      `UPDATE students
+       SET tracking_document_url = $1,
+           tracking_document_file_id = $2,
+           tracking_document_created_at = CURRENT_TIMESTAMP
+       WHERE id = $3
+       RETURNING id, full_name, class_name, school_level, tracking_document_key, google_email,
+                 tracking_document_url, tracking_document_file_id, tracking_document_created_at`,
+      [personalDocument.url, personalDocument.fileId, studentId]
+    );
+    res.json({
+      ...updated.rows[0],
+      message: "Yeni kişisel doküman oluşturuldu. Önceki dosya Drive'dan silinmedi."
+    });
+  } catch (err) {
+    console.error("Kişisel doküman yeniden oluşturma hatası:", err);
+    res.status(500).json({ error: err.message || "Yeni kişisel doküman oluşturulamadı." });
   }
 });
 
