@@ -27,8 +27,6 @@ const TeacherDashboard = () => {
   const [editClassName, setEditClassName] = useState('');
   const [editSchoolLevel, setEditSchoolLevel] = useState('Lise (YKS)');
   const [editTrackingDocumentKey, setEditTrackingDocumentKey] = useState('');
-  const [editGoogleEmail, setEditGoogleEmail] = useState('');
-  const [editTrackingDocumentUrl, setEditTrackingDocumentUrl] = useState('');
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState('');
 
@@ -40,8 +38,6 @@ const TeacherDashboard = () => {
   const [newStudentSchoolLevel, setNewStudentSchoolLevel] = useState('Lise (YKS)');
   const [newStudentClassName, setNewStudentClassName] = useState('');
   const [newStudentTrackingDocumentKey, setNewStudentTrackingDocumentKey] = useState('');
-  const [newStudentGoogleEmail, setNewStudentGoogleEmail] = useState('');
-  const [newStudentTrackingDocumentUrl, setNewStudentTrackingDocumentUrl] = useState('');
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
   const [addSuccess, setAddSuccess] = useState('');
@@ -136,16 +132,14 @@ const TeacherDashboard = () => {
         return;
       }
 
-      const addedStudent = await addStudentByTeacher(newStudentFullName.trim(), newStudentUsername.trim().toLowerCase(), newStudentPassword, teacherIdForAdd, newStudentSchoolLevel, newStudentClassName.trim() || null, newStudentTrackingDocumentKey, newStudentGoogleEmail.trim(), newStudentTrackingDocumentUrl.trim());
-      setAddSuccess(addedStudent.document_warning || 'Öğrenci başarıyla eklendi!');
+      await addStudentByTeacher(newStudentFullName.trim(), newStudentUsername.trim().toLowerCase(), newStudentPassword, teacherIdForAdd, newStudentSchoolLevel, newStudentClassName.trim() || null, newStudentTrackingDocumentKey);
+      setAddSuccess('Öğrenci başarıyla eklendi!');
       setNewStudentFullName('');
       setNewStudentUsername('');
       setNewStudentPassword('');
       setNewStudentClassName('');
       setNewStudentSchoolLevel('Lise (YKS)');
       setNewStudentTrackingDocumentKey('');
-      setNewStudentGoogleEmail('');
-      setNewStudentTrackingDocumentUrl('');
       setSelectedTeacherId('');
       await fetchData(); // Öğrenci sayısı ve liste, kayıt tamamlanınca hemen güncellensin.
       
@@ -229,8 +223,6 @@ const TeacherDashboard = () => {
           id: student.id,
           username: student.username,
           name: student.name,
-          googleEmail: student.google_email || '',
-          trackingDocumentUrl: student.tracking_document_url || '',
           totalDuration: 0,
           totalQuestions: 0,
           subjects: {},
@@ -579,12 +571,7 @@ const TeacherDashboard = () => {
                 }}>
                   <div style={{ flex: '1 1 200px' }}>
                     <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', color: '#fff' }}>{student.name}</h3>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>{student.sessions} Seans Tamamlandı</span>
-                      <span style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '100px', color: student.trackingDocumentUrl ? '#10b981' : '#f59e0b', background: student.trackingDocumentUrl ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', border: `1px solid ${student.trackingDocumentUrl ? 'rgba(16,185,129,0.25)' : 'rgba(245,158,11,0.25)'}` }}>
-                        {student.trackingDocumentUrl ? 'Kişisel doküman hazır' : 'Ortak şablon kullanılıyor'}
-                      </span>
-                    </div>
+                    <span style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>{student.sessions} Seans Tamamlandı</span>
                   </div>
                   
                   <div style={{ display: 'flex', gap: '32px', flex: '2 1 300px', flexWrap: 'wrap' }}>
@@ -616,8 +603,6 @@ const TeacherDashboard = () => {
                         setEditClassName(studentInfo?.class_name || '');
                         setEditSchoolLevel(studentInfo?.school_level || 'Lise (YKS)');
                         setEditTrackingDocumentKey(studentInfo?.tracking_document_key || '');
-                        setEditGoogleEmail(studentInfo?.google_email || '');
-                        setEditTrackingDocumentUrl(studentInfo?.tracking_document_url || '');
                         setEditError('');
                       }}
                     >
@@ -713,14 +698,6 @@ const TeacherDashboard = () => {
                   {TRACKING_DOCUMENT_OPTIONS.map(option => <option key={option.value || 'auto'} value={option.value}>{option.label}</option>)}
                 </select>
               </div>
-              <div className="form-group">
-                <label>Google E-posta <span style={{ color: 'var(--color-text-muted)', fontWeight: 400, fontSize: '12px' }}>(Kişisel doküman için)</span></label>
-                <input type="email" className="input-field" placeholder="ogrenci@gmail.com" value={newStudentGoogleEmail} onChange={(e) => setNewStudentGoogleEmail(e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label>Kişisel Doküman Linki <span style={{ color: 'var(--color-text-muted)', fontWeight: 400, fontSize: '12px' }}>(Varsa elle girilebilir)</span></label>
-                <input type="url" className="input-field" placeholder="https://docs.google.com/spreadsheets/d/..." value={newStudentTrackingDocumentUrl} onChange={(e) => setNewStudentTrackingDocumentUrl(e.target.value)} />
-              </div>
 
               {addError && <div style={{ color: '#ef4444', fontSize: '14px', background: 'rgba(239,68,68,0.1)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)' }}>{addError}</div>}
               {addSuccess && <div style={{ color: '#10b981', fontSize: '14px', background: 'rgba(16,185,129,0.1)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.2)' }}>{addSuccess}</div>}
@@ -773,15 +750,6 @@ const TeacherDashboard = () => {
                   {TRACKING_DOCUMENT_OPTIONS.map(option => <option key={option.value || 'auto'} value={option.value}>{option.label}</option>)}
                 </select>
               </div>
-              <div className="form-group">
-                <label>Google E-posta</label>
-                <input type="email" className="input-field" placeholder="ogrenci@gmail.com" value={editGoogleEmail} onChange={(e) => setEditGoogleEmail(e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label>Kişisel Doküman Linki</label>
-                <input type="url" className="input-field" placeholder="https://docs.google.com/spreadsheets/d/..." value={editTrackingDocumentUrl} onChange={(e) => setEditTrackingDocumentUrl(e.target.value)} />
-                <div style={{ marginTop: '6px', color: 'var(--color-text-muted)', fontSize: '12px' }}>Bu alan doluysa öğrenci ortak şablon yerine yalnızca kendi dokümanını görür.</div>
-              </div>
 
               {editError && <div style={{ color: '#ef4444', fontSize: '14px', background: 'rgba(239,68,68,0.1)', padding: '12px', borderRadius: '8px' }}>{editError}</div>}
 
@@ -793,7 +761,7 @@ const TeacherDashboard = () => {
                   if (!editingStudent.id) { setEditError('Öğrenci ID bulunamadı. Sayfayı yenileyin.'); return; }
                   setEditLoading(true);
                   try {
-                    await updateStudent(editingStudent.id, editClassName || null, editSchoolLevel, editTrackingDocumentKey, editGoogleEmail, editTrackingDocumentUrl);
+                    await updateStudent(editingStudent.id, editClassName || null, editSchoolLevel, editTrackingDocumentKey);
                     setEditingStudent(null);
                     fetchData();
                   } catch {

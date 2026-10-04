@@ -16,7 +16,6 @@ const StudentProfile = ({ studentName }) => {
   const [schoolLevel, setSchoolLevel] = useState('');
   const [className, setClassName] = useState('');
   const [trackingDocumentKey, setTrackingDocumentKey] = useState('');
-  const [trackingDocumentUrl, setTrackingDocumentUrl] = useState('');
   const [aiMessage, setAiMessage] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [bgTheme, setBgTheme] = useState(localStorage.getItem('profileBackground') || 'bg-default');
@@ -46,7 +45,6 @@ const StudentProfile = ({ studentName }) => {
         setClassName(infoData.class_name);
       }
       setTrackingDocumentKey(infoData?.tracking_document_key || '');
-      setTrackingDocumentUrl(infoData?.tracking_document_url || '');
     } catch (err) {
       console.error(err);
     }
@@ -122,9 +120,7 @@ const StudentProfile = ({ studentName }) => {
   const dailyData = processDailyData();
   const subjectData = processSubjectData();
   const dailyReport = processDailyReport();
-  const trackingDocument = trackingDocumentUrl
-    ? { label: 'Kişisel Takip Dokümanım', url: trackingDocumentUrl }
-    : getTrackingDocument(className, trackingDocumentKey);
+  const trackingDocument = getTrackingDocument(className, trackingDocumentKey);
 
   const generateAIInsight = async () => {
     setIsAiLoading(true);
