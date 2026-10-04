@@ -12,8 +12,8 @@ export const loginTeacher = async (username, password) => {
   return response.data;
 };
 
-export const addStudentByTeacher = async (fullName, username, password, teacherId, schoolLevel, className, trackingDocumentKey) => {
-  const response = await axios.post(`${API_URL}/auth/teacher/add-student`, { fullName, username, password, teacherId, schoolLevel, className, trackingDocumentKey });
+export const addStudentByTeacher = async (fullName, username, password, teacherId, schoolLevel, className, trackingDocumentKey, googleEmail, trackingDocumentUrl) => {
+  const response = await axios.post(`${API_URL}/auth/teacher/add-student`, { fullName, username, password, teacherId, schoolLevel, className, trackingDocumentKey, googleEmail, trackingDocumentUrl });
   return response.data;
 };
 
@@ -112,8 +112,8 @@ export const deleteTeacher = async (teacherId) => {
   return response.data;
 };
 
-export const updateStudent = async (studentId, className, schoolLevel, trackingDocumentKey) => {
-  const response = await axios.put(`${API_URL}/students/${studentId}`, { className, schoolLevel, trackingDocumentKey });
+export const updateStudent = async (studentId, className, schoolLevel, trackingDocumentKey, googleEmail, trackingDocumentUrl) => {
+  const response = await axios.put(`${API_URL}/students/${studentId}`, { className, schoolLevel, trackingDocumentKey, googleEmail, trackingDocumentUrl });
   return response.data;
 };
 
