@@ -114,6 +114,10 @@ export const deleteDeletionRequest = async (id) => {
   return response.data;
 };
 
+export const submitConsultingRequest = async (data) => (await axios.post(`${API_URL}/consulting-requests`, data)).data;
+export const getConsultingRequests = async () => (await axios.get(`${API_URL}/consulting-requests`)).data;
+export const updateConsultingRequestStatus = async (id, status) => (await axios.put(`${API_URL}/consulting-requests/${id}/status`, { status })).data;
+
 export const approveTeacher = async (teacherId) => {
   const response = await axios.post(`${API_URL}/admin/approve-teacher`, { teacherId });
   return response.data;

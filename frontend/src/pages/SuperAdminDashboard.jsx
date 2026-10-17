@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAdminStats, approveTeacher, deleteTeacher, addTeacherByAdmin, getDeletionRequests, deleteDeletionRequest, downloadPlatformBackup } from '../api';
-import { LayoutDashboard, Users, CheckCircle, Clock, ShieldCheck, LogOut, RefreshCw, BarChart2, Trash2, PlusCircle, X, User, Key, Briefcase, Sparkles, ShieldAlert, AlertTriangle, Database, Download } from 'lucide-react';
+import { getAdminStats, approveTeacher, deleteTeacher, addTeacherByAdmin, getDeletionRequests, deleteDeletionRequest, downloadPlatformBackup, getConsultingRequests, updateConsultingRequestStatus } from '../api';
+import { Users, CheckCircle, LogOut, RefreshCw, BarChart2, Trash2, PlusCircle, X, User, Key, Briefcase, ShieldAlert, AlertTriangle, Database, Download, Phone, Mail, GraduationCap } from 'lucide-react';
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [deletionRequests, setDeletionRequests] = useState([]);
+  const [consultingRequests, setConsultingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -32,12 +33,14 @@ const SuperAdminDashboard = () => {
   const fetchData = async () => {
     setIsRefreshing(true);
     try {
-      const [stats, requests] = await Promise.all([
+      const [stats, requests, consulting] = await Promise.all([
         getAdminStats(),
-        getDeletionRequests()
+        getDeletionRequests(),
+        getConsultingRequests()
       ]);
       setData(stats);
       setDeletionRequests(requests);
+      setConsultingRequests(consulting);
     } catch (err) {
       console.error(err);
     } finally {
@@ -103,6 +106,16 @@ const SuperAdminDashboard = () => {
     } catch (err) {
       console.error(err);
       alert('Hata oluştu.');
+    }
+  };
+
+  const handleConsultingStatus = async (id, status) => {
+    try {
+      const updated = await updateConsultingRequestStatus(id, status);
+      setConsultingRequests((current) => current.map((request) => request.id === id ? updated : request));
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.error || 'Başvuru durumu güncellenemedi.');
     }
   };
 
@@ -230,6 +243,45 @@ const SuperAdminDashboard = () => {
           <h3 style={{ margin: '0 0 16px 0', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}><BarChart2 size={20} /> Platform Toplam Çözülen Soru</h3>
           <div style={{ fontSize: '48px', fontWeight: 'bold', color: '#fff' }}>{platformTotals.total_questions}</div>
         </div>
+      </div>
+
+      {/* Consulting Requests */}
+      <div className="glass-card slide-up" style={{ padding: '32px', marginBottom: '40px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '12px', flexWrap: 'wrap' }}>
+          <h2 style={{ margin: 0, fontSize: '20px', color: '#22d3ee', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <GraduationCap size={24} /> Eğitim Danışmanlığı Başvuruları
+          </h2>
+          <span style={{ padding: '6px 12px', borderRadius: '100px', color: '#67e8f9', background: 'rgba(6,182,212,.1)', border: '1px solid rgba(6,182,212,.25)', fontSize: '13px' }}>
+            {consultingRequests.filter((request) => request.status === 'new').length} yeni başvuru
+          </span>
+        </div>
+        {consultingRequests.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-text-muted)' }}>Henüz eğitim danışmanlığı başvurusu yok.</div>
+        ) : (
+          <div style={{ display: 'grid', gap: '16px' }}>
+            {consultingRequests.map((request) => (
+              <div key={request.id} style={{ padding: '20px', borderRadius: '16px', background: 'rgba(6,182,212,.045)', border: '1px solid rgba(6,182,212,.16)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '18px', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 6px', color: '#fff', fontSize: '17px' }}>{request.student_name}</h3>
+                  <div style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Veli: {request.parent_name}</div>
+                  {request.school_level && <div style={{ color: '#67e8f9', fontSize: '13px', marginTop: '5px' }}>{request.school_level}{request.city ? ` · ${request.city}` : ''}</div>}
+                </div>
+                <div style={{ display: 'grid', gap: '6px', minWidth: 0 }}>
+                  <a href={`tel:${request.phone}`} style={{ color: '#fff', textDecoration: 'none', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '7px' }}><Phone size={14} color="#22d3ee" /> {request.phone}</a>
+                  {request.email && <a href={`mailto:${request.email}`} style={{ color: 'var(--color-text-muted)', textDecoration: 'none', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '7px', overflowWrap: 'anywhere' }}><Mail size={14} /> {request.email}</a>}
+                  {request.notes && <div style={{ color: 'var(--color-text-muted)', fontSize: '13px', lineHeight: 1.45, marginTop: '5px' }}>{request.notes}</div>}
+                  <div style={{ color: 'var(--color-text-muted)', fontSize: '11px', marginTop: '4px' }}>{new Date(request.created_at).toLocaleString('tr-TR')}</div>
+                </div>
+                <select className="input-field" value={request.status} onChange={(event) => handleConsultingStatus(request.id, event.target.value)} aria-label={`${request.student_name} başvuru durumu`}>
+                  <option value="new">Yeni</option>
+                  <option value="contacted">İletişime geçildi</option>
+                  <option value="converted">Öğrenci oldu</option>
+                  <option value="closed">Kapatıldı</option>
+                </select>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Deletion Requests */}

@@ -9,6 +9,7 @@ import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import Landing from './pages/Landing';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import AccountDeletion from './pages/AccountDeletion';
+import ConsultingRequest from './pages/ConsultingRequest';
 import { setupDailyReminder } from './notifications';
 import SubscriptionGate from './components/SubscriptionGate';
 import './index.css';
@@ -64,6 +65,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/hesap-silme" element={<AccountDeletion />} />
+            <Route path="/danismanlik" element={<ConsultingRequest />} />
             <Route 
               path="/ogrenci" 
               element={studentName ? <Navigate to="/" /> : <StudentLogin onLogin={handleStudentLogin} />} 

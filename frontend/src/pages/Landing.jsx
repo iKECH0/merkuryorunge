@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { GraduationCap, Presentation, ChevronRight } from 'lucide-react';
+import { GraduationCap, Presentation, ChevronRight, MessageCircle } from 'lucide-react';
 import BrandLogo from '../components/BrandLogo';
 
 const TYPEWRITER_TEXTS = [
@@ -173,6 +173,13 @@ const Landing = () => {
             <div style={{ opacity: 0.5, paddingLeft: '12px' }}>
               <ChevronRight size={24} color="#fff" />
             </div>
+          </button>
+
+          <button className="glass-card hover-glow slide-up" onClick={() => navigate('/danismanlik')}
+            style={{ animationDelay: '0.3s', display: 'flex', alignItems: 'center', padding: '20px', cursor: 'pointer', textAlign: 'left', border: '1px solid rgba(168,85,247,.35)', background: 'rgba(15,23,42,.6)', borderRadius: '24px' }}>
+            <div style={{ padding: '16px', background: 'rgba(168,85,247,.15)', borderRadius: '20px', marginRight: '20px' }}><MessageCircle size={32} color="#c084fc" /></div>
+            <div style={{ flex: 1 }}><h2 style={{ fontSize: '20px', color: '#fff', margin: '0 0 6px' }}>Eğitim Danışmanlığı Al</h2><p style={{ color: 'var(--color-text-muted)', margin: 0, fontSize: '14px' }}>Size uygun danışmanla görüşmek için ücretsiz ön başvuru bırakın.</p></div>
+            <ChevronRight size={24} color="#fff" />
           </button>
 
         </div>

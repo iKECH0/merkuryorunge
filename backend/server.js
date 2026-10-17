@@ -478,6 +478,20 @@ const initDB = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS consulting_requests (
+        id SERIAL PRIMARY KEY,
+        parent_name VARCHAR(150) NOT NULL,
+        student_name VARCHAR(150) NOT NULL,
+        phone VARCHAR(30) NOT NULL,
+        email VARCHAR(255),
+        school_level VARCHAR(100),
+        city VARCHAR(100),
+        notes TEXT,
+        status VARCHAR(30) NOT NULL DEFAULT 'new',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     console.log("Database tables initialized.");
   } catch (err) {
@@ -1305,7 +1319,8 @@ app.get("/api/admin/backup", async (req, res) => {
       "student_goals",
       "topic_curriculum",
       "student_topic_progress",
-      "deletion_requests"
+      "deletion_requests",
+      "consulting_requests"
     ];
 
     const results = await Promise.all(
@@ -1813,6 +1828,53 @@ app.delete("/api/deletion-requests/:id", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.post("/api/consulting-requests", async (req, res) => {
+  try {
+    const { parentName, studentName, phone, email, schoolLevel, city, notes } = req.body;
+    if (!parentName?.trim() || !studentName?.trim() || !phone?.trim()) {
+      return res.status(400).json({ error: "Veli adı, öğrenci adı ve telefon zorunludur." });
+    }
+    if (parentName.trim().length > 150 || studentName.trim().length > 150 || phone.trim().length > 30 ||
+        (email && email.trim().length > 255) || (schoolLevel && schoolLevel.length > 100) ||
+        (city && city.trim().length > 100) || (notes && notes.trim().length > 2000)) {
+      return res.status(400).json({ error: "Girilen bilgiler izin verilen uzunluğu aşıyor." });
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      return res.status(400).json({ error: "Geçerli bir e-posta adresi girin." });
+    }
+    const result = await pool.query(
+      `INSERT INTO consulting_requests (parent_name, student_name, phone, email, school_level, city, notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, created_at`,
+      [parentName.trim(), studentName.trim(), phone.trim(), email?.trim().toLowerCase() || null, schoolLevel || null, city?.trim() || null, notes?.trim() || null]
+    );
+    res.status(201).json({ message: "Danışmanlık talebiniz alındı.", ...result.rows[0] });
+  } catch (error) {
+    console.error("Consulting request error:", error);
+    res.status(500).json({ error: "Talep kaydedilemedi." });
+  }
+});
+
+app.get("/api/consulting-requests", async (_req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM consulting_requests ORDER BY created_at DESC");
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: "Talepler alınamadı." });
+  }
+});
+
+app.put("/api/consulting-requests/:id/status", async (req, res) => {
+  try {
+    const allowed = ['new', 'contacted', 'converted', 'closed'];
+    if (!allowed.includes(req.body.status)) return res.status(400).json({ error: "Geçersiz durum." });
+    const result = await pool.query("UPDATE consulting_requests SET status=$1 WHERE id=$2 RETURNING *", [req.body.status, req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: "Talep bulunamadı." });
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: "Talep güncellenemedi." });
   }
 });
 
