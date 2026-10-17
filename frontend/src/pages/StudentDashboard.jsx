@@ -93,6 +93,9 @@ const StudentDashboard = ({ studentName }) => {
   const handleLogout = () => {
     localStorage.removeItem('studentName');
     localStorage.removeItem('studentUsername');
+    localStorage.removeItem('studentId');
+    localStorage.removeItem('studentBillingToken');
+    localStorage.removeItem('studentBillingStatus');
     window.location.reload();
   };
 

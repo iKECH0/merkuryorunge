@@ -27,6 +27,18 @@ export const loginStudent = async (username, password) => {
   return response.data;
 };
 
+const billingHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('studentBillingToken') || ''}` });
+
+export const getBillingStatus = async () => {
+  const response = await axios.get(`${API_URL}/billing/status`, { headers: billingHeaders() });
+  return response.data;
+};
+
+export const verifyBillingPurchase = async (purchaseToken) => {
+  const response = await axios.post(`${API_URL}/billing/verify`, { purchaseToken }, { headers: billingHeaders() });
+  return response.data;
+};
+
 export const submitLog = async (logData) => {
   const response = await axios.post(`${API_URL}/logs`, logData);
   return response.data;

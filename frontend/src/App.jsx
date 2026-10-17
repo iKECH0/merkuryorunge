@@ -10,6 +10,7 @@ import Landing from './pages/Landing';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import AccountDeletion from './pages/AccountDeletion';
 import { setupDailyReminder } from './notifications';
+import SubscriptionGate from './components/SubscriptionGate';
 import './index.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -47,10 +48,13 @@ function App() {
     return () => document.removeEventListener('visibilitychange', refreshReminder);
   }, []);
 
-  const handleStudentLogin = (fullName, username) => {
-    localStorage.setItem('studentName', fullName);
-    localStorage.setItem('studentUsername', username);
-    setStudentName(fullName);
+  const handleStudentLogin = (student) => {
+    localStorage.setItem('studentName', student.full_name);
+    localStorage.setItem('studentUsername', student.username);
+    if (student.id) localStorage.setItem('studentId', String(student.id));
+    if (student.billing_token) localStorage.setItem('studentBillingToken', student.billing_token);
+    if (student.billing) localStorage.setItem('studentBillingStatus', JSON.stringify(student.billing));
+    setStudentName(student.full_name);
   };
 
   return (
@@ -68,7 +72,9 @@ function App() {
               path="/dashboard"
               element={
                 <StudentRoute>
-                  <StudentDashboard studentName={studentName} />
+                  <SubscriptionGate>
+                    <StudentDashboard studentName={studentName} />
+                  </SubscriptionGate>
                 </StudentRoute>
               } 
             />

@@ -37,7 +37,7 @@ const StudentLogin = ({ onLogin }) => {
           return;
         }
         const user = await registerStudent(fullName.trim(), username.trim().toLowerCase(), password, inviteCode.trim().toUpperCase(), schoolLevel, className.trim() || null);
-        onLogin(user.full_name, user.username);
+        onLogin(user);
       } else {
         if (username.trim().length === 0 || password.length === 0) {
           setError('Kullanıcı adı ve şifre gereklidir.');
@@ -55,7 +55,7 @@ const StudentLogin = ({ onLogin }) => {
         }
 
         const user = await loginStudent(normalizedUsername, password);
-        onLogin(user.full_name, user.username);
+        onLogin(user);
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Bir hata oluştu. Lütfen tekrar deneyin.');

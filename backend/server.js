@@ -3,8 +3,10 @@ const express = require("express");
 const cors = require("cors");
 const { Pool } = require("pg");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { createPersonalTrackingDocument, refreshTrackingDocumentAccess, isGoogleDriveConfigured } = require("./googleDrive");
+const { PRODUCT_ID: PLAY_SUBSCRIPTION_PRODUCT_ID, isPlayBillingServerConfigured, verifySubscriptionPurchase } = require("./playBilling");
 
 const app = express();
 app.use(cors({
@@ -19,6 +21,94 @@ const pool = new Pool({
 });
 
 let dbReady = false;
+
+const BILLING_ENABLED = process.env.BILLING_ENABLED === 'true';
+const BILLING_TRIAL_DAYS = Number(process.env.BILLING_TRIAL_DAYS || 7);
+const BILLING_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
+
+const hashBillingAccountId = username => crypto
+  .createHash('sha256')
+  .update(String(username || '').trim().toLowerCase())
+  .digest('hex');
+
+const signBillingSession = student => {
+  if (!process.env.SESSION_SECRET) return null;
+  const payload = Buffer.from(JSON.stringify({
+    studentId: student.id,
+    username: student.username,
+    exp: Math.floor(Date.now() / 1000) + BILLING_SESSION_TTL_SECONDS
+  })).toString('base64url');
+  const signature = crypto.createHmac('sha256', process.env.SESSION_SECRET).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+};
+
+const verifyBillingSession = (req, res, next) => {
+  if (!process.env.SESSION_SECRET) {
+    return res.status(503).json({ error: 'Abonelik oturum güvenliği henüz yapılandırılmadı.' });
+  }
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
+  const [payload, signature] = String(token || '').split('.');
+  if (!payload || !signature) return res.status(401).json({ error: 'Öğrenci oturumu gerekli.' });
+
+  const expected = crypto.createHmac('sha256', process.env.SESSION_SECRET).update(payload).digest('base64url');
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (signatureBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
+    return res.status(401).json({ error: 'Öğrenci oturumu geçersiz.' });
+  }
+
+  try {
+    const session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (!session.studentId || session.exp < Math.floor(Date.now() / 1000)) {
+      return res.status(401).json({ error: 'Öğrenci oturumunun süresi dolmuş.' });
+    }
+    req.billingStudent = session;
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Öğrenci oturumu geçersiz.' });
+  }
+};
+
+const buildBillingStatus = student => {
+  if (!BILLING_ENABLED) return { enabled: false, access: true, reason: 'disabled' };
+
+  const now = Date.now();
+  const subscriptionExpiresAt = student.subscription_expires_at ? new Date(student.subscription_expires_at) : null;
+  if (student.subscription_status === 'active' && subscriptionExpiresAt?.getTime() > now) {
+    return {
+      enabled: true,
+      access: true,
+      reason: 'subscription',
+      productId: PLAY_SUBSCRIPTION_PRODUCT_ID,
+      basePlanId: student.play_base_plan_id,
+      expiresAt: subscriptionExpiresAt.toISOString()
+    };
+  }
+
+  const trialStartedAt = student.trial_started_at ? new Date(student.trial_started_at) : null;
+  const trialEndsAt = trialStartedAt
+    ? new Date(trialStartedAt.getTime() + BILLING_TRIAL_DAYS * 24 * 60 * 60 * 1000)
+    : null;
+  if (trialEndsAt?.getTime() > now) {
+    return {
+      enabled: true,
+      access: true,
+      reason: 'trial',
+      trialDays: BILLING_TRIAL_DAYS,
+      trialEndsAt: trialEndsAt.toISOString(),
+      productId: PLAY_SUBSCRIPTION_PRODUCT_ID
+    };
+  }
+
+  return {
+    enabled: true,
+    access: false,
+    reason: 'payment_required',
+    trialDays: BILLING_TRIAL_DAYS,
+    trialEndsAt: trialEndsAt?.toISOString() || null,
+    productId: PLAY_SUBSCRIPTION_PRODUCT_ID
+  };
+};
 
 const geminiApiKey = process.env.GEMINI_API_KEY || "AQ.Ab8RN6IHmyBnnQ9-lwMLAEgLPOR9xxNx1grkU7yZDtBm7-bCPw";
 const genAI = new GoogleGenerativeAI(geminiApiKey);
@@ -293,6 +383,22 @@ const initDB = async () => {
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS tracking_document_created_at TIMESTAMP DEFAULT NULL`);
     } catch(e) {}
 
+    // Abonelik alanları yalnızca BILLING_ENABLED=true olduğunda erişimi etkiler.
+    // Böylece dağıtım sırasında mevcut öğrenci hesapları kilitlenmez.
+    try {
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMP DEFAULT NULL`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(30) DEFAULT 'none'`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMP DEFAULT NULL`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS play_purchase_token TEXT DEFAULT NULL`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS play_product_id VARCHAR(150) DEFAULT NULL`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS play_base_plan_id VARCHAR(150) DEFAULT NULL`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS play_order_id VARCHAR(255) DEFAULT NULL`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS subscription_last_verified_at TIMESTAMP DEFAULT NULL`);
+      await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_students_play_purchase_token ON students(play_purchase_token) WHERE play_purchase_token IS NOT NULL`);
+    } catch(e) {
+      console.error('Abonelik alanları hazırlanamadı:', e);
+    }
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS study_logs (
         id SERIAL PRIMARY KEY,
@@ -424,7 +530,26 @@ app.post("/api/auth/register", async (req, res) => {
       [fullName, username, passwordHash, teacherId, schoolLevel || 'Lise (YKS)', className || null]
     );
 
-    res.status(201).json(result.rows[0]);
+    let student = result.rows[0];
+    if (BILLING_ENABLED) {
+      const trialResult = await pool.query(
+        `UPDATE students SET trial_started_at = COALESCE(trial_started_at, CURRENT_TIMESTAMP)
+         WHERE id = $1 RETURNING *`,
+        [student.id]
+      );
+      student = trialResult.rows[0];
+    }
+
+    res.status(201).json({
+      id: student.id,
+      full_name: student.full_name,
+      username: student.username,
+      teacher_id: student.teacher_id,
+      school_level: student.school_level,
+      class_name: student.class_name,
+      billing_token: signBillingSession(student),
+      billing: buildBillingStatus(student)
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Sunucu hatası" });
@@ -447,12 +572,134 @@ app.post("/api/auth/login", async (req, res) => {
       return res.status(400).json({ error: "Geçersiz kullanıcı adı veya şifre." });
     }
 
-    res.json({ id: user.id, username: user.username, full_name: user.full_name, teacher_id: user.teacher_id });
+    let loggedInUser = user;
+    if (BILLING_ENABLED && !user.trial_started_at) {
+      const trialResult = await pool.query(
+        `UPDATE students SET trial_started_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`,
+        [user.id]
+      );
+      loggedInUser = trialResult.rows[0];
+    }
+
+    res.json({
+      id: loggedInUser.id,
+      username: loggedInUser.username,
+      full_name: loggedInUser.full_name,
+      teacher_id: loggedInUser.teacher_id,
+      billing_token: signBillingSession(loggedInUser),
+      billing: buildBillingStatus(loggedInUser)
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Sunucu hatası" });
   }
 });
+
+// --- STUDENT SUBSCRIPTION ---
+app.get("/api/billing/status", verifyBillingSession, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, username, trial_started_at, subscription_status, subscription_expires_at,
+              play_purchase_token, play_product_id, play_base_plan_id, play_order_id,
+              subscription_last_verified_at
+       FROM students WHERE id = $1`,
+      [req.billingStudent.studentId]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Öğrenci bulunamadı.' });
+
+    let student = result.rows[0];
+    const lastVerified = student.subscription_last_verified_at
+      ? new Date(student.subscription_last_verified_at).getTime()
+      : 0;
+    const shouldReverify = BILLING_ENABLED && student.play_purchase_token &&
+      isPlayBillingServerConfigured() && Date.now() - lastVerified > 6 * 60 * 60 * 1000;
+
+    if (shouldReverify) {
+      try {
+        const verification = await verifySubscriptionPurchase({
+          purchaseToken: student.play_purchase_token,
+          expectedAccountId: hashBillingAccountId(student.username)
+        });
+        const updated = await pool.query(
+          `UPDATE students
+           SET subscription_status = $1,
+               subscription_expires_at = $2,
+               play_base_plan_id = COALESCE($3, play_base_plan_id),
+               play_order_id = COALESCE($4, play_order_id),
+               subscription_last_verified_at = CURRENT_TIMESTAMP
+           WHERE id = $5 RETURNING *`,
+          [verification.active ? 'active' : 'expired', verification.expiresAt, verification.basePlanId, verification.orderId, student.id]
+        );
+        student = updated.rows[0];
+      } catch (verificationError) {
+        console.error('Abonelik arka plan doğrulaması başarısız:', verificationError);
+        // Geçici Google API sorununda öğrencinin mevcut erişimini aniden kesmeyin.
+      }
+    }
+
+    res.setHeader('Cache-Control', 'no-store, private');
+    res.json(buildBillingStatus(student));
+  } catch (err) {
+    console.error('Abonelik durumu hatası:', err);
+    res.status(500).json({ error: 'Abonelik durumu alınamadı.' });
+  }
+});
+
+app.post("/api/billing/verify", verifyBillingSession, async (req, res) => {
+  try {
+    if (!BILLING_ENABLED) return res.status(400).json({ error: 'Abonelik sistemi henüz aktif değil.' });
+    if (!isPlayBillingServerConfigured()) {
+      return res.status(503).json({ error: 'Google Play doğrulama bağlantısı henüz yapılandırılmadı.' });
+    }
+
+    const purchaseToken = String(req.body.purchaseToken || '').trim();
+    if (!purchaseToken || purchaseToken.length > 4096) {
+      return res.status(400).json({ error: 'Geçerli bir satın alma kaydı bulunamadı.' });
+    }
+
+    const studentResult = await pool.query(
+      'SELECT id, username FROM students WHERE id = $1',
+      [req.billingStudent.studentId]
+    );
+    if (studentResult.rows.length === 0) return res.status(404).json({ error: 'Öğrenci bulunamadı.' });
+    const student = studentResult.rows[0];
+
+    const duplicate = await pool.query(
+      'SELECT id FROM students WHERE play_purchase_token = $1 AND id <> $2 LIMIT 1',
+      [purchaseToken, student.id]
+    );
+    if (duplicate.rows.length > 0) {
+      return res.status(409).json({ error: 'Bu abonelik başka bir öğrenci hesabına bağlı.' });
+    }
+
+    const verification = await verifySubscriptionPurchase({
+      purchaseToken,
+      expectedAccountId: hashBillingAccountId(student.username)
+    });
+    if (!verification.active) {
+      return res.status(402).json({ error: 'Abonelik aktif değil veya süresi dolmuş.' });
+    }
+
+    const updated = await pool.query(
+      `UPDATE students
+       SET subscription_status = 'active',
+           subscription_expires_at = $1,
+           play_purchase_token = $2,
+           play_product_id = $3,
+           play_base_plan_id = $4,
+           play_order_id = $5,
+           subscription_last_verified_at = CURRENT_TIMESTAMP
+       WHERE id = $6 RETURNING *`,
+      [verification.expiresAt, purchaseToken, verification.productId, verification.basePlanId, verification.orderId, student.id]
+    );
+
+    res.json({ ...buildBillingStatus(updated.rows[0]), message: 'Aboneliğiniz başarıyla etkinleştirildi.' });
+  } catch (err) {
+    console.error('Abonelik doğrulama hatası:', err);
+    res.status(500).json({ error: err.message || 'Abonelik doğrulanamadı.' });
+  }
+});
+// ----------------------
 
 // --- TEACHER AUTHENTICATION ---
 app.post("/api/auth/teacher/register", async (req, res) => {
