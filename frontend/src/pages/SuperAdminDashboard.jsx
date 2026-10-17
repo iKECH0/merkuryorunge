@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAdminStats, approveTeacher, deleteTeacher, addTeacherByAdmin, getDeletionRequests, deleteDeletionRequest, downloadPlatformBackup, getConsultingRequests, updateConsultingRequestStatus } from '../api';
-import { Users, CheckCircle, LogOut, RefreshCw, BarChart2, Trash2, PlusCircle, X, User, Key, Briefcase, ShieldAlert, AlertTriangle, Database, Download, Phone, Mail, GraduationCap } from 'lucide-react';
+import { getAdminStats, approveTeacher, deleteTeacher, addTeacherByAdmin, getDeletionRequests, deleteDeletionRequest, downloadPlatformBackup, getConsultingRequests, updateConsultingRequestStatus, getAdminBillingStudents, updateAdminBillingStudent } from '../api';
+import { Users, CheckCircle, LogOut, RefreshCw, BarChart2, Trash2, PlusCircle, X, User, Key, Briefcase, ShieldAlert, AlertTriangle, Database, Download, Phone, Mail, GraduationCap, CreditCard, Gift, CalendarPlus } from 'lucide-react';
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [deletionRequests, setDeletionRequests] = useState([]);
   const [consultingRequests, setConsultingRequests] = useState([]);
+  const [billingData, setBillingData] = useState({ billingEnabled: false, trialDays: 7, students: [] });
+  const [billingUpdatingId, setBillingUpdatingId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -23,7 +25,8 @@ const SuperAdminDashboard = () => {
 
   useEffect(() => {
     const isAuth = localStorage.getItem('superAdminAuth');
-    if (!isAuth) {
+    if (!isAuth || !localStorage.getItem('superAdminToken')) {
+      localStorage.removeItem('superAdminAuth');
       navigate('/');
       return;
     }
@@ -33,14 +36,16 @@ const SuperAdminDashboard = () => {
   const fetchData = async () => {
     setIsRefreshing(true);
     try {
-      const [stats, requests, consulting] = await Promise.all([
+      const [stats, requests, consulting, billing] = await Promise.all([
         getAdminStats(),
         getDeletionRequests(),
-        getConsultingRequests()
+        getConsultingRequests(),
+        getAdminBillingStudents()
       ]);
       setData(stats);
       setDeletionRequests(requests);
       setConsultingRequests(consulting);
+      setBillingData(billing);
     } catch (err) {
       console.error(err);
     } finally {
@@ -51,6 +56,7 @@ const SuperAdminDashboard = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('superAdminAuth');
+    localStorage.removeItem('superAdminToken');
     navigate('/');
   };
 
@@ -116,6 +122,29 @@ const SuperAdminDashboard = () => {
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.error || 'Başvuru durumu güncellenemedi.');
+    }
+  };
+
+  const handleBillingAction = async (studentId, action) => {
+    const labels = {
+      grant_complimentary: 'Bu öğrenciye süresiz ücretsiz erişim vermek',
+      grant_30_days: 'Bu öğrenciye 30 gün manuel erişim eklemek',
+      grant_365_days: 'Bu öğrenciye 1 yıl manuel erişim eklemek',
+      clear_manual_access: 'Bu öğrencinin manuel/ücretsiz erişimini kaldırmak'
+    };
+    if (!window.confirm(`${labels[action]} istediğinize emin misiniz?`)) return;
+    setBillingUpdatingId(studentId);
+    try {
+      const result = await updateAdminBillingStudent(studentId, action);
+      setBillingData((current) => ({
+        ...current,
+        students: current.students.map((student) => student.id === studentId ? result.student : student)
+      }));
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.error || 'Abonelik işlemi tamamlanamadı.');
+    } finally {
+      setBillingUpdatingId(null);
     }
   };
 
@@ -243,6 +272,48 @@ const SuperAdminDashboard = () => {
           <h3 style={{ margin: '0 0 16px 0', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}><BarChart2 size={20} /> Platform Toplam Çözülen Soru</h3>
           <div style={{ fontSize: '48px', fontWeight: 'bold', color: '#fff' }}>{platformTotals.total_questions}</div>
         </div>
+      </div>
+
+      <div className="glass-card slide-up" style={{ padding: '32px', marginBottom: '40px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
+          <div>
+            <h2 style={{ margin: '0 0 6px', fontSize: '20px', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '8px' }}><CreditCard size={23} /> Öğrenci Abonelik Yönetimi</h2>
+            <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: '13px' }}>Mevcut öğrenciler ücretsiz erişimde korunur. Yeni öğrenciler için deneme süresi {billingData.trialDays} gündür.</p>
+          </div>
+          <span style={{ padding: '7px 13px', borderRadius: '100px', fontSize: '12px', fontWeight: 700, color: billingData.billingEnabled ? '#6ee7b7' : '#fcd34d', background: billingData.billingEnabled ? 'rgba(16,185,129,.12)' : 'rgba(245,158,11,.12)', border: `1px solid ${billingData.billingEnabled ? 'rgba(16,185,129,.3)' : 'rgba(245,158,11,.3)'}` }}>
+            Ödeme sistemi: {billingData.billingEnabled ? 'Aktif' : 'Güvenli biçimde pasif'}
+          </span>
+        </div>
+        {billingData.students.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '36px', color: 'var(--color-text-muted)' }}>Kayıtlı öğrenci bulunmuyor.</div>
+        ) : (
+          <div style={{ display: 'grid', gap: '12px' }}>
+            {billingData.students.map((student) => {
+              const manualActive = student.manual_access_active;
+              const playActive = student.subscription_active;
+              const statusLabel = student.billing_exempt ? 'Süresiz ücretsiz' : manualActive ? `Manuel erişim: ${new Date(student.manual_access_expires_at).toLocaleDateString('tr-TR')}` : playActive ? `Google Play: ${new Date(student.subscription_expires_at).toLocaleDateString('tr-TR')}` : student.trial_started_at ? 'Deneme / ödeme bekliyor' : 'Henüz deneme başlamadı';
+              const statusColor = student.billing_exempt || manualActive || playActive ? '#34d399' : '#fbbf24';
+              return (
+                <div key={student.id} style={{ padding: '18px', borderRadius: '15px', background: 'rgba(255,255,255,.025)', border: '1px solid rgba(255,255,255,.07)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', alignItems: 'center', gap: '14px' }}>
+                  <div>
+                    <strong style={{ color: '#fff', display: 'block' }}>{student.full_name}</strong>
+                    <span style={{ color: 'var(--color-text-muted)', fontSize: '12px' }}>@{student.username}{student.class_name ? ` · ${student.class_name}` : ''}</span>
+                  </div>
+                  <div>
+                    <span style={{ display: 'inline-block', padding: '6px 10px', borderRadius: '100px', color: statusColor, background: `${statusColor}18`, border: `1px solid ${statusColor}45`, fontSize: '12px', fontWeight: 700 }}>{statusLabel}</span>
+                    {student.billing_override_note && <div style={{ color: 'var(--color-text-muted)', fontSize: '11px', marginTop: '5px' }}>{student.billing_override_note}</div>}
+                  </div>
+                  <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap' }}>
+                    <button disabled={billingUpdatingId === student.id} onClick={() => handleBillingAction(student.id, 'grant_complimentary')} className="btn" style={{ padding: '7px 10px', fontSize: '12px', color: '#34d399', background: 'rgba(16,185,129,.1)', border: '1px solid rgba(16,185,129,.25)' }}><Gift size={13} /> Ücretsiz</button>
+                    <button disabled={billingUpdatingId === student.id} onClick={() => handleBillingAction(student.id, 'grant_30_days')} className="btn" style={{ padding: '7px 10px', fontSize: '12px' }}><CalendarPlus size={13} /> +30 gün</button>
+                    <button disabled={billingUpdatingId === student.id} onClick={() => handleBillingAction(student.id, 'grant_365_days')} className="btn" style={{ padding: '7px 10px', fontSize: '12px' }}><CalendarPlus size={13} /> +1 yıl</button>
+                    {(student.billing_exempt || manualActive) && <button disabled={billingUpdatingId === student.id} onClick={() => handleBillingAction(student.id, 'clear_manual_access')} className="btn" style={{ padding: '7px 10px', fontSize: '12px', color: '#fca5a5', background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)' }}>Erişimi kaldır</button>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Consulting Requests */}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { registerStudent, loginStudent } from '../api';
+import { registerStudent, loginStudent, loginAdmin } from '../api';
 import { User, ArrowRight, ArrowLeft, UserPlus, Key, Link as LinkIcon } from 'lucide-react';
 import BrandLogo from '../components/BrandLogo';
 
@@ -48,7 +48,9 @@ const StudentLogin = ({ onLogin }) => {
         const normalizedUsername = username.trim().toLowerCase();
         
         // Super Admin Intercept (Fallback)
-        if (normalizedUsername === 'admin' && (password === 'merkur2026' || password === 'merkür2026')) {
+        if (normalizedUsername === 'admin') {
+          const adminSession = await loginAdmin(normalizedUsername, password);
+          localStorage.setItem('superAdminToken', adminSession.token);
           localStorage.setItem('superAdminAuth', 'true');
           window.location.href = '/super-admin';
           return;

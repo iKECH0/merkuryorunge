@@ -25,6 +25,9 @@ let dbReady = false;
 const BILLING_ENABLED = process.env.BILLING_ENABLED === 'true';
 const BILLING_TRIAL_DAYS = Number(process.env.BILLING_TRIAL_DAYS || 7);
 const BILLING_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
+const ADMIN_SESSION_TTL_SECONDS = 60 * 60 * 12;
+const adminSessionSecret = process.env.ADMIN_SESSION_SECRET || process.env.SESSION_SECRET ||
+  crypto.createHash('sha256').update(String(process.env.DATABASE_URL || 'merkuryorunge-admin-session')).digest('hex');
 
 const hashBillingAccountId = username => crypto
   .createHash('sha256')
@@ -69,10 +72,49 @@ const verifyBillingSession = (req, res, next) => {
   }
 };
 
+const signAdminSession = () => {
+  const payload = Buffer.from(JSON.stringify({ role: 'admin', exp: Math.floor(Date.now() / 1000) + ADMIN_SESSION_TTL_SECONDS })).toString('base64url');
+  const signature = crypto.createHmac('sha256', adminSessionSecret).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+};
+
+const verifyAdminSession = (req, res, next) => {
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
+  const [payload, signature] = String(token || '').split('.');
+  if (!payload || !signature) return res.status(401).json({ error: 'Yönetici oturumu gerekli.' });
+  const expected = crypto.createHmac('sha256', adminSessionSecret).update(payload).digest('base64url');
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (signatureBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
+    return res.status(401).json({ error: 'Yönetici oturumu geçersiz.' });
+  }
+  try {
+    const session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (session.role !== 'admin' || session.exp < Math.floor(Date.now() / 1000)) return res.status(401).json({ error: 'Yönetici oturumunun süresi dolmuş.' });
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Yönetici oturumu geçersiz.' });
+  }
+};
+
 const buildBillingStatus = student => {
   if (!BILLING_ENABLED) return { enabled: false, access: true, reason: 'disabled' };
 
   const now = Date.now();
+  if (student.billing_exempt) {
+    return { enabled: true, access: true, reason: 'complimentary' };
+  }
+
+  const manualAccessExpiresAt = student.manual_access_expires_at ? new Date(student.manual_access_expires_at) : null;
+  if (manualAccessExpiresAt?.getTime() > now) {
+    return {
+      enabled: true,
+      access: true,
+      reason: 'manual',
+      expiresAt: manualAccessExpiresAt.toISOString()
+    };
+  }
+
   const subscriptionExpiresAt = student.subscription_expires_at ? new Date(student.subscription_expires_at) : null;
   if (student.subscription_status === 'active' && subscriptionExpiresAt?.getTime() > now) {
     return {
@@ -394,7 +436,27 @@ const initDB = async () => {
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS play_base_plan_id VARCHAR(150) DEFAULT NULL`);
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS play_order_id VARCHAR(255) DEFAULT NULL`);
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS subscription_last_verified_at TIMESTAMP DEFAULT NULL`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS billing_exempt BOOLEAN NOT NULL DEFAULT FALSE`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS manual_access_expires_at TIMESTAMP DEFAULT NULL`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS billing_override_note VARCHAR(255) DEFAULT NULL`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS billing_override_updated_at TIMESTAMP DEFAULT NULL`);
       await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_students_play_purchase_token ON students(play_purchase_token) WHERE play_purchase_token IS NOT NULL`);
+      await pool.query(`CREATE TABLE IF NOT EXISTS app_migrations (migration_key VARCHAR(150) PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+      // Bu sorgu yalnızca ilk kez çalıştığında o anda mevcut olan öğrencileri ücretsiz erişime alır.
+      // Sonradan kaydolan öğrenciler varsayılan FALSE değeriyle normal deneme/abonelik akışına girer.
+      await pool.query(`
+        WITH applied AS (
+          INSERT INTO app_migrations (migration_key)
+          VALUES ('grandfather_existing_students_2026_10_17')
+          ON CONFLICT (migration_key) DO NOTHING
+          RETURNING migration_key
+        )
+        UPDATE students
+        SET billing_exempt = TRUE,
+            billing_override_note = 'Ödeme sistemi öncesindeki mevcut öğrenci',
+            billing_override_updated_at = CURRENT_TIMESTAMP
+        WHERE EXISTS (SELECT 1 FROM applied)
+      `);
     } catch(e) {
       console.error('Abonelik alanları hazırlanamadı:', e);
     }
@@ -515,6 +577,18 @@ app.use('/api', async (req, res, next) => {
 // API Endpoints
 
 // --- AUTHENTICATION ---
+app.post("/api/auth/admin/login", (req, res) => {
+  const expectedUsername = process.env.ADMIN_USERNAME || 'admin';
+  const expectedPassword = process.env.ADMIN_PASSWORD || 'merkur2026';
+  const username = String(req.body?.username || '').trim().toLowerCase();
+  const password = String(req.body?.password || '');
+  const usernameMatches = username === expectedUsername.toLowerCase();
+  const passwordMatches = password === expectedPassword || (!process.env.ADMIN_PASSWORD && password === 'merkür2026');
+  if (!usernameMatches || !passwordMatches) return res.status(401).json({ error: 'Geçersiz yönetici bilgileri.' });
+  const token = signAdminSession();
+  res.json({ token });
+});
+
 app.post("/api/auth/register", async (req, res) => {
   try {
     const { fullName, username, password, inviteCode, schoolLevel, className } = req.body;
@@ -614,6 +688,7 @@ app.get("/api/billing/status", verifyBillingSession, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT id, username, trial_started_at, subscription_status, subscription_expires_at,
+              billing_exempt, manual_access_expires_at,
               play_purchase_token, play_product_id, play_base_plan_id, play_order_id,
               subscription_last_verified_at
        FROM students WHERE id = $1`,
@@ -711,6 +786,83 @@ app.post("/api/billing/verify", verifyBillingSession, async (req, res) => {
   } catch (err) {
     console.error('Abonelik doğrulama hatası:', err);
     res.status(500).json({ error: err.message || 'Abonelik doğrulanamadı.' });
+  }
+});
+
+app.get("/api/admin/billing/students", verifyAdminSession, async (_req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, full_name, username, class_name, school_level, billing_exempt,
+             manual_access_expires_at, subscription_status, subscription_expires_at,
+             (manual_access_expires_at > CURRENT_TIMESTAMP) AS manual_access_active,
+             (subscription_status = 'active' AND subscription_expires_at > CURRENT_TIMESTAMP) AS subscription_active,
+             play_base_plan_id, trial_started_at, billing_override_note,
+             billing_override_updated_at
+      FROM students
+      ORDER BY full_name ASC
+    `);
+    res.setHeader('Cache-Control', 'no-store, private');
+    res.json({ billingEnabled: BILLING_ENABLED, trialDays: BILLING_TRIAL_DAYS, students: result.rows });
+  } catch (err) {
+    console.error('Öğrenci abonelik listesi alınamadı:', err);
+    res.status(500).json({ error: 'Öğrenci abonelik bilgileri alınamadı.' });
+  }
+});
+
+app.put("/api/admin/billing/students/:studentId", verifyAdminSession, async (req, res) => {
+  try {
+    const studentId = Number(req.params.studentId);
+    const { action } = req.body || {};
+    if (!Number.isInteger(studentId) || studentId <= 0) return res.status(400).json({ error: 'Geçersiz öğrenci.' });
+
+    let result;
+    if (action === 'grant_complimentary') {
+      result = await pool.query(`
+        UPDATE students SET billing_exempt=TRUE, manual_access_expires_at=NULL,
+          billing_override_note='Yönetim panelinden süresiz ücretsiz erişim verildi', billing_override_updated_at=CURRENT_TIMESTAMP
+        WHERE id=$1 RETURNING *`, [studentId]);
+    } else if (action === 'grant_30_days' || action === 'grant_365_days') {
+      const days = action === 'grant_30_days' ? 30 : 365;
+      result = await pool.query(`
+        UPDATE students SET billing_exempt=FALSE,
+          manual_access_expires_at=GREATEST(COALESCE(manual_access_expires_at, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP) + ($2::int * INTERVAL '1 day'),
+          billing_override_note=$3, billing_override_updated_at=CURRENT_TIMESTAMP
+        WHERE id=$1 RETURNING *`, [studentId, days, `Yönetim panelinden ${days} gün erişim verildi`]);
+    } else if (action === 'clear_manual_access') {
+      result = await pool.query(`
+        UPDATE students SET billing_exempt=FALSE, manual_access_expires_at=NULL,
+          billing_override_note='Manuel erişim kaldırıldı', billing_override_updated_at=CURRENT_TIMESTAMP
+        WHERE id=$1 RETURNING *`, [studentId]);
+    } else {
+      return res.status(400).json({ error: 'Geçersiz abonelik işlemi.' });
+    }
+
+    if (!result.rows.length) return res.status(404).json({ error: 'Öğrenci bulunamadı.' });
+    const updated = result.rows[0];
+    const billing = buildBillingStatus(updated);
+    res.json({
+      student: {
+        id: updated.id,
+        full_name: updated.full_name,
+        username: updated.username,
+        class_name: updated.class_name,
+        school_level: updated.school_level,
+        billing_exempt: updated.billing_exempt,
+        manual_access_expires_at: updated.manual_access_expires_at,
+        manual_access_active: Boolean(updated.manual_access_expires_at && new Date(updated.manual_access_expires_at).getTime() > Date.now()),
+        subscription_status: updated.subscription_status,
+        subscription_expires_at: updated.subscription_expires_at,
+        subscription_active: Boolean(updated.subscription_status === 'active' && updated.subscription_expires_at && new Date(updated.subscription_expires_at).getTime() > Date.now()),
+        play_base_plan_id: updated.play_base_plan_id,
+        trial_started_at: updated.trial_started_at,
+        billing_override_note: updated.billing_override_note,
+        billing_override_updated_at: updated.billing_override_updated_at
+      },
+      billing
+    });
+  } catch (err) {
+    console.error('Manuel abonelik işlemi başarısız:', err);
+    res.status(500).json({ error: 'Abonelik bilgisi güncellenemedi.' });
   }
 });
 // ----------------------
@@ -1279,7 +1431,7 @@ app.get("/api/stats", async (req, res) => {
 });
 
 // 5. Get Super Admin Stats (Teachers info)
-app.get("/api/admin/stats", async (req, res) => {
+app.get("/api/admin/stats", verifyAdminSession, async (req, res) => {
   try {
     const teachersResult = await pool.query(`
       SELECT t.id, t.full_name, t.invite_code, t.is_approved,
@@ -1309,7 +1461,7 @@ app.get("/api/admin/stats", async (req, res) => {
 // Full platform backup. This intentionally returns rows (including password hashes),
 // so a future restore can preserve existing account access. It is only exposed from
 // the Professional Teacher panel and must never be shared as a public file.
-app.get("/api/admin/backup", async (req, res) => {
+app.get("/api/admin/backup", verifyAdminSession, async (req, res) => {
   try {
     const tables = [
       "teachers",
@@ -1353,7 +1505,7 @@ app.get("/api/admin/backup", async (req, res) => {
 });
 
 // 6. Approve Teacher
-app.post("/api/admin/approve-teacher", async (req, res) => {
+app.post("/api/admin/approve-teacher", verifyAdminSession, async (req, res) => {
   try {
     const { teacherId } = req.body;
     await pool.query("UPDATE teachers SET is_approved = TRUE WHERE id = $1", [teacherId]);
@@ -1365,7 +1517,7 @@ app.post("/api/admin/approve-teacher", async (req, res) => {
 });
 
 // 7. Delete Teacher
-app.delete("/api/admin/teacher/:id", async (req, res) => {
+app.delete("/api/admin/teacher/:id", verifyAdminSession, async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query("DELETE FROM teachers WHERE id = $1", [id]);
@@ -1400,7 +1552,7 @@ app.delete("/api/teacher/student/:id", async (req, res) => {
   }
 });
 
-app.post("/api/admin/add-teacher", async (req, res) => {
+app.post("/api/admin/add-teacher", verifyAdminSession, async (req, res) => {
   try {
     const { fullName, username, password } = req.body;
     
@@ -1810,7 +1962,7 @@ app.post("/api/deletion-requests", async (req, res) => {
   }
 });
 
-app.get("/api/deletion-requests", async (req, res) => {
+app.get("/api/deletion-requests", verifyAdminSession, async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM deletion_requests ORDER BY created_at DESC");
     res.json(result.rows);
@@ -1820,7 +1972,7 @@ app.get("/api/deletion-requests", async (req, res) => {
   }
 });
 
-app.delete("/api/deletion-requests/:id", async (req, res) => {
+app.delete("/api/deletion-requests/:id", verifyAdminSession, async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query("DELETE FROM deletion_requests WHERE id = $1", [id]);
@@ -1857,7 +2009,7 @@ app.post("/api/consulting-requests", async (req, res) => {
   }
 });
 
-app.get("/api/consulting-requests", async (_req, res) => {
+app.get("/api/consulting-requests", verifyAdminSession, async (_req, res) => {
   try {
     const result = await pool.query("SELECT * FROM consulting_requests ORDER BY created_at DESC");
     res.json(result.rows);
@@ -1866,7 +2018,7 @@ app.get("/api/consulting-requests", async (_req, res) => {
   }
 });
 
-app.put("/api/consulting-requests/:id/status", async (req, res) => {
+app.put("/api/consulting-requests/:id/status", verifyAdminSession, async (req, res) => {
   try {
     const allowed = ['new', 'contacted', 'converted', 'closed'];
     if (!allowed.includes(req.body.status)) return res.status(400).json({ error: "Geçersiz durum." });

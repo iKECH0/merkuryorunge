@@ -28,6 +28,12 @@ export const loginStudent = async (username, password) => {
 };
 
 const billingHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('studentBillingToken') || ''}` });
+const adminHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('superAdminToken') || ''}` });
+
+export const loginAdmin = async (username, password) => {
+  const response = await axios.post(`${API_URL}/auth/admin/login`, { username, password });
+  return response.data;
+};
 
 export const getBillingStatus = async () => {
   const response = await axios.get(`${API_URL}/billing/status`, { headers: billingHeaders() });
@@ -95,36 +101,38 @@ export const getStats = async (teacherId = null) => {
 };
 
 export const getAdminStats = async () => {
-  const response = await axios.get(`${API_URL}/admin/stats`);
+  const response = await axios.get(`${API_URL}/admin/stats`, { headers: adminHeaders() });
   return response.data;
 };
 
 export const downloadPlatformBackup = async () => {
-  const response = await axios.get(`${API_URL}/admin/backup`);
+  const response = await axios.get(`${API_URL}/admin/backup`, { headers: adminHeaders() });
   return response.data;
 };
 
 export const getDeletionRequests = async () => {
-  const response = await axios.get(`${API_URL}/deletion-requests`);
+  const response = await axios.get(`${API_URL}/deletion-requests`, { headers: adminHeaders() });
   return response.data;
 };
 
 export const deleteDeletionRequest = async (id) => {
-  const response = await axios.delete(`${API_URL}/deletion-requests/${id}`);
+  const response = await axios.delete(`${API_URL}/deletion-requests/${id}`, { headers: adminHeaders() });
   return response.data;
 };
 
 export const submitConsultingRequest = async (data) => (await axios.post(`${API_URL}/consulting-requests`, data)).data;
-export const getConsultingRequests = async () => (await axios.get(`${API_URL}/consulting-requests`)).data;
-export const updateConsultingRequestStatus = async (id, status) => (await axios.put(`${API_URL}/consulting-requests/${id}/status`, { status })).data;
+export const getConsultingRequests = async () => (await axios.get(`${API_URL}/consulting-requests`, { headers: adminHeaders() })).data;
+export const updateConsultingRequestStatus = async (id, status) => (await axios.put(`${API_URL}/consulting-requests/${id}/status`, { status }, { headers: adminHeaders() })).data;
+export const getAdminBillingStudents = async () => (await axios.get(`${API_URL}/admin/billing/students`, { headers: adminHeaders() })).data;
+export const updateAdminBillingStudent = async (studentId, action) => (await axios.put(`${API_URL}/admin/billing/students/${studentId}`, { action }, { headers: adminHeaders() })).data;
 
 export const approveTeacher = async (teacherId) => {
-  const response = await axios.post(`${API_URL}/admin/approve-teacher`, { teacherId });
+  const response = await axios.post(`${API_URL}/admin/approve-teacher`, { teacherId }, { headers: adminHeaders() });
   return response.data;
 };
 
 export const deleteTeacher = async (teacherId) => {
-  const response = await axios.delete(`${API_URL}/admin/teacher/${teacherId}`);
+  const response = await axios.delete(`${API_URL}/admin/teacher/${teacherId}`, { headers: adminHeaders() });
   return response.data;
 };
 
@@ -144,7 +152,7 @@ export const regenerateStudentDocument = async (studentId) => {
 };
 
 export const addTeacherByAdmin = async (fullName, username, password) => {
-  const response = await axios.post(`${API_URL}/admin/add-teacher`, { fullName, username, password });
+  const response = await axios.post(`${API_URL}/admin/add-teacher`, { fullName, username, password }, { headers: adminHeaders() });
   return response.data;
 };
 

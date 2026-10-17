@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { registerTeacher, loginTeacher } from '../api';
+import { registerTeacher, loginTeacher, loginAdmin } from '../api';
 import { Sparkles, ArrowLeft, Briefcase, Lock, User, PlusCircle, LogIn, ArrowRight } from 'lucide-react';
 
 const TeacherAuth = () => {
@@ -43,7 +43,9 @@ const TeacherAuth = () => {
         }
         
         // Super Admin Intercept
-        if (username === 'admin' && (password === 'merkur2026' || password === 'merkür2026')) {
+        if (username.trim().toLowerCase() === 'admin') {
+           const adminSession = await loginAdmin(username.trim().toLowerCase(), password);
+           localStorage.setItem('superAdminToken', adminSession.token);
            localStorage.setItem('superAdminAuth', 'true');
            window.location.href = '/super-admin';
            return;
