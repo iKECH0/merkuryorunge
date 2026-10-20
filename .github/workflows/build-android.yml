@@ -42,7 +42,7 @@ jobs:
         run: java -version
 
       - name: Setup Gradle Cache
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Install Dependencies
         working-directory: frontend
