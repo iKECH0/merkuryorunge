@@ -4,7 +4,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 const DAILY_REMINDER_ID = 2200;
 const DAILY_REMINDER_CHANNEL_ID = 'daily-study-reminders';
 
-let setupPromise = null;
+let setupQueue = Promise.resolve();
 
 const createAndroidChannel = async () => {
   if (Capacitor.getPlatform() !== 'android') return;
@@ -21,13 +21,16 @@ const createAndroidChannel = async () => {
   });
 };
 
-const requestExactAlarmAccess = async () => {
-  if (Capacitor.getPlatform() !== 'android') return;
+const ensureExactAlarmAccess = async ({ askForExactAlarm }) => {
+  if (Capacitor.getPlatform() !== 'android') return true;
 
-  const exactAlarmStatus = await LocalNotifications.checkExactNotificationSetting();
-  if (exactAlarmStatus.exact_alarm !== 'granted') {
+  let exactAlarmStatus = await LocalNotifications.checkExactNotificationSetting();
+  if (exactAlarmStatus.exact_alarm !== 'granted' && askForExactAlarm) {
     await LocalNotifications.changeExactNotificationSetting();
+    exactAlarmStatus = await LocalNotifications.checkExactNotificationSetting();
   }
+
+  return exactAlarmStatus.exact_alarm === 'granted';
 };
 
 const scheduleReminder = async () => {
@@ -46,6 +49,8 @@ const scheduleReminder = async () => {
         body: 'Saat 22:00! Günün raporunu girdin mi? Hadi hemen kaydet! 🚀',
         channelId: DAILY_REMINDER_CHANNEL_ID,
         sound: 'default',
+        isExactNotification: true,
+        isExactMandatory: true,
         schedule: {
           on: { hour: 22, minute: 0, second: 0 },
           repeats: true,
@@ -59,9 +64,8 @@ const scheduleReminder = async () => {
 
 export const setupDailyReminder = async ({ askForExactAlarm = true } = {}) => {
   if (!Capacitor.isNativePlatform()) return { status: 'web' };
-  if (setupPromise) return setupPromise;
 
-  setupPromise = (async () => {
+  const setup = async () => {
     try {
       let permission = await LocalNotifications.checkPermissions();
       if (permission.display !== 'granted') {
@@ -71,17 +75,22 @@ export const setupDailyReminder = async ({ askForExactAlarm = true } = {}) => {
       if (permission.display !== 'granted') return { status: 'notification-permission-denied' };
 
       await createAndroidChannel();
-      if (askForExactAlarm) await requestExactAlarmAccess();
+      const hasExactAlarmAccess = await ensureExactAlarmAccess({ askForExactAlarm });
+      if (!hasExactAlarmAccess) {
+        return { status: 'exact-alarm-permission-denied' };
+      }
+
       await scheduleReminder();
 
       return { status: 'scheduled' };
     } catch (error) {
       console.error('Günlük bildirim kurulamadı:', error);
       return { status: 'error' };
-    } finally {
-      setupPromise = null;
     }
-  })();
+  };
 
-  return setupPromise;
+  // Permission settings temporarily background the app. Queue the resume call so
+  // the exact alarm is checked and scheduled again after the user returns.
+  setupQueue = setupQueue.then(setup, setup);
+  return setupQueue;
 };

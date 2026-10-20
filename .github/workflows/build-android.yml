@@ -63,6 +63,8 @@ jobs:
           const fs = require('node:fs');
           const capacitor = JSON.parse(fs.readFileSync('frontend/capacitor.config.json', 'utf8'));
           const gradle = fs.readFileSync('frontend/android/app/build.gradle', 'utf8');
+          const manifest = fs.readFileSync('frontend/android/app/src/main/AndroidManifest.xml', 'utf8');
+          const notifications = fs.readFileSync('frontend/src/notifications.js', 'utf8');
 
           const versionCode = gradle.match(/versionCode\s+(\d+)/)?.[1];
           const versionName = gradle.match(/versionName\s+["']([^"']+)["']/)?.[1];
@@ -78,6 +80,12 @@ jobs:
           }
           if (!versionCode || !versionName) {
             throw new Error('Android versionCode/versionName could not be read');
+          }
+          if (!manifest.includes('android.permission.SCHEDULE_EXACT_ALARM')) {
+            throw new Error('Exact alarm permission is required for the 22:00 reminder');
+          }
+          if (!notifications.includes('isExactMandatory: true')) {
+            throw new Error('The 22:00 reminder must never silently fall back to an inexact alarm');
           }
 
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `version_code=${versionCode}\nversion_name=${versionName}\n`);
