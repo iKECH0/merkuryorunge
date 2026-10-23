@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getStudentLogs, getStudentGoal, setStudentGoal, getStudentInfo } from '../api';
+import { API_BASE_URL, getStudentLogs, getStudentGoal, setStudentGoal, getStudentInfo } from '../api';
 import { Target, Bot, Sparkles, TrendingUp, Palette, CalendarDays, Clock, BookOpen, Hash, Trash2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid } from 'recharts';
 import ReactMarkdown from 'react-markdown';
@@ -186,7 +186,7 @@ const StudentProfile = ({ studentName }) => {
         weakest
       };
 
-      const apiBaseUrl = import.meta.env.PROD ? 'https://backend-three-khaki-37.vercel.app' : (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000');
+      const apiBaseUrl = API_BASE_URL;
       const res = await fetch(`${apiBaseUrl}/api/ai?action=analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

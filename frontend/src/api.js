@@ -1,6 +1,13 @@
 import axios from 'axios';
+import { Capacitor } from '@capacitor/core';
 
-const API_URL = import.meta.env.PROD ? 'https://merkuryorunge.vercel.app/api' : 'http://localhost:5000/api';
+const NATIVE_API_BASE_URL = 'https://www.merkuryorunge.com.tr';
+const DEV_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+
+export const API_BASE_URL = import.meta.env.DEV
+  ? DEV_API_BASE_URL
+  : (Capacitor.isNativePlatform() ? NATIVE_API_BASE_URL : '');
+export const API_URL = `${API_BASE_URL}/api`;
 
 export const registerTeacher = async (fullName, username, password) => {
   const response = await axios.post(`${API_URL}/auth/teacher/register`, { fullName, username, password });

@@ -11,6 +11,7 @@ const SuperAdminDashboard = () => {
   const [billingData, setBillingData] = useState({ billingEnabled: false, trialDays: 7, students: [] });
   const [billingUpdatingId, setBillingUpdatingId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
 
@@ -35,6 +36,7 @@ const SuperAdminDashboard = () => {
 
   const fetchData = async () => {
     setIsRefreshing(true);
+    setLoadError('');
     try {
       const [stats, requests, consulting, billing] = await Promise.all([
         getAdminStats(),
@@ -48,6 +50,18 @@ const SuperAdminDashboard = () => {
       setBillingData(billing);
     } catch (err) {
       console.error(err);
+      if (err.response?.status === 401) {
+        localStorage.removeItem('superAdminAuth');
+        localStorage.removeItem('superAdminToken');
+        if (localStorage.getItem('teacherId') === 'ALL') {
+          localStorage.removeItem('teacherAuth');
+          localStorage.removeItem('teacherId');
+          localStorage.removeItem('teacherName');
+        }
+        navigate('/');
+        return;
+      }
+      setLoadError(err.response?.data?.error || 'Panel verileri alınamadı. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
     } finally {
       setLoading(false);
       setTimeout(() => setIsRefreshing(false), 500);
@@ -57,6 +71,11 @@ const SuperAdminDashboard = () => {
   const handleLogout = () => {
     localStorage.removeItem('superAdminAuth');
     localStorage.removeItem('superAdminToken');
+    if (localStorage.getItem('teacherId') === 'ALL') {
+      localStorage.removeItem('teacherAuth');
+      localStorage.removeItem('teacherId');
+      localStorage.removeItem('teacherName');
+    }
     navigate('/');
   };
 
@@ -179,8 +198,18 @@ const SuperAdminDashboard = () => {
     }
   };
 
-  if (loading || !data) {
+  if (loading) {
     return <div className="flex-center text-primary animate-pulse-glow" style={{ minHeight: '80vh', fontSize: '20px' }}>Profesyonel Öğretmen Paneli Yükleniyor...</div>;
+  }
+
+  if (loadError || !data) {
+    return (
+      <div className="flex-center" style={{ minHeight: '80vh', flexDirection: 'column', gap: '16px', textAlign: 'center' }}>
+        <AlertTriangle size={42} color="#f59e0b" />
+        <div style={{ color: 'var(--color-text)', fontSize: '18px' }}>{loadError || 'Panel verileri alınamadı.'}</div>
+        <button className="btn btn-primary" onClick={fetchData}><RefreshCw size={16} /> Tekrar dene</button>
+      </div>
+    );
   }
 
   const { teachers, platformTotals } = data;

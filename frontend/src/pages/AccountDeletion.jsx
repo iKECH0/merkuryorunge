@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../api';
 
 export default function AccountDeletion() {
   const navigate = useNavigate();
@@ -14,10 +15,6 @@ export default function AccountDeletion() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const API_URL = import.meta.env.PROD
-        ? "https://backend-three-khaki-37.vercel.app/api"
-        : "http://localhost:5000/api";
-        
       await fetch(`${API_URL}/deletion-requests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

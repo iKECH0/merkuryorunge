@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, Send, User, Sparkles, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { API_BASE_URL } from '../api';
 
 const MerkurAIChat = ({ studentName, studentData }) => {
-  const apiBaseUrl = import.meta.env.PROD ? 'https://backend-three-khaki-37.vercel.app' : (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000');
+  const apiBaseUrl = API_BASE_URL;
   const [messages, setMessages] = useState([
     { role: 'assistant', content: `Selam ${studentName}! 👋 Ben Merkür AI, kişisel eğitim koçun. Derslerine, çalışma sürenize ve hedeflerine bakıyorum — konuşmaya hazırım! Ne hakkında konuşalım? 🚀` }
   ]);

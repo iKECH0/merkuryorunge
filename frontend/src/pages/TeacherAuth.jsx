@@ -45,6 +45,9 @@ const TeacherAuth = () => {
         // Super Admin Intercept
         if (username.trim().toLowerCase() === 'admin') {
            const adminSession = await loginAdmin(username.trim().toLowerCase(), password);
+           localStorage.removeItem('teacherAuth');
+           localStorage.removeItem('teacherId');
+           localStorage.removeItem('teacherName');
            localStorage.setItem('superAdminToken', adminSession.token);
            localStorage.setItem('superAdminAuth', 'true');
            window.location.href = '/super-admin';

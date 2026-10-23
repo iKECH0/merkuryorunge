@@ -2,10 +2,7 @@
 import { Plus, Trash2, Edit3, Check, X, ChevronDown, ChevronRight, BookOpen, PlusCircle, RefreshCw, GraduationCap } from "lucide-react";
 import { CURRICULUM, SCHOOL_LEVELS, GRADE_LABELS } from "../data/curriculum";
 import axios from "axios";
-
-const API_URL = import.meta.env.PROD
-  ? "https://backend-three-khaki-37.vercel.app/api"
-  : "http://localhost:5000/api";
+import { API_URL } from "../api";
 
 const SUBJECT_COLORS = {
   matematik:"#3b82f6",geometri:"#8b5cf6",fizik:"#06b6d4",kimya:"#10b981",

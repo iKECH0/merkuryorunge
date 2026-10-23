@@ -50,6 +50,9 @@ const StudentLogin = ({ onLogin }) => {
         // Super Admin Intercept (Fallback)
         if (normalizedUsername === 'admin') {
           const adminSession = await loginAdmin(normalizedUsername, password);
+          localStorage.removeItem('teacherAuth');
+          localStorage.removeItem('teacherId');
+          localStorage.removeItem('teacherName');
           localStorage.setItem('superAdminToken', adminSession.token);
           localStorage.setItem('superAdminAuth', 'true');
           window.location.href = '/super-admin';

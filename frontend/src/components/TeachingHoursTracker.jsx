@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Plus, Trash2 } from 'lucide-react';
+import { API_BASE_URL } from '../api';
 
 const pad = value => String(value).padStart(2, '0');
 const toDateValue = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -46,9 +47,7 @@ const getStudentId = student => student?.id ?? student?.student_id;
 const getStudentName = student => student?.full_name || student?.name || student?.student_name || 'İsimsiz öğrenci';
 
 const TeachingHoursTracker = ({ teacherId, students = [] }) => {
-  const apiBaseUrl = import.meta.env.PROD
-    ? 'https://backend-three-khaki-37.vercel.app'
-    : (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000');
+  const apiBaseUrl = API_BASE_URL;
   const [teachingLogs, setTeachingLogs] = useState([]);
   const [availableStudents, setAvailableStudents] = useState([]);
   const [summary, setSummary] = useState([]);

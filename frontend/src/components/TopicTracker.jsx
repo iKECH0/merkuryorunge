@@ -1,12 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { CheckCircle2, Circle, ChevronDown, ChevronRight, BookOpen, BarChart3, RefreshCw } from "lucide-react";
 import { CURRICULUM, SCHOOL_LEVELS, GRADE_LABELS } from "../data/curriculum";
-import { getTopicProgress, markTopicComplete, unmarkTopicComplete } from "../api";
+import { API_URL, getTopicProgress, markTopicComplete, unmarkTopicComplete } from "../api";
 import axios from "axios";
-
-const API_URL = import.meta.env.PROD
-  ? "https://backend-three-khaki-37.vercel.app/api"
-  : "http://localhost:5000/api";
 
 const SUBJECT_COLORS = {
   matematik: "#3b82f6", geometri: "#8b5cf6", fizik: "#06b6d4", kimya: "#10b981",
