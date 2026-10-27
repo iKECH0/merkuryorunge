@@ -646,9 +646,17 @@ app.post("/api/auth/register", async (req, res) => {
 
 app.post("/api/auth/login", async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const username = String(req.body?.username || '').trim();
+    const password = String(req.body?.password || '');
 
-    const result = await pool.query("SELECT * FROM students WHERE username = $1", [username]);
+    if (!username || !password) {
+      return res.status(400).json({ error: "Kullanıcı adı ve şifre gereklidir." });
+    }
+
+    const result = await pool.query(
+      "SELECT * FROM students WHERE LOWER(TRIM(username)) = LOWER($1) LIMIT 1",
+      [username]
+    );
     if (result.rows.length === 0) {
       return res.status(400).json({ error: "Geçersiz kullanıcı adı veya şifre." });
     }
@@ -969,9 +977,17 @@ app.post("/api/auth/teacher/add-student", async (req, res) => {
 
 app.post("/api/auth/teacher/login", async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const username = String(req.body?.username || '').trim();
+    const password = String(req.body?.password || '');
 
-    const result = await pool.query("SELECT * FROM teachers WHERE username = $1", [username]);
+    if (!username || !password) {
+      return res.status(400).json({ error: "Kullanıcı adı ve şifre gereklidir." });
+    }
+
+    const result = await pool.query(
+      "SELECT * FROM teachers WHERE LOWER(TRIM(username)) = LOWER($1) LIMIT 1",
+      [username]
+    );
     if (result.rows.length === 0) {
       return res.status(400).json({ error: "Geçersiz kullanıcı adı veya şifre." });
     }
