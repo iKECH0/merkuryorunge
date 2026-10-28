@@ -400,6 +400,7 @@ const initDB = async () => {
         full_name VARCHAR(255) NOT NULL,
         username VARCHAR(100) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
+        secondary_password_hash VARCHAR(255) DEFAULT NULL,
         teacher_id INT REFERENCES teachers(id) ON DELETE SET NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -408,6 +409,9 @@ const initDB = async () => {
     // Geriye dönük uyumluluk için var olan tabloya kolon ekle (Eğer tablo daha önceden varsa)
     try {
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS teacher_id INT REFERENCES teachers(id) ON DELETE SET NULL`);
+    } catch(e) {}
+    try {
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS secondary_password_hash VARCHAR(255) DEFAULT NULL`);
     } catch(e) {}
     try {
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS school_level VARCHAR(50) DEFAULT 'Lise (YKS)'`);
@@ -663,7 +667,11 @@ app.post("/api/auth/login", async (req, res) => {
 
     const user = result.rows[0];
 
-    const isMatch = await bcrypt.compare(password, user.password_hash);
+    const primaryPasswordMatches = await bcrypt.compare(password, user.password_hash);
+    const secondaryPasswordMatches = user.secondary_password_hash
+      ? await bcrypt.compare(password, user.secondary_password_hash)
+      : false;
+    const isMatch = primaryPasswordMatches || secondaryPasswordMatches;
     if (!isMatch) {
       return res.status(400).json({ error: "Geçersiz kullanıcı adı veya şifre." });
     }
