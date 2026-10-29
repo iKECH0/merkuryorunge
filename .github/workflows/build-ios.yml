@@ -134,6 +134,7 @@ jobs:
           IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64 }}
           IOS_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_PRIVATE_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_PRIVATE_KEY_BASE64 }}
         run: |
           KEYCHAIN_PATH="$RUNNER_TEMP/merkuryorunge-signing.keychain-db"
@@ -144,6 +145,42 @@ jobs:
           echo "$IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
           mkdir -p "$API_KEY_DIR"
           echo "$APP_STORE_CONNECT_API_PRIVATE_KEY_BASE64" | base64 --decode > "$API_KEY_DIR/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          node <<'NODE'
+          const crypto = require('crypto');
+          const fs = require('fs');
+
+          const base64url = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+          const now = Math.floor(Date.now() / 1000);
+          const header = base64url({ alg: 'ES256', kid: process.env.APP_STORE_CONNECT_API_KEY_ID, typ: 'JWT' });
+          const payload = base64url({
+            iss: process.env.APP_STORE_CONNECT_API_ISSUER_ID,
+            iat: now,
+            exp: now + 1200,
+            aud: 'appstoreconnect-v1',
+          });
+          const signingInput = `${header}.${payload}`;
+          const privateKey = fs.readFileSync(
+            `${process.env.HOME}/.appstoreconnect/private_keys/AuthKey_${process.env.APP_STORE_CONNECT_API_KEY_ID}.p8`,
+          );
+          const signature = crypto.sign('sha256', Buffer.from(signingInput), {
+            key: privateKey,
+            dsaEncoding: 'ieee-p1363',
+          }).toString('base64url');
+          const token = `${signingInput}.${signature}`;
+
+          fetch('https://api.appstoreconnect.apple.com/v1/profiles/PB9H22LD3B', {
+            headers: { Authorization: `Bearer ${token}` },
+          }).then(async response => {
+            if (!response.ok) throw new Error(`Provisioning profile download failed: ${response.status} ${await response.text()}`);
+            const body = await response.json();
+            fs.writeFileSync(
+              `${process.env.HOME}/Library/MobileDevice/Provisioning Profiles/MerkurYorunge.mobileprovision`,
+              Buffer.from(body.data.attributes.profileContent, 'base64'),
+            );
+          }).catch(error => { console.error(error); process.exit(1); });
+          NODE
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -169,8 +206,9 @@ jobs:
             -authenticationKeyID "$APP_STORE_CONNECT_API_KEY_ID" \
             -authenticationKeyIssuerID "$APP_STORE_CONNECT_API_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="Merkur Yorunge App Store" \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             archive
 
@@ -189,7 +227,14 @@ jobs:
             <key>destination</key>
             <string>export</string>
             <key>signingStyle</key>
-            <string>automatic</string>
+            <string>manual</string>
+            <key>signingCertificate</key>
+            <string>Apple Distribution</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.merkuryorunge.app</key>
+              <string>Merkur Yorunge App Store</string>
+            </dict>
             <key>teamID</key>
             <string>${APPLE_TEAM_ID}</string>
           </dict>
