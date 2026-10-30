@@ -37,7 +37,7 @@ const SubscriptionGate = ({ children }) => {
     : null;
   return (
     <>
-      {trialDate && <div style={{ position: 'sticky', top: 0, zIndex: 1000, padding: '8px 14px', textAlign: 'center', background: '#164e63', color: '#ecfeff', fontSize: 13 }}>7 günlük deneme erişiminiz {trialDate} tarihine kadar aktif.</div>}
+      {trialDate && <div style={{ position: 'sticky', top: 0, zIndex: 1000, padding: '8px 14px', textAlign: 'center', background: '#164e63', color: '#ecfeff', fontSize: 13 }}>{status?.trialDays || 3} günlük deneme erişiminiz {trialDate} tarihine kadar aktif.</div>}
       {error && status?.enabled && <div style={{ padding: 8, textAlign: 'center', background: '#7c2d12', color: '#fff7ed', fontSize: 13 }}>{error}</div>}
       {children}
     </>

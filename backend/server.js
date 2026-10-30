@@ -23,7 +23,7 @@ const pool = new Pool({
 let dbReady = false;
 
 const BILLING_ENABLED = process.env.BILLING_ENABLED === 'true';
-const BILLING_TRIAL_DAYS = Number(process.env.BILLING_TRIAL_DAYS || 7);
+const BILLING_TRIAL_DAYS = Number(process.env.BILLING_TRIAL_DAYS || 3);
 const BILLING_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const ADMIN_SESSION_TTL_SECONDS = 60 * 60 * 12;
 const adminSessionSecret = process.env.ADMIN_SESSION_SECRET || process.env.SESSION_SECRET ||

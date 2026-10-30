@@ -8,7 +8,7 @@ const SuperAdminDashboard = () => {
   const [data, setData] = useState(null);
   const [deletionRequests, setDeletionRequests] = useState([]);
   const [consultingRequests, setConsultingRequests] = useState([]);
-  const [billingData, setBillingData] = useState({ billingEnabled: false, trialDays: 7, students: [] });
+  const [billingData, setBillingData] = useState({ billingEnabled: false, trialDays: 3, students: [] });
   const [billingUpdatingId, setBillingUpdatingId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
