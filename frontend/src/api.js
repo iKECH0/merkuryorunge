@@ -130,6 +130,8 @@ export const deleteDeletionRequest = async (id) => {
 export const submitConsultingRequest = async (data) => (await axios.post(`${API_URL}/consulting-requests`, data)).data;
 export const getConsultingRequests = async () => (await axios.get(`${API_URL}/consulting-requests`, { headers: adminHeaders() })).data;
 export const updateConsultingRequestStatus = async (id, status) => (await axios.put(`${API_URL}/consulting-requests/${id}/status`, { status }, { headers: adminHeaders() })).data;
+export const deleteConsultingRequest = async (id) => (await axios.delete(`${API_URL}/consulting-requests/${id}`, { headers: adminHeaders() })).data;
+export const deleteConsultingRequests = async (ids) => (await axios.post(`${API_URL}/consulting-requests/bulk-delete`, { ids }, { headers: adminHeaders() })).data;
 export const getAdminBillingStudents = async () => (await axios.get(`${API_URL}/admin/billing/students`, { headers: adminHeaders() })).data;
 export const updateAdminBillingStudent = async (studentId, action) => (await axios.put(`${API_URL}/admin/billing/students/${studentId}`, { action }, { headers: adminHeaders() })).data;
 

@@ -2047,6 +2047,33 @@ app.get("/api/consulting-requests", verifyAdminSession, async (_req, res) => {
   }
 });
 
+app.delete("/api/consulting-requests/:id", verifyAdminSession, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "Geçersiz talep numarası." });
+    const result = await pool.query("DELETE FROM consulting_requests WHERE id=$1 RETURNING id", [id]);
+    if (!result.rows.length) return res.status(404).json({ error: "Talep bulunamadı." });
+    res.json({ deletedId: result.rows[0].id });
+  } catch (error) {
+    console.error("Consulting request delete error:", error);
+    res.status(500).json({ error: "Talep silinemedi." });
+  }
+});
+
+app.post("/api/consulting-requests/bulk-delete", verifyAdminSession, async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids)
+      ? [...new Set(req.body.ids.map(Number).filter((id) => Number.isInteger(id) && id > 0))]
+      : [];
+    if (!ids.length || ids.length > 500) return res.status(400).json({ error: "1 ile 500 arasında geçerli talep seçin." });
+    const result = await pool.query("DELETE FROM consulting_requests WHERE id = ANY($1::int[]) RETURNING id", [ids]);
+    res.json({ deletedIds: result.rows.map((row) => row.id), deletedCount: result.rowCount });
+  } catch (error) {
+    console.error("Consulting requests bulk delete error:", error);
+    res.status(500).json({ error: "Seçili talepler silinemedi." });
+  }
+});
+
 app.put("/api/consulting-requests/:id/status", verifyAdminSession, async (req, res) => {
   try {
     const allowed = ['new', 'contacted', 'converted', 'closed'];

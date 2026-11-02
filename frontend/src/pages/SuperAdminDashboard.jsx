@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAdminStats, approveTeacher, deleteTeacher, addTeacherByAdmin, getDeletionRequests, deleteDeletionRequest, downloadPlatformBackup, getConsultingRequests, updateConsultingRequestStatus, getAdminBillingStudents, updateAdminBillingStudent } from '../api';
-import { Users, CheckCircle, LogOut, RefreshCw, BarChart2, Trash2, PlusCircle, X, User, Key, Briefcase, ShieldAlert, AlertTriangle, Database, Download, Phone, Mail, GraduationCap, CreditCard, Gift, CalendarPlus } from 'lucide-react';
+import { getAdminStats, approveTeacher, deleteTeacher, addTeacherByAdmin, getDeletionRequests, deleteDeletionRequest, downloadPlatformBackup, getConsultingRequests, updateConsultingRequestStatus, deleteConsultingRequest, deleteConsultingRequests, getAdminBillingStudents, updateAdminBillingStudent } from '../api';
+import { Users, CheckCircle, LogOut, RefreshCw, BarChart2, Trash2, PlusCircle, X, User, Key, Briefcase, ShieldAlert, AlertTriangle, Database, Download, Phone, Mail, GraduationCap, CreditCard, Gift, CalendarPlus, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [deletionRequests, setDeletionRequests] = useState([]);
   const [consultingRequests, setConsultingRequests] = useState([]);
+  const [selectedConsultingIds, setSelectedConsultingIds] = useState([]);
   const [billingData, setBillingData] = useState({ billingEnabled: false, trialDays: 3, students: [] });
   const [billingUpdatingId, setBillingUpdatingId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -147,6 +149,57 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  const toggleConsultingSelection = (id) => {
+    setSelectedConsultingIds((current) => current.includes(id) ? current.filter((selectedId) => selectedId !== id) : [...current, id]);
+  };
+
+  const handleDeleteConsultingRequest = async (id) => {
+    if (!window.confirm('Bu başvuruyu kalıcı olarak silmek istediğinize emin misiniz?')) return;
+    try {
+      await deleteConsultingRequest(id);
+      setConsultingRequests((current) => current.filter((request) => request.id !== id));
+      setSelectedConsultingIds((current) => current.filter((selectedId) => selectedId !== id));
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.error || 'Başvuru silinemedi.');
+    }
+  };
+
+  const handleBulkDeleteConsultingRequests = async () => {
+    if (!selectedConsultingIds.length) return;
+    if (!window.confirm(`${selectedConsultingIds.length} başvuruyu kalıcı olarak silmek istediğinize emin misiniz?`)) return;
+    try {
+      const result = await deleteConsultingRequests(selectedConsultingIds);
+      const deleted = new Set(result.deletedIds || selectedConsultingIds);
+      setConsultingRequests((current) => current.filter((request) => !deleted.has(request.id)));
+      setSelectedConsultingIds([]);
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.error || 'Seçili başvurular silinemedi.');
+    }
+  };
+
+  const handleExportConsultingRequests = () => {
+    if (!consultingRequests.length) return;
+    const rows = consultingRequests.map((request) => ({
+      ID: request.id,
+      Tarih: new Date(request.created_at).toLocaleString('tr-TR'),
+      Veli: request.parent_name,
+      Öğrenci: request.student_name,
+      Telefon: request.phone,
+      'E-posta': request.email || '',
+      'Sınıf / Sınav': request.school_level || '',
+      Şehir: request.city || '',
+      Notlar: request.notes || '',
+      Durum: ({ new: 'Yeni', contacted: 'İletişime geçildi', converted: 'Öğrenci oldu', closed: 'Kapatıldı' })[request.status] || request.status
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet['!cols'] = [{ wch: 8 }, { wch: 20 }, { wch: 22 }, { wch: 22 }, { wch: 16 }, { wch: 28 }, { wch: 18 }, { wch: 16 }, { wch: 42 }, { wch: 20 }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Başvurular');
+    XLSX.writeFile(workbook, `egitim-danismanligi-basvurulari-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   const handleBillingAction = async (studentId, action) => {
     const labels = {
       grant_complimentary: 'Bu öğrenciye süresiz ücretsiz erişim vermek',
@@ -276,6 +329,13 @@ const SuperAdminDashboard = () => {
             <RefreshCw size={16} className={isRefreshing ? 'animate-pulse' : ''} style={{ transform: isRefreshing ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.5s ease' }} /> 
             Yenile
           </button>
+          <button
+            className="btn btn-primary"
+            style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(34, 211, 238, 0.12)', color: '#67e8f9', border: '1px solid rgba(34, 211, 238, 0.35)' }}
+            onClick={() => document.getElementById('consulting-requests')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          >
+            <GraduationCap size={16} /> Başvurulara Git
+          </button>
         </div>
       </div>
 
@@ -351,21 +411,28 @@ const SuperAdminDashboard = () => {
       </div>
 
       {/* Consulting Requests */}
-      <div className="glass-card slide-up" style={{ padding: '32px', marginBottom: '40px' }}>
+      <div id="consulting-requests" className="glass-card slide-up" style={{ padding: '32px', marginBottom: '40px', scrollMarginTop: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '12px', flexWrap: 'wrap' }}>
-          <h2 style={{ margin: 0, fontSize: '20px', color: '#22d3ee', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <GraduationCap size={24} /> Eğitim Danışmanlığı Başvuruları
-          </h2>
-          <span style={{ padding: '6px 12px', borderRadius: '100px', color: '#67e8f9', background: 'rgba(6,182,212,.1)', border: '1px solid rgba(6,182,212,.25)', fontSize: '13px' }}>
-            {consultingRequests.filter((request) => request.status === 'new').length} yeni başvuru
-          </span>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '20px', color: '#22d3ee', display: 'flex', alignItems: 'center', gap: '8px' }}><GraduationCap size={24} /> Eğitim Danışmanlığı Başvuruları</h2>
+            <span style={{ display: 'inline-block', marginTop: '8px', padding: '6px 12px', borderRadius: '100px', color: '#67e8f9', background: 'rgba(6,182,212,.1)', border: '1px solid rgba(6,182,212,.25)', fontSize: '13px' }}>{consultingRequests.filter((request) => request.status === 'new').length} yeni başvuru</span>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button className="btn" onClick={handleExportConsultingRequests} disabled={!consultingRequests.length} style={{ padding: '9px 13px', fontSize: '12px', color: '#86efac', background: 'rgba(34,197,94,.1)', border: '1px solid rgba(34,197,94,.3)' }}><FileSpreadsheet size={15} /> Excel'e Aktar</button>
+            <button className="btn" onClick={handleBulkDeleteConsultingRequests} disabled={!selectedConsultingIds.length} style={{ padding: '9px 13px', fontSize: '12px', color: '#fca5a5', background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.3)' }}><Trash2 size={15} /> Seçilenleri Sil ({selectedConsultingIds.length})</button>
+          </div>
         </div>
         {consultingRequests.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-text-muted)' }}>Henüz eğitim danışmanlığı başvurusu yok.</div>
         ) : (
           <div style={{ display: 'grid', gap: '16px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-text-muted)', fontSize: '13px' }}>
+              <input type="checkbox" checked={selectedConsultingIds.length === consultingRequests.length} onChange={(event) => setSelectedConsultingIds(event.target.checked ? consultingRequests.map((request) => request.id) : [])} />
+              Tümünü seç
+            </label>
             {consultingRequests.map((request) => (
-              <div key={request.id} style={{ padding: '20px', borderRadius: '16px', background: 'rgba(6,182,212,.045)', border: '1px solid rgba(6,182,212,.16)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '18px', alignItems: 'center' }}>
+              <div key={request.id} style={{ padding: '20px', borderRadius: '16px', background: 'rgba(6,182,212,.045)', border: '1px solid rgba(6,182,212,.16)', display: 'grid', gridTemplateColumns: 'auto repeat(auto-fit, minmax(190px, 1fr)) auto', gap: '18px', alignItems: 'center' }}>
+                <input type="checkbox" checked={selectedConsultingIds.includes(request.id)} onChange={() => toggleConsultingSelection(request.id)} aria-label={`${request.student_name} başvurusunu seç`} />
                 <div>
                   <h3 style={{ margin: '0 0 6px', color: '#fff', fontSize: '17px' }}>{request.student_name}</h3>
                   <div style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Veli: {request.parent_name}</div>
@@ -377,12 +444,12 @@ const SuperAdminDashboard = () => {
                   {request.notes && <div style={{ color: 'var(--color-text-muted)', fontSize: '13px', lineHeight: 1.45, marginTop: '5px' }}>{request.notes}</div>}
                   <div style={{ color: 'var(--color-text-muted)', fontSize: '11px', marginTop: '4px' }}>{new Date(request.created_at).toLocaleString('tr-TR')}</div>
                 </div>
-                <select className="input-field" value={request.status} onChange={(event) => handleConsultingStatus(request.id, event.target.value)} aria-label={`${request.student_name} başvuru durumu`}>
-                  <option value="new">Yeni</option>
-                  <option value="contacted">İletişime geçildi</option>
-                  <option value="converted">Öğrenci oldu</option>
-                  <option value="closed">Kapatıldı</option>
-                </select>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  <select className="input-field" value={request.status} onChange={(event) => handleConsultingStatus(request.id, event.target.value)} aria-label={`${request.student_name} başvuru durumu`}>
+                    <option value="new">Yeni</option><option value="contacted">İletişime geçildi</option><option value="converted">Öğrenci oldu</option><option value="closed">Kapatıldı</option>
+                  </select>
+                  <button className="btn" onClick={() => handleDeleteConsultingRequest(request.id)} style={{ padding: '8px 10px', fontSize: '12px', color: '#fca5a5', background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)' }}><Trash2 size={14} /> Sil</button>
+                </div>
               </div>
             ))}
           </div>
