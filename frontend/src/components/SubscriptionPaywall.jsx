@@ -61,6 +61,8 @@ const SubscriptionPaywall = ({ onActivated }) => {
     setMessage('Google Play ödeme ekranı açılıyor…');
     try {
       await purchaseSubscription(basePlanId, localStorage.getItem('studentUsername') || '');
+      setBusy('');
+      setMessage('Google Play ekranındaki işlemi tamamlayın. Ödeme onaylanınca aboneliğiniz burada doğrulanır.');
     } catch (error) {
       setBusy('');
       setMessage(error.message || 'Satın alma başlatılamadı.');
