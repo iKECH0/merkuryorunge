@@ -38,29 +38,32 @@ const SuperAdminDashboard = () => {
     setIsRefreshing(true);
     setLoadError('');
     try {
-      const [stats, requests, consulting, billing] = await Promise.all([
+      const results = await Promise.allSettled([
         getAdminStats(),
         getDeletionRequests(),
         getConsultingRequests(),
         getAdminBillingStudents()
       ]);
-      setData(stats);
-      setDeletionRequests(requests);
-      setConsultingRequests(consulting);
-      setBillingData(billing);
-    } catch (err) {
-      console.error(err);
-      if (err.response?.status === 401) {
+      const [statsResult, requestsResult, consultingResult, billingResult] = results;
+      const authFailure = results.find(result => result.status === 'rejected' && result.reason?.response?.status === 401);
+      if (authFailure) {
         localStorage.removeItem('superAdminAuth');
         localStorage.removeItem('superAdminToken');
-        if (localStorage.getItem('teacherId') === 'ALL') {
-          localStorage.removeItem('teacherAuth');
-          localStorage.removeItem('teacherId');
-          localStorage.removeItem('teacherName');
-        }
         navigate('/');
         return;
       }
+      if (statsResult.status === 'fulfilled') setData(statsResult.value);
+      if (requestsResult.status === 'fulfilled') setDeletionRequests(requestsResult.value);
+      if (consultingResult.status === 'fulfilled') setConsultingRequests(consultingResult.value);
+      if (billingResult.status === 'fulfilled') setBillingData(billingResult.value);
+      const failedSections = [
+        statsResult.status === 'rejected' && 'istatistikler',
+        requestsResult.status === 'rejected' && 'silme talepleri',
+        billingResult.status === 'rejected' && 'abonelikler'
+      ].filter(Boolean);
+      if (failedSections.length) setLoadError(`Bazı bölümler yüklenemedi: ${failedSections.join(', ')}. Başvurular bölümü ayrı olarak güncellendi.`);
+    } catch (err) {
+      console.error(err);
       setLoadError(err.response?.data?.error || 'Panel verileri alınamadı. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
     } finally {
       setLoading(false);
