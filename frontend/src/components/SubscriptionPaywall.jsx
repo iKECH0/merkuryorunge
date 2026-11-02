@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, CheckCircle2, CreditCard, ExternalLink, RefreshCw, ShieldCheck, Smartphone, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, CreditCard, ExternalLink, RefreshCw, ShieldCheck, Smartphone, Sparkles } from 'lucide-react';
 import { isNativePlayBilling, loadSubscriptionPlans, MONTHLY_PLAN_ID, onPurchaseUpdated, purchaseSubscription, restoreSubscriptionPurchases, YEARLY_PLAN_ID } from '../billing';
 import { verifyBillingPurchase } from '../api';
 import BrandLogo from './BrandLogo';
+import './SubscriptionPaywall.css';
 
 const STORE_URL = 'https://play.google.com/store/apps/details?id=com.merkuryorunge.app';
 const APP_URL = `intent://subscription/#Intent;scheme=merkuryorunge;package=com.merkuryorunge.app;S.browser_fallback_url=${encodeURIComponent(STORE_URL)};end`;
@@ -88,43 +89,57 @@ const SubscriptionPaywall = ({ onActivated }) => {
     { basePlanId: YEARLY_PLAN_ID, billingPeriod: 'P1Y' }
   ];
 
+  const goHome = () => {
+    ['studentName', 'studentUsername', 'studentId', 'studentBillingToken', 'studentBillingStatus'].forEach(key => localStorage.removeItem(key));
+    window.location.assign('/');
+  };
+
   return (
-    <div className="fade-in" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '30px 16px', background: 'radial-gradient(circle at 50% 0%, rgba(14,165,233,.18), transparent 42%), #050b18' }}>
-      <section style={{ width: '100%', maxWidth: 760, padding: 'clamp(22px, 5vw, 40px)', borderRadius: 28, background: 'linear-gradient(145deg, #111f34, #0b1222 75%)', border: '1px solid rgba(103,232,249,.22)', boxShadow: '0 30px 90px rgba(0,0,0,.4)', color: '#f8fafc' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 25 }}><BrandLogo size={52} iconSize={30} /><span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.08em', color: '#67e8f9' }}>MERKÜR YÖRÜNGE</span></div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, borderRadius: 99, padding: '7px 12px', background: 'rgba(34,211,238,.11)', color: '#67e8f9', fontSize: 12, fontWeight: 800 }}><Sparkles size={14} /> ÖĞRENCİ ABONELİĞİ</div>
-        <h1 style={{ fontSize: 'clamp(28px, 5vw, 38px)', lineHeight: 1.15, margin: '16px 0 10px' }}>Öğrenme yolculuğuna devam et</h1>
-        <p style={{ color: '#a8b8ce', fontSize: 16, lineHeight: 1.6, margin: '0 0 25px' }}>Çalışmaların ve kayıtlı verilerin güvende. Sana uygun planı seçerek erişimini sürdür.</p>
+    <div className="subscription-page fade-in">
+      <main className="subscription-shell">
+        <header className="subscription-header">
+          <div className="subscription-brand"><BrandLogo size={44} iconSize={25} /><span>Merkür Yörünge</span></div>
+          <button type="button" className="subscription-home" onClick={goHome}><ArrowLeft size={17} /> Ana sayfaya dön</button>
+        </header>
 
-        {!native && <div style={{ border: '1px solid rgba(251,191,36,.35)', background: 'rgba(251,191,36,.09)', borderRadius: 18, padding: '17px 19px', marginBottom: 20 }}>
-          <strong style={{ display: 'flex', gap: 9, alignItems: 'center', color: '#fde68a' }}><Smartphone size={19} /> Abonelik yalnızca Android uygulamasından alınabilir</strong>
-          <p style={{ color: '#cbd5e1', margin: '9px 0 0', lineHeight: 1.55 }}>Google Play ödeme ekranı uygulamanın içinde açılır. Web sitesinden ödeme alınmaz.</p>
-        </div>}
-
-        {loading && <p style={{ color: '#a8b8ce' }}>Google Play paketleri yükleniyor…</p>}
-        {planError && <div role="alert" style={{ color: '#fecaca', marginBottom: 16 }}>{planError} <button type="button" onClick={fetchPlans} style={{ border: 0, background: 'none', color: '#67e8f9', cursor: 'pointer', fontWeight: 700 }}>Tekrar dene</button></div>}
-        {visiblePlans.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 14 }}>
-          {visiblePlans.map(plan => <div key={plan.basePlanId} style={{ padding: 22, borderRadius: 19, border: plan.basePlanId === YEARLY_PLAN_ID ? '1px solid #22d3ee' : '1px solid rgba(255,255,255,.14)', background: plan.basePlanId === YEARLY_PLAN_ID ? 'linear-gradient(160deg, rgba(8,145,178,.15), rgba(255,255,255,.03))' : 'rgba(255,255,255,.04)' }}>
-            {plan.basePlanId === YEARLY_PLAN_ID && <span style={{ color: '#67e8f9', fontSize: 12, fontWeight: 800 }}>YILLIK PLAN</span>}
-            <h2 style={{ margin: '7px 0', fontSize: 23 }}>{plan.basePlanId === YEARLY_PLAN_ID ? 'Yıllık' : 'Aylık'}</h2>
-            <div style={{ fontSize: native ? 30 : 18, fontWeight: 800, margin: '9px 0 3px' }}>{native ? plan.formattedPrice : 'Fiyatı uygulamada gör'}</div>
-            <div style={{ color: '#a8b8ce', fontSize: 13, marginBottom: 18 }}>{plan.billingPeriod === 'P1Y' ? 'Yılda bir yenilenir' : 'Ayda bir yenilenir'}</div>
-            {native && <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} disabled={!!busy} onClick={() => buy(plan.basePlanId)}><CreditCard size={17} /> {busy === plan.basePlanId ? 'İşleniyor…' : 'Google Play ile abone ol'}</button>}
-          </div>)}
-        </div>}
-
-        {!native && <div style={{ display: 'grid', gap: 10, marginTop: 22 }}>
-          {androidBrowser && <a className="btn btn-primary" href={APP_URL} style={{ display: 'flex', justifyContent: 'center', gap: 9, textDecoration: 'none', padding: 15 }}><Smartphone size={18} /> Uygulamayı aç <ArrowRight size={17} /></a>}
-          <a className="btn" href={STORE_URL} style={{ display: 'flex', justifyContent: 'center', gap: 9, textDecoration: 'none', padding: 14, color: '#e2e8f0', border: '1px solid rgba(255,255,255,.2)' }}><ExternalLink size={17} /> Google Play sayfasına git</a>
-        </div>}
-
-        <div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', gap: '10px 22px', color: '#a8b8ce', fontSize: 13 }}>
-          <span><ShieldCheck size={16} style={{ verticalAlign: 'middle', marginRight: 6, color: '#67e8f9' }} />Ödeme Google Play üzerinden</span>
-          <span><CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: 6, color: '#67e8f9' }} />Öğrenci verilerin korunur</span>
+        <div className="subscription-hero">
+          <span className="subscription-eyebrow"><Sparkles size={15} /> ÖĞRENCİ ABONELİĞİ</span>
+          <h1>Hedeflerine kaldığın yerden devam et.</h1>
+          <p>Çalışmaların ve ilerlemen hesabında saklı. Sana uygun planı seçerek erişimini sürdürebilirsin.</p>
         </div>
-        {message && <p role="status" style={{ textAlign: 'center', color: '#bae6fd', marginTop: 18 }}>{message}</p>}
-        {native && <button type="button" onClick={restore} disabled={!!busy} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '22px auto 0', background: 'transparent', border: 0, color: '#67e8f9', cursor: 'pointer', fontWeight: 700 }}><RefreshCw size={16} /> Satın almayı geri yükle</button>}
-      </section>
+
+        <div className="subscription-benefits" aria-label="Abonelik özellikleri">
+          <span><Check size={16} /> Kişisel gelişim takibi</span>
+          <span><Check size={16} /> Ders ve konu ilerlemesi</span>
+          <span><Check size={16} /> Merkür AI erişimi</span>
+        </div>
+
+        {!native && <div className="subscription-notice"><Smartphone size={22} /><div><strong>Aboneliği Android uygulamasından başlat</strong><p>Ödeme Google Play içinde tamamlanır. Paket fiyatını uygulamada, kendi bölgenin para biriminde görebilirsin.</p></div></div>}
+
+        {loading && <p className="subscription-feedback">Google Play paketleri yükleniyor…</p>}
+        {planError && <div role="alert" className="subscription-error">{planError} <button type="button" onClick={fetchPlans}>Tekrar dene</button></div>}
+
+        {visiblePlans.length > 0 && <div className="subscription-plans">
+          {visiblePlans.map(plan => {
+            const annual = plan.basePlanId === YEARLY_PLAN_ID;
+            return <article key={plan.basePlanId} className={`subscription-plan${annual ? ' subscription-plan-featured' : ''}`}>
+              <div className="subscription-plan-top"><span className="subscription-plan-label">{annual ? 'Yıllık plan' : 'Aylık plan'}</span>{annual && <span className="subscription-plan-badge">UZUN DÖNEM</span>}</div>
+              <div className="subscription-price">{native ? (plan.formattedPrice || 'Fiyat yükleniyor') : 'Fiyatı uygulamada gör'}</div>
+              <p className="subscription-period">{annual ? 'Yılda bir' : 'Ayda bir'} otomatik yenilenir.</p>
+              {native && <button type="button" className="subscription-buy" disabled={!!busy || !plan.formattedPrice} onClick={() => buy(plan.basePlanId)}><CreditCard size={18} /> {busy === plan.basePlanId ? 'İşleniyor…' : 'Google Play ile abone ol'} <ArrowRight size={18} /></button>}
+            </article>;
+          })}
+        </div>}
+
+        {!native && <div className="subscription-links">
+          {androidBrowser && <a className="subscription-buy" href={APP_URL}><Smartphone size={18} /> Uygulamayı aç <ArrowRight size={18} /></a>}
+          <a className="subscription-store" href={STORE_URL}><ExternalLink size={17} /> Google Play sayfasına git</a>
+        </div>}
+
+        {message && <p role="status" className="subscription-feedback">{message}</p>}
+        <footer className="subscription-footer"><span><ShieldCheck size={17} /> Ödemeler Google Play tarafından işlenir.</span>{native && <button type="button" onClick={restore} disabled={!!busy}><RefreshCw size={16} /> Satın almayı geri yükle</button>}</footer>
+        <p className="subscription-home-note">Ana sayfaya dönmek, bu cihazdaki öğrenci oturumunu kapatır.</p>
+      </main>
     </div>
   );
 };
