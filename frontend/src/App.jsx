@@ -54,7 +54,9 @@ function App() {
     localStorage.setItem('studentUsername', student.username);
     if (student.id) localStorage.setItem('studentId', String(student.id));
     if (student.billing_token) localStorage.setItem('studentBillingToken', student.billing_token);
+    else localStorage.removeItem('studentBillingToken');
     if (student.billing) localStorage.setItem('studentBillingStatus', JSON.stringify(student.billing));
+    else localStorage.removeItem('studentBillingStatus');
     setStudentName(student.full_name);
   };
 
