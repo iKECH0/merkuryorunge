@@ -849,6 +849,11 @@ app.put("/api/admin/billing/students/:studentId", verifyAdminSession, async (req
         UPDATE students SET billing_exempt=FALSE, manual_access_expires_at=NULL,
           billing_override_note='Manuel erişim kaldırıldı', billing_override_updated_at=CURRENT_TIMESTAMP
         WHERE id=$1 RETURNING *`, [studentId]);
+    } else if (action === 'expire_trial') {
+      result = await pool.query(`
+        UPDATE students SET trial_started_at=CURRENT_TIMESTAMP - ($2::int * INTERVAL '1 day'),
+          billing_override_note='Deneme süresi yönetim panelinden sonlandırıldı', billing_override_updated_at=CURRENT_TIMESTAMP
+        WHERE id=$1 RETURNING *`, [studentId, BILLING_TRIAL_DAYS]);
     } else {
       return res.status(400).json({ error: 'Geçersiz abonelik işlemi.' });
     }

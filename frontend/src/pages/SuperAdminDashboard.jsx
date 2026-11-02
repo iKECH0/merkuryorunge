@@ -149,7 +149,8 @@ const SuperAdminDashboard = () => {
       grant_complimentary: 'Bu öğrenciye süresiz ücretsiz erişim vermek',
       grant_30_days: 'Bu öğrenciye 30 gün manuel erişim eklemek',
       grant_365_days: 'Bu öğrenciye 1 yıl manuel erişim eklemek',
-      clear_manual_access: 'Bu öğrencinin manuel/ücretsiz erişimini kaldırmak'
+      clear_manual_access: 'Bu öğrencinin manuel/ücretsiz erişimini kaldırmak',
+      expire_trial: 'Bu öğrencinin deneme süresini hemen sonlandırmak'
     };
     if (!window.confirm(`${labels[action]} istediğinize emin misiniz?`)) return;
     setBillingUpdatingId(studentId);
@@ -336,6 +337,7 @@ const SuperAdminDashboard = () => {
                     <button disabled={billingUpdatingId === student.id} onClick={() => handleBillingAction(student.id, 'grant_complimentary')} className="btn" style={{ padding: '7px 10px', fontSize: '12px', color: '#34d399', background: 'rgba(16,185,129,.1)', border: '1px solid rgba(16,185,129,.25)' }}><Gift size={13} /> Ücretsiz</button>
                     <button disabled={billingUpdatingId === student.id} onClick={() => handleBillingAction(student.id, 'grant_30_days')} className="btn" style={{ padding: '7px 10px', fontSize: '12px' }}><CalendarPlus size={13} /> +30 gün</button>
                     <button disabled={billingUpdatingId === student.id} onClick={() => handleBillingAction(student.id, 'grant_365_days')} className="btn" style={{ padding: '7px 10px', fontSize: '12px' }}><CalendarPlus size={13} /> +1 yıl</button>
+                    {student.trial_started_at && <button disabled={billingUpdatingId === student.id} onClick={() => handleBillingAction(student.id, 'expire_trial')} className="btn" style={{ padding: '7px 10px', fontSize: '12px', color: '#fbbf24', background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.25)' }}>Denemeyi bitir</button>}
                     {(student.billing_exempt || manualActive) && <button disabled={billingUpdatingId === student.id} onClick={() => handleBillingAction(student.id, 'clear_manual_access')} className="btn" style={{ padding: '7px 10px', fontSize: '12px', color: '#fca5a5', background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)' }}>Erişimi kaldır</button>}
                   </div>
                 </div>
