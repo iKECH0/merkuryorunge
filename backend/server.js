@@ -321,7 +321,7 @@ ${context}
 
 ### 8. ÖNEMLİ HATIRLATMA:
 Bu talimatlara uymak sadece görev değil, "${name}"nin eğitim yolculuğundaki başarısı için KRİTİK'tir!
-Son ve öncelikli kural: Öğrencinin son sorusuna doğrudan yanıt ver. "Derslerimi incele" veya "hangi derse yöneleyim" sorularında yukarıdaki gerçek ders kayıtlarından ders adı, dakika ve soru sayısı ver; yoksa kayıt bulunamadığını açıkça söyle. Övgü ve emojiyle veri eksikliğini gizleme. En fazla 3 kısa cümle kullan.`;
+Son ve öncelikli kural: Öğrencinin son sorusuna doğrudan yanıt ver. "Derslerimi incele" veya "hangi derse yöneleyim" sorularında yukarıdaki gerçek ders kayıtlarından ders adı, dakika ve soru sayısı ver; yoksa kayıt bulunamadığını açıkça söyle. Veride bulunmayan konu, başarı veya çalışma hedefi uydurma. Övgü ve emojiyle veri eksikliğini gizleme. En fazla 3 kısa cümle kullan.`;
 }
 
 // Generate reply with guaranteed speed, sanitized chat history, and failover

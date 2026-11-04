@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, Send, User, Sparkles, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { API_BASE_URL } from '../api';
+import { API_BASE_URL, getStudentLogs } from '../api';
 
 const MerkurAIChat = ({ studentName, studentData }) => {
   const apiBaseUrl = API_BASE_URL;
@@ -30,6 +30,24 @@ const MerkurAIChat = ({ studentName, studentData }) => {
     setIsLoading(true);
 
     try {
+      const logs = await getStudentLogs(studentName);
+      const since = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const recentLogs = logs.filter(log => new Date(log.created_at).getTime() >= since);
+      const subjectsByName = {};
+      for (const log of recentLogs) {
+        const subject = log.subject || 'Diğer';
+        if (!subjectsByName[subject]) subjectsByName[subject] = { minutes: 0, questions: 0 };
+        subjectsByName[subject].minutes += Number(log.duration_minutes) || 0;
+        subjectsByName[subject].questions += Number(log.questions_solved) || 0;
+      }
+      const freshStudentData = {
+        ...studentData,
+        subjects: subjectsByName,
+        totalMinutes: Object.values(subjectsByName).reduce((total, subject) => total + subject.minutes, 0),
+        totalQuestions: Object.values(subjectsByName).reduce((total, subject) => total + subject.questions, 0),
+        totalSessions: recentLogs.length,
+        activeDaysCount: new Set(recentLogs.map(log => new Date(log.created_at).toISOString().slice(0, 10))).size
+      };
       // Filter history to start with user role (Gemini requirement)
       const filteredHistory = [...messages];
       while (filteredHistory.length > 0 && filteredHistory[0].role !== 'user') {
@@ -50,34 +68,34 @@ const MerkurAIChat = ({ studentName, studentData }) => {
         studentName,
         message: userMessage,
         history: filteredHistory,
-        studentData: studentData || null
+        studentData: freshStudentData
       };
 
       if (isAnalysisRequest) {
         endpoint = `${apiBaseUrl}/api/ai?action=analyze`;
         
         // Prepare analysis request with structured data
-        const subjects = studentData ? Object.entries(studentData.subjects || {}).map(([subject, data]) => ({
+        const subjects = Object.entries(freshStudentData.subjects || {}).map(([subject, data]) => ({
           subject,
           minutes: data.minutes || 0,
           hours: ((data.minutes || 0) / 60).toFixed(2),
           questions: data.questions || 0,
-          percent: studentData.totalMinutes > 0 ? Math.round((data.minutes / studentData.totalMinutes) * 100) : 0
-        })) : [];
+          percent: freshStudentData.totalMinutes > 0 ? Math.round((data.minutes / freshStudentData.totalMinutes) * 100) : 0
+        }));
 
         const strongest = subjects.length > 0 ? [...subjects].sort((a, b) => b.minutes - a.minutes)[0] : null;
         const weakest = subjects.length > 0 ? [...subjects].sort((a, b) => a.minutes - b.minutes)[0] : null;
 
         requestBody = {
           studentName,
-          schoolLevel: studentData?.schoolLevel || null,
-          className: studentData?.className || null,
-          goal: studentData?.goal || 0,
-          totalMinutes: studentData?.totalMinutes || 0,
-          totalHours: studentData ? (studentData.totalMinutes / 60).toFixed(2) : "0",
-          totalQuestions: studentData?.totalQuestions || 0,
-          totalSessions: studentData?.totalSessions || 0,
-          activeDaysCount: studentData?.activeDaysCount || 0,
+          schoolLevel: freshStudentData.schoolLevel || null,
+          className: freshStudentData.className || null,
+          goal: freshStudentData.goal || 0,
+          totalMinutes: freshStudentData.totalMinutes,
+          totalHours: (freshStudentData.totalMinutes / 60).toFixed(2),
+          totalQuestions: freshStudentData.totalQuestions,
+          totalSessions: freshStudentData.totalSessions,
+          activeDaysCount: freshStudentData.activeDaysCount,
           subjects,
           strongest: strongest?.subject || 'Belirsiz',
           weakest: weakest?.subject || 'Belirsiz'
@@ -100,7 +118,7 @@ const MerkurAIChat = ({ studentName, studentData }) => {
       }
     } catch (err) {
       console.error(err);
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Üzgünüm, şu an bağlantı kuramıyorum. Lütfen daha sonra tekrar dene! 🥲' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Çalışma kayıtların veya Merkür AI şu anda alınamıyor. Biraz sonra tekrar dener misin?' }]);
     } finally {
       setIsLoading(false);
     }
