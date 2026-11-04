@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, CalendarDays, Check, CreditCard, ExternalLink, RefreshCw, ShieldCheck, Smartphone, Sparkles, Stars } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Check, CreditCard, ExternalLink, RefreshCw, ShieldCheck, Smartphone, Sparkles, Stars } from 'lucide-react';
 import { isNativePlayBilling, loadSubscriptionPlans, MONTHLY_PLAN_ID, onPurchaseUpdated, purchaseSubscription, restoreSubscriptionPurchases, YEARLY_PLAN_ID } from '../billing';
 import { verifyBillingPurchase } from '../api';
 import BrandLogo from './BrandLogo';
@@ -99,46 +99,77 @@ const SubscriptionPaywall = ({ onActivated }) => {
       <main className="subscription-shell">
         <header className="subscription-header">
           <div className="subscription-brand"><BrandLogo size={44} iconSize={25} /><span>Merkür Yörünge</span></div>
-          <button type="button" className="subscription-home" onClick={goHome}><ArrowLeft size={17} /> Ana sayfaya dön</button>
+          <button type="button" className="subscription-home" onClick={goHome} aria-label="Ana sayfaya dön">
+            <ArrowLeft size={18} /><span className="subscription-home-label">Ana sayfaya dön</span>
+          </button>
         </header>
 
-        <div className="subscription-hero">
-          <span className="subscription-eyebrow"><Sparkles size={15} /> ÖĞRENCİ ABONELİĞİ</span>
+        <section className="subscription-hero">
+          <span className="subscription-eyebrow"><Sparkles size={16} /> Öğrenci aboneliği</span>
           <h1>Öğrenme yolculuğuna devam et<span>.</span></h1>
           <p>İlerlemen güvende. Sana uygun planı seç, kaldığın yerden devam et.</p>
-        </div>
+        </section>
 
-        <div className="subscription-benefits" aria-label="Abonelik özellikleri">
-          <span><Check size={16} /> Kişisel gelişim takibi</span>
-          <span><Check size={16} /> Ders ve konu ilerlemesi</span>
-          <span><Check size={16} /> Merkür AI erişimi</span>
-        </div>
+        <ul className="subscription-benefits" aria-label="Abonelik özellikleri">
+          <li><Check size={16} /> Kişisel gelişim takibi</li>
+          <li><Check size={16} /> Ders ve konu ilerlemesi</li>
+          <li><Check size={16} /> Merkür AI erişimi</li>
+        </ul>
 
-        {!native && <div className="subscription-notice"><span className="subscription-notice-icon"><Smartphone size={22} /></span><div><strong>Aboneliğini uygulamada başlat</strong><p>Ödemeyi Google Play üzerinden güvenle tamamlayabilirsin. Fiyatı uygulamada kendi para biriminde görürsün.</p></div></div>}
+        {!native && (
+          <div className="subscription-notice">
+            <span className="subscription-notice-icon"><Smartphone size={22} /></span>
+            <div>
+              <strong>Aboneliğini uygulamada başlat</strong>
+              <p>Ödemeyi Google Play üzerinden güvenle tamamlayabilirsin. Fiyatı uygulamada kendi para biriminde görürsün.</p>
+            </div>
+          </div>
+        )}
 
         {loading && <p className="subscription-feedback">Google Play paketleri yükleniyor…</p>}
         {planError && <div role="alert" className="subscription-error">{planError} <button type="button" onClick={fetchPlans}>Tekrar dene</button></div>}
 
-        {visiblePlans.length > 0 && <div className="subscription-plans">
-          {visiblePlans.map(plan => {
-            const annual = plan.basePlanId === YEARLY_PLAN_ID;
-            return <article key={plan.basePlanId} className={`subscription-plan${annual ? ' subscription-plan-featured' : ''}`}>
-              <div className="subscription-plan-top"><span className="subscription-plan-icon">{annual ? <Stars size={19} /> : <CalendarDays size={19} />}</span>{annual && <span className="subscription-plan-badge">UZUN DÖNEM</span>}</div>
-              <span className="subscription-plan-label">{annual ? 'Yıllık' : 'Aylık'} plan</span>
-              <div className="subscription-price">{native ? (plan.formattedPrice || 'Fiyat yükleniyor') : 'Fiyat uygulamada gösterilir'}</div>
-              <p className="subscription-period">{annual ? 'Yılda bir' : 'Ayda bir'} otomatik yenilenir. Dilediğinde iptal edebilirsin.</p>
-              {native && <button type="button" className="subscription-buy" disabled={!!busy || !plan.formattedPrice} onClick={() => buy(plan.basePlanId)}><CreditCard size={18} /> <span>{busy === plan.basePlanId ? 'İşleniyor…' : 'Google Play ile devam et'}</span> <ArrowRight size={18} /></button>}
-            </article>;
-          })}
-        </div>}
+        {visiblePlans.length > 0 && (
+          <div className="subscription-plans">
+            {visiblePlans.map(plan => {
+              const annual = plan.basePlanId === YEARLY_PLAN_ID;
+              return (
+                <article key={plan.basePlanId} className={`subscription-plan${annual ? ' subscription-plan-featured' : ''}`}>
+                  <div className="subscription-plan-top">
+                    <span className="subscription-plan-icon">{annual ? <Stars size={19} /> : <CalendarDays size={19} />}</span>
+                    <span className="subscription-plan-label">{annual ? 'Yıllık' : 'Aylık'} plan</span>
+                    {annual && <span className="subscription-plan-badge">Uzun dönem</span>}
+                  </div>
+                  <div className={`subscription-price${native ? '' : ' subscription-price-muted'}`}>
+                    {native ? (plan.formattedPrice || 'Fiyat yükleniyor') : 'Fiyat uygulamada gösterilir'}
+                  </div>
+                  <p className="subscription-period">{annual ? 'Yılda bir' : 'Ayda bir'} otomatik yenilenir. Dilediğinde iptal edebilirsin.</p>
+                  {native && (
+                    <button type="button" className="subscription-buy" disabled={!!busy || !plan.formattedPrice} onClick={() => buy(plan.basePlanId)}>
+                      <CreditCard size={18} /> <span>{busy === plan.basePlanId ? 'İşleniyor…' : 'Google Play ile devam et'}</span>
+                    </button>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
 
-        {!native && <div className="subscription-links">
-          {androidBrowser && <a className="subscription-buy" href={APP_URL}><Smartphone size={18} /> Uygulamayı aç <ArrowRight size={18} /></a>}
-          <a className="subscription-store" href={STORE_URL}><ExternalLink size={17} /> Google Play sayfasına git</a>
-        </div>}
+        {!native && (
+          <div className="subscription-links">
+            {androidBrowser && <a className="subscription-buy" href={APP_URL}><Smartphone size={18} /> <span>Uygulamayı aç</span></a>}
+            <a className={androidBrowser ? 'subscription-store' : 'subscription-buy'} href={STORE_URL}>
+              <ExternalLink size={18} /> <span>Google Play sayfasına git</span>
+            </a>
+          </div>
+        )}
 
         {message && <p role="status" className="subscription-feedback">{message}</p>}
-        <footer className="subscription-footer"><span><ShieldCheck size={17} /> Ödemeler Google Play tarafından işlenir.</span>{native && <button type="button" onClick={restore} disabled={!!busy}><RefreshCw size={16} /> Satın almayı geri yükle</button>}</footer>
+
+        <footer className="subscription-footer">
+          <span><ShieldCheck size={18} /> Ödemeler Google Play tarafından işlenir.</span>
+          {native && <button type="button" onClick={restore} disabled={!!busy}><RefreshCw size={16} /> Satın almayı geri yükle</button>}
+        </footer>
         <p className="subscription-home-note">Ana sayfaya dönmek, bu cihazdaki öğrenci oturumunu kapatır.</p>
       </main>
     </div>
