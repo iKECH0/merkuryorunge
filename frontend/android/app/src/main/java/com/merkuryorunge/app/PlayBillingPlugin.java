@@ -31,11 +31,19 @@ public class PlayBillingPlugin extends Plugin {
     public void load() {
         billingClient = BillingClient.newBuilder(getContext())
             .setListener((billingResult, purchases) -> {
-                if (billingResult.getResponseCode() != BillingClient.BillingResponseCode.OK || purchases == null) return;
+                if (billingResult.getResponseCode() != BillingClient.BillingResponseCode.OK) {
+                    JSObject error = new JSObject();
+                    error.put("code", billingCode(billingResult));
+                    error.put("message", billingMessage(billingResult));
+                    notifyListeners("purchaseError", error);
+                    return;
+                }
+                if (purchases == null) return;
                 for (com.android.billingclient.api.Purchase purchase : purchases) {
                     notifyListeners("purchaseUpdated", purchaseToJson(purchase));
                 }
             })
+            .enableAutoServiceReconnection()
             .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
             .build();
     }
@@ -48,7 +56,7 @@ public class PlayBillingPlugin extends Plugin {
         billingClient.startConnection(new BillingClientStateListener() {
             @Override public void onBillingSetupFinished(BillingResult result) {
                 if (result.getResponseCode() == BillingClient.BillingResponseCode.OK) action.run();
-                else call.reject("Google Play ödeme servisine bağlanılamadı: " + result.getDebugMessage());
+                else call.reject(billingMessage(result), billingCode(result));
             }
             @Override public void onBillingServiceDisconnected() {}
         });
@@ -126,7 +134,7 @@ public class PlayBillingPlugin extends Plugin {
             Activity activity = getActivity();
             BillingResult result = billingClient.launchBillingFlow(activity, params);
             if (result.getResponseCode() == BillingClient.BillingResponseCode.OK) call.resolve();
-            else call.reject("Satın alma ekranı açılamadı: " + result.getDebugMessage());
+            else call.reject(billingMessage(result), billingCode(result));
         };
         withConnection(call, launch);
     }
@@ -173,6 +181,31 @@ public class PlayBillingPlugin extends Plugin {
         item.put("state", purchase.getPurchaseState());
         item.put("acknowledged", purchase.isAcknowledged());
         return item;
+    }
+
+    private String billingCode(BillingResult result) {
+        switch (result.getResponseCode()) {
+            case BillingClient.BillingResponseCode.USER_CANCELED: return "USER_CANCELED";
+            case BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED: return "ITEM_ALREADY_OWNED";
+            case BillingClient.BillingResponseCode.SERVICE_UNAVAILABLE: return "SERVICE_UNAVAILABLE";
+            case BillingClient.BillingResponseCode.NETWORK_ERROR: return "NETWORK_ERROR";
+            case BillingClient.BillingResponseCode.BILLING_UNAVAILABLE: return "BILLING_UNAVAILABLE";
+            case BillingClient.BillingResponseCode.FEATURE_NOT_SUPPORTED: return "FEATURE_NOT_SUPPORTED";
+            case BillingClient.BillingResponseCode.DEVELOPER_ERROR: return "DEVELOPER_ERROR";
+            default: return "BILLING_ERROR";
+        }
+    }
+
+    private String billingMessage(BillingResult result) {
+        switch (result.getResponseCode()) {
+            case BillingClient.BillingResponseCode.USER_CANCELED: return "Ödeme iptal edildi.";
+            case BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED: return "Mevcut abonelik kontrol ediliyor.";
+            case BillingClient.BillingResponseCode.SERVICE_UNAVAILABLE:
+            case BillingClient.BillingResponseCode.NETWORK_ERROR: return "Google Play bağlantısı kurulamadı. Tekrar deneyin.";
+            case BillingClient.BillingResponseCode.BILLING_UNAVAILABLE:
+            case BillingClient.BillingResponseCode.FEATURE_NOT_SUPPORTED: return "Bu cihazda Google Play ödemeleri kullanılamıyor.";
+            default: return "Google Play ödeme işlemi tamamlanamadı.";
+        }
     }
 
     private String sha256(String value) {

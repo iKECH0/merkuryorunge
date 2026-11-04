@@ -18,3 +18,4 @@ export const restoreSubscriptionPurchases = () => PlayBilling.restorePurchases()
 export const acknowledgePurchase = purchaseToken => PlayBilling.acknowledgePurchase({ purchaseToken });
 
 export const onPurchaseUpdated = callback => PlayBilling.addListener('purchaseUpdated', callback);
+export const onPurchaseError = callback => PlayBilling.addListener('purchaseError', callback);

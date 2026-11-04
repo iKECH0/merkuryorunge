@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, CalendarDays, Check, CreditCard, ExternalLink, RefreshCw, ShieldCheck, Smartphone, Sparkles, Stars } from 'lucide-react';
-import { acknowledgePurchase, isNativePlayBilling, loadSubscriptionPlans, MONTHLY_PLAN_ID, onPurchaseUpdated, purchaseSubscription, restoreSubscriptionPurchases, YEARLY_PLAN_ID } from '../billing';
+import { isNativePlayBilling, loadSubscriptionPlans, MONTHLY_PLAN_ID, onPurchaseError, onPurchaseUpdated, purchaseSubscription, restoreSubscriptionPurchases, YEARLY_PLAN_ID } from '../billing';
 import { verifyBillingPurchase } from '../api';
 import BrandLogo from './BrandLogo';
 import './SubscriptionPaywall.css';
 
 const STORE_URL = 'https://play.google.com/store/apps/details?id=com.merkuryorunge.app';
+const MANAGE_URL = 'https://play.google.com/store/account/subscriptions?sku=merkur_yorunge_ogrenci&package=com.merkuryorunge.app';
 const APP_URL = `intent://subscription/#Intent;scheme=merkuryorunge;package=com.merkuryorunge.app;S.browser_fallback_url=${encodeURIComponent(STORE_URL)};end`;
 const androidBrowser = !isNativePlayBilling() && /Android/i.test(navigator.userAgent);
 
@@ -16,6 +17,7 @@ const SubscriptionPaywall = ({ onActivated }) => {
   const [planError, setPlanError] = useState('');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const [retryable, setRetryable] = useState(false);
 
   const fetchPlans = async () => {
     setLoading(true);
@@ -37,7 +39,6 @@ const SubscriptionPaywall = ({ onActivated }) => {
     if (!purchase?.purchaseToken || purchase.state !== 1) return;
     setMessage('Aboneliğiniz doğrulanıyor…');
     const status = await verifyBillingPurchase(purchase.purchaseToken);
-    if (!purchase.acknowledged) await acknowledgePurchase(purchase.purchaseToken);
     setMessage(status.message || 'Aboneliğiniz etkinleştirildi.');
     setBusy('');
     onActivated(status);
@@ -46,6 +47,7 @@ const SubscriptionPaywall = ({ onActivated }) => {
   useEffect(() => {
     if (!native) return undefined;
     let listener;
+    let errorListener;
     let disposed = false;
     onPurchaseUpdated(purchase => finishPurchase(purchase).catch(error => {
       setBusy('');
@@ -54,8 +56,20 @@ const SubscriptionPaywall = ({ onActivated }) => {
       if (disposed) handle.remove();
       else listener = handle;
     }).catch(error => setPlanError(error.message || 'Google Play bağlantısı kurulamadı.'));
+    onPurchaseError(error => {
+      setBusy('');
+      if (error.code === 'USER_CANCELED') { setMessage(''); return; }
+      if (error.code === 'ITEM_ALREADY_OWNED') { restoreSubscriptionPurchases().then(result => (result.purchases || []).filter(item => item.state === 1).forEach(item => finishPurchase(item))).catch(() => {}); return; }
+      setRetryable(['SERVICE_UNAVAILABLE', 'NETWORK_ERROR'].includes(error.code));
+      setMessage(error.message || 'Ödeme tamamlanamadı.');
+    }).then(handle => { if (disposed) handle.remove(); else errorListener = handle; });
     fetchPlans();
-    return () => { disposed = true; listener?.remove(); };
+    restoreSubscriptionPurchases().then(result => {
+      (result.purchases || []).filter(item => item.state === 1).forEach(item => {
+        finishPurchase(item).catch(error => setMessage(error.response?.data?.error || error.message || 'Abonelik doğrulanamadı.'));
+      });
+    }).catch(() => {});
+    return () => { disposed = true; listener?.remove(); errorListener?.remove(); };
   }, [native]);
 
   const buy = async basePlanId => {
@@ -67,6 +81,9 @@ const SubscriptionPaywall = ({ onActivated }) => {
       setMessage('Google Play ekranındaki işlemi tamamlayın. Ödeme onaylanınca aboneliğiniz burada doğrulanır.');
     } catch (error) {
       setBusy('');
+      if (error.code === 'USER_CANCELED') { setMessage(''); return; }
+      if (error.code === 'ITEM_ALREADY_OWNED') { await restore(); return; }
+      setRetryable(['SERVICE_UNAVAILABLE', 'NETWORK_ERROR'].includes(error.code));
       setMessage(error.message || 'Satın alma başlatılamadı.');
     }
   };
@@ -144,7 +161,7 @@ const SubscriptionPaywall = ({ onActivated }) => {
                   <div className={`subscription-price${native ? '' : ' subscription-price-muted'}`}>
                     {native ? (plan.formattedPrice || 'Fiyat yükleniyor') : 'Fiyat uygulamada gösterilir'}
                   </div>
-                  <p className="subscription-period">{annual ? 'Yılda bir' : 'Ayda bir'} otomatik yenilenir. Dilediğinde iptal edebilirsin.</p>
+                  <p className="subscription-period">{annual ? 'Yılda bir' : 'Ayda bir'}, iptal edilene kadar otomatik yenilenir. Dilediğinde iptal edebilirsin.</p>
                   {native && (
                     <button type="button" className="subscription-buy" disabled={!!busy || !plan.formattedPrice} onClick={() => buy(plan.basePlanId)}>
                       <CreditCard size={18} /> <span>{busy === plan.basePlanId ? 'İşleniyor…' : 'Google Play ile devam et'}</span>
@@ -166,10 +183,14 @@ const SubscriptionPaywall = ({ onActivated }) => {
         )}
 
         {message && <p role="status" className="subscription-feedback">{message}</p>}
+        {retryable && <button type="button" className="subscription-store" onClick={fetchPlans}>Tekrar dene</button>}
 
         <footer className="subscription-footer">
           <span><ShieldCheck size={18} /> Ödemeler Google Play tarafından işlenir.</span>
           {native && <button type="button" onClick={restore} disabled={!!busy}><RefreshCw size={16} /> Satın almayı geri yükle</button>}
+          <a href={MANAGE_URL} target="_blank" rel="noreferrer">Aboneliği yönet</a>
+          <a href="/hizmet-sartlari">Kullanım Şartları</a>
+          <a href="/gizlilikpolitikasi">Gizlilik Politikası</a>
         </footer>
         <p className="subscription-home-note">Ana sayfaya dönmek, bu cihazdaki öğrenci oturumunu kapatır.</p>
       </main>
