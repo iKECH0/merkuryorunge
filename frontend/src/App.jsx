@@ -8,6 +8,7 @@ import TeacherAuth from './pages/TeacherAuth';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import Landing from './pages/Landing';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
 import AccountDeletion from './pages/AccountDeletion';
 import ConsultingRequest from './pages/ConsultingRequest';
 import { setupDailyReminder } from './notifications';
@@ -96,6 +97,7 @@ function App() {
             <Route path="/gizlilikpolitikasi" element={<PrivacyPolicy />} />
             <Route path="/gizlilik-politikasi" element={<PrivacyPolicy />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/hizmet-sartlari" element={<TermsOfService />} />
             <Route path="*" element={<GizlilikRedirect />} />
           </Routes>
         </main>

@@ -39,7 +39,7 @@
 
 /* ---------- Kart ---------- */
 .subscription-shell {
-  width: min(100%, 720px);
+  width: min(100%, 1100px);
   padding: clamp(20px, 4.5vw, 40px);
   border: 1px solid rgba(127, 197, 223, 0.18);
   border-radius: clamp(22px, 4vw, 30px);
@@ -390,7 +390,7 @@
 
 /* ---------- Geniş ekranlar ---------- */
 @media (min-width: 1200px) {
-  .subscription-shell { width: min(100%, 760px); }
+  .subscription-shell { width: min(100%, 1100px); }
 }
 
 /* ---------- Kısa yatay ekranlar ---------- */
