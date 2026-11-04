@@ -152,12 +152,11 @@ const buildBillingStatus = student => {
   };
 };
 
-const geminiApiKey = process.env.GEMINI_API_KEY || "AQ.Ab8RN6IHmyBnnQ9-lwMLAEgLPOR9xxNx1grkU7yZDtBm7-bCPw";
-const genAI = new GoogleGenerativeAI(geminiApiKey);
+const geminiApiKey = process.env.GEMINI_API_KEY;
+const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 const GEMINI_MODELS = [
-  "gemini-3.5-flash-lite",
   "gemini-2.5-flash-lite",
-  "gemini-3.6-flash",
+  "gemini-2.5-flash",
 ];
 
 function withTimeout(promise, ms) {
@@ -274,7 +273,7 @@ ${subjectLines}
     }
   }
 
-  return `Sen Merkür Yörünge eğitim platformunun son derece tatlı, sevecen, pozitif ve enerji dolu eğitim koçu Merkür AI'sin. ✨
+  return `Sen Merkür Yörünge'nin eğitim koçusun. Öğrencinin sorusunu doğrudan ve kısa yanıtla. Ders analizi istendiğinde yalnızca aşağıdaki gerçek verileri kullan; veri yoksa bunu açıkça söyle, ders veya başarı uydurma. Ders önerisinde adı, süreyi, soru sayısını ve somut ilk adımı belirt. Emoji en fazla bir tane kullan.
 ${context}
 ## SİSTEM TALIMATLARI - KRİTİK (LÜTFEN KESINLIKLE UYGULA):
 
@@ -322,11 +321,12 @@ ${context}
 
 ### 8. ÖNEMLİ HATIRLATMA:
 Bu talimatlara uymak sadece görev değil, "${name}"nin eğitim yolculuğundaki başarısı için KRİTİK'tir!
-Uzun, detaylı, samimi, motivasyonel, veriye dayalı ve GERÇEK yardımsever cevaplar ver!`;
+Son ve öncelikli kural: Öğrencinin son sorusuna doğrudan yanıt ver. "Derslerimi incele" veya "hangi derse yöneleyim" sorularında yukarıdaki gerçek ders kayıtlarından ders adı, dakika ve soru sayısı ver; yoksa kayıt bulunamadığını açıkça söyle. Övgü ve emojiyle veri eksikliğini gizleme. En fazla 3 kısa cümle kullan.`;
 }
 
 // Generate reply with guaranteed speed, sanitized chat history, and failover
 async function generateReply({ studentName, message, history = [], studentData = null, customInstruction = null }) {
+  if (!genAI) throw new Error('GEMINI_API_KEY yapılandırılmadı.');
   const systemInstruction = customInstruction || buildSystemInstruction(studentName, studentData);
 
   // Sanitize history: ensure strictly alternating user/model turns, starting with user
@@ -371,7 +371,7 @@ async function generateReply({ studentName, message, history = [], studentData =
     }
   }
 
-  return buildLocalReply(studentName, message, studentData);
+  throw new Error('Yapay zeka servisine şu anda bağlanılamıyor. Lütfen biraz sonra tekrar deneyin.');
 }
 
 // Initialize Database Table
@@ -2208,20 +2208,7 @@ KURALLAR:
         return res.json({ message: reply });
       } catch (err) {
         console.error("Analysis generation error:", err);
-        return res.json({
-          message: buildAnalysisLocalReport({
-            studentName,
-            goal,
-            totalMinutes,
-            totalHours,
-            totalQuestions,
-            totalSessions,
-            activeDaysCount,
-            subjects,
-            strongest,
-            weakest
-          })
-        });
+        return res.status(503).json({ error: 'Merkür AI şu anda yanıt veremiyor. Lütfen biraz sonra tekrar deneyin.' });
       }
     }
 
@@ -2231,7 +2218,7 @@ KURALLAR:
     res.json({ reply });
   } catch (err) {
     console.error("AI route error:", err);
-    res.status(200).json({ reply: buildLocalReply(req.body?.studentName, req.body?.message, req.body?.studentData), error: err.message });
+    res.status(503).json({ error: 'Merkür AI şu anda yanıt veremiyor. Lütfen biraz sonra tekrar deneyin.' });
   }
 };
 

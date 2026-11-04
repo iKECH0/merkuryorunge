@@ -37,7 +37,11 @@ const MerkurAIChat = ({ studentName, studentData }) => {
       }
 
       // Check if user wants analysis
-      const isAnalysisRequest = userMessage.toLowerCase().includes('analiz') || 
+      const isAnalysisRequest = userMessage.toLowerCase().includes('derslerimi incele') ||
+                                userMessage.toLowerCase().includes('derslerime bak') ||
+                                userMessage.toLowerCase().includes('hangi derse') ||
+                                userMessage.toLowerCase().includes('hangiis incele') ||
+                                userMessage.toLowerCase().includes('analiz') || 
                                 userMessage.toLowerCase().includes('rapor') ||
                                 userMessage.toLowerCase().includes('özet');
 
