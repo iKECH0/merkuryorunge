@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, CreditCard, ExternalLink, RefreshCw, ShieldCheck, Smartphone, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Check, CreditCard, ExternalLink, RefreshCw, ShieldCheck, Smartphone, Sparkles, Stars } from 'lucide-react';
 import { isNativePlayBilling, loadSubscriptionPlans, MONTHLY_PLAN_ID, onPurchaseUpdated, purchaseSubscription, restoreSubscriptionPurchases, YEARLY_PLAN_ID } from '../billing';
 import { verifyBillingPurchase } from '../api';
 import BrandLogo from './BrandLogo';
@@ -104,8 +104,8 @@ const SubscriptionPaywall = ({ onActivated }) => {
 
         <div className="subscription-hero">
           <span className="subscription-eyebrow"><Sparkles size={15} /> ÖĞRENCİ ABONELİĞİ</span>
-          <h1>Hedeflerine kaldığın yerden devam et.</h1>
-          <p>Çalışmaların ve ilerlemen hesabında saklı. Sana uygun planı seçerek erişimini sürdürebilirsin.</p>
+          <h1>Öğrenme yolculuğuna devam et<span>.</span></h1>
+          <p>İlerlemen güvende. Sana uygun planı seç, kaldığın yerden devam et.</p>
         </div>
 
         <div className="subscription-benefits" aria-label="Abonelik özellikleri">
@@ -114,7 +114,7 @@ const SubscriptionPaywall = ({ onActivated }) => {
           <span><Check size={16} /> Merkür AI erişimi</span>
         </div>
 
-        {!native && <div className="subscription-notice"><Smartphone size={22} /><div><strong>Aboneliği Android uygulamasından başlat</strong><p>Ödeme Google Play içinde tamamlanır. Paket fiyatını uygulamada, kendi bölgenin para biriminde görebilirsin.</p></div></div>}
+        {!native && <div className="subscription-notice"><span className="subscription-notice-icon"><Smartphone size={22} /></span><div><strong>Aboneliğini uygulamada başlat</strong><p>Ödemeyi Google Play üzerinden güvenle tamamlayabilirsin. Fiyatı uygulamada kendi para biriminde görürsün.</p></div></div>}
 
         {loading && <p className="subscription-feedback">Google Play paketleri yükleniyor…</p>}
         {planError && <div role="alert" className="subscription-error">{planError} <button type="button" onClick={fetchPlans}>Tekrar dene</button></div>}
@@ -123,10 +123,11 @@ const SubscriptionPaywall = ({ onActivated }) => {
           {visiblePlans.map(plan => {
             const annual = plan.basePlanId === YEARLY_PLAN_ID;
             return <article key={plan.basePlanId} className={`subscription-plan${annual ? ' subscription-plan-featured' : ''}`}>
-              <div className="subscription-plan-top"><span className="subscription-plan-label">{annual ? 'Yıllık plan' : 'Aylık plan'}</span>{annual && <span className="subscription-plan-badge">UZUN DÖNEM</span>}</div>
-              <div className="subscription-price">{native ? (plan.formattedPrice || 'Fiyat yükleniyor') : 'Fiyatı uygulamada gör'}</div>
-              <p className="subscription-period">{annual ? 'Yılda bir' : 'Ayda bir'} otomatik yenilenir.</p>
-              {native && <button type="button" className="subscription-buy" disabled={!!busy || !plan.formattedPrice} onClick={() => buy(plan.basePlanId)}><CreditCard size={18} /> {busy === plan.basePlanId ? 'İşleniyor…' : 'Google Play ile abone ol'} <ArrowRight size={18} /></button>}
+              <div className="subscription-plan-top"><span className="subscription-plan-icon">{annual ? <Stars size={19} /> : <CalendarDays size={19} />}</span>{annual && <span className="subscription-plan-badge">UZUN DÖNEM</span>}</div>
+              <span className="subscription-plan-label">{annual ? 'Yıllık' : 'Aylık'} plan</span>
+              <div className="subscription-price">{native ? (plan.formattedPrice || 'Fiyat yükleniyor') : 'Fiyat uygulamada gösterilir'}</div>
+              <p className="subscription-period">{annual ? 'Yılda bir' : 'Ayda bir'} otomatik yenilenir. Dilediğinde iptal edebilirsin.</p>
+              {native && <button type="button" className="subscription-buy" disabled={!!busy || !plan.formattedPrice} onClick={() => buy(plan.basePlanId)}><CreditCard size={18} /> <span>{busy === plan.basePlanId ? 'İşleniyor…' : 'Google Play ile devam et'}</span> <ArrowRight size={18} /></button>}
             </article>;
           })}
         </div>}
