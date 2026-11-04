@@ -93,7 +93,7 @@ const MerkurAIChat = ({ studentName, studentData }) => {
       const data = await res.json();
       
       if (data.error && !data.reply && !data.message) {
-        setMessages(prev => [...prev, { role: 'assistant', content: `Merkür AI şu an bağlantı kuramadı: ${data.error}` }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: data.error }]);
       } else {
         const aiResponse = data.reply || data.message || 'Bir sorun oluştu.';
         setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
