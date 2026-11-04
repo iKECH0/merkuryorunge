@@ -5,6 +5,7 @@ import com.android.billingclient.api.BillingClient;
 import com.android.billingclient.api.BillingClientStateListener;
 import com.android.billingclient.api.BillingFlowParams;
 import com.android.billingclient.api.BillingResult;
+import com.android.billingclient.api.AcknowledgePurchaseParams;
 import com.android.billingclient.api.PendingPurchasesParams;
 import com.android.billingclient.api.ProductDetails;
 import com.android.billingclient.api.QueryProductDetailsParams;
@@ -144,6 +145,22 @@ public class PlayBillingPlugin extends Plugin {
                 JSObject response = new JSObject();
                 response.put("purchases", items);
                 call.resolve(response);
+            }
+        ));
+    }
+
+    @PluginMethod
+    public void acknowledgePurchase(PluginCall call) {
+        String purchaseToken = call.getString("purchaseToken");
+        if (purchaseToken == null || purchaseToken.trim().isEmpty()) {
+            call.reject("Satın alma belirteci gereklidir.");
+            return;
+        }
+        withConnection(call, () -> billingClient.acknowledgePurchase(
+            AcknowledgePurchaseParams.newBuilder().setPurchaseToken(purchaseToken).build(),
+            result -> {
+                if (result.getResponseCode() == BillingClient.BillingResponseCode.OK) call.resolve();
+                else call.reject("Abonelik onaylanamadı: " + result.getDebugMessage());
             }
         ));
     }

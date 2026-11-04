@@ -15,4 +15,6 @@ export const purchaseSubscription = (basePlanId, accountId) =>
 
 export const restoreSubscriptionPurchases = () => PlayBilling.restorePurchases();
 
+export const acknowledgePurchase = purchaseToken => PlayBilling.acknowledgePurchase({ purchaseToken });
+
 export const onPurchaseUpdated = callback => PlayBilling.addListener('purchaseUpdated', callback);

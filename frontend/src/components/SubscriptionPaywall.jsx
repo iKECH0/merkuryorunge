@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, CalendarDays, Check, CreditCard, ExternalLink, RefreshCw, ShieldCheck, Smartphone, Sparkles, Stars } from 'lucide-react';
-import { isNativePlayBilling, loadSubscriptionPlans, MONTHLY_PLAN_ID, onPurchaseUpdated, purchaseSubscription, restoreSubscriptionPurchases, YEARLY_PLAN_ID } from '../billing';
+import { acknowledgePurchase, isNativePlayBilling, loadSubscriptionPlans, MONTHLY_PLAN_ID, onPurchaseUpdated, purchaseSubscription, restoreSubscriptionPurchases, YEARLY_PLAN_ID } from '../billing';
 import { verifyBillingPurchase } from '../api';
 import BrandLogo from './BrandLogo';
 import './SubscriptionPaywall.css';
@@ -37,6 +37,7 @@ const SubscriptionPaywall = ({ onActivated }) => {
     if (!purchase?.purchaseToken || purchase.state !== 1) return;
     setMessage('Aboneliğiniz doğrulanıyor…');
     const status = await verifyBillingPurchase(purchase.purchaseToken);
+    if (!purchase.acknowledged) await acknowledgePurchase(purchase.purchaseToken);
     setMessage(status.message || 'Aboneliğiniz etkinleştirildi.');
     setBusy('');
     onActivated(status);
