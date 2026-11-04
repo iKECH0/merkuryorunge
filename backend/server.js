@@ -155,8 +155,8 @@ const buildBillingStatus = student => {
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 const GEMINI_MODELS = [
-  "gemini-2.5-flash-lite",
-  "gemini-2.5-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-3.5-flash",
 ];
 
 function withTimeout(promise, ms) {
@@ -349,7 +349,7 @@ async function generateReply({ studentName, message, history = [], studentData =
     }
   }
 
-  // Iterate over models: gemini-2.5-flash-lite returns in ~1s
+  // Prefer the current free-tier Flash-Lite model and retry on the current Flash model.
   for (const modelName of GEMINI_MODELS) {
     try {
       const model = genAI.getGenerativeModel({ model: modelName, systemInstruction });
