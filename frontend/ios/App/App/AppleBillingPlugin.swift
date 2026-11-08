@@ -19,7 +19,10 @@ public class AppleBillingPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func getProducts(_ call: CAPPluginCall) {
         Task {
-            let products = await Product.products(for: productIDs)
+            guard let products = try? await Product.products(for: productIDs) else {
+                call.reject("APPLE_PRODUCTS_UNAVAILABLE")
+                return
+            }
             let payload = products.map { product in
                 [
                     "productId": product.id,
@@ -39,7 +42,8 @@ public class AppleBillingPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
         Task {
-            guard let product = (try? await Product.products(for: [productID])).first else {
+            guard let products = try? await Product.products(for: [productID]),
+                  let product = products.first else {
                 call.reject("APPLE_PRODUCT_NOT_FOUND")
                 return
             }
