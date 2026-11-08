@@ -8,8 +8,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         window = UIWindow(windowScene: windowScene)
-        window?.rootViewController = CAPBridgeViewController()
+        let bridgeViewController = CAPBridgeViewController()
+        window?.rootViewController = bridgeViewController
         window?.makeKeyAndVisible()
+
+        bridgeViewController.capacitorDidLoad()
+        bridgeViewController.bridge?.registerPluginInstance(AppleBillingPlugin())
 
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
     }
