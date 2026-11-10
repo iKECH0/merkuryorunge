@@ -805,6 +805,21 @@ app.post("/api/billing/verify", verifyBillingSession, async (req, res) => {
   }
 });
 
+// Apple StoreKit purchases must be verified server-side before granting access.
+// Keep this endpoint explicit until App Store Server API credentials are configured;
+// never trust a client-provided signed transaction on its own.
+app.post("/api/billing/apple/verify", verifyBillingSession, async (req, res) => {
+  if (!BILLING_ENABLED) return res.status(400).json({ error: 'Abonelik sistemi henüz aktif değil.' });
+  const signedTransaction = String(req.body.signedTransaction || '').trim();
+  if (!signedTransaction || signedTransaction.length > 20000) {
+    return res.status(400).json({ error: 'Geçerli bir Apple satın alma kaydı bulunamadı.' });
+  }
+  if (!process.env.APPLE_APP_STORE_ISSUER_ID || !process.env.APPLE_APP_STORE_KEY_ID || !process.env.APPLE_APP_STORE_PRIVATE_KEY) {
+    return res.status(503).json({ error: 'Apple abonelik doğrulaması için App Store Server API anahtarları henüz yapılandırılmadı.' });
+  }
+  return res.status(501).json({ error: 'Apple abonelik doğrulama servisi yapılandırılıyor; satın alma kaydı güvenle doğrulanmadan erişim açılmayacak.' });
+});
+
 app.get("/api/admin/billing/students", verifyAdminSession, async (_req, res) => {
   try {
     const result = await pool.query(`

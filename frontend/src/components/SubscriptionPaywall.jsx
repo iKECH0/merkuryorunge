@@ -1,18 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, CalendarDays, Check, CreditCard, ExternalLink, RefreshCw, ShieldCheck, Smartphone, Sparkles, Stars } from 'lucide-react';
-import { isNativePlayBilling, loadSubscriptionPlans, MONTHLY_PLAN_ID, onPurchaseError, onPurchaseUpdated, purchaseSubscription, restoreSubscriptionPurchases, YEARLY_PLAN_ID } from '../billing';
-import { verifyBillingPurchase } from '../api';
+import { isNativeAppleBilling, isNativePlayBilling, loadAppleSubscriptionPlans, loadSubscriptionPlans, MONTHLY_PLAN_ID, onApplePurchaseError, onApplePurchaseUpdated, onPurchaseError, onPurchaseUpdated, purchaseAppleSubscription, purchaseSubscription, restoreAppleSubscriptionPurchases, restoreSubscriptionPurchases, YEARLY_PLAN_ID, APPLE_MONTHLY_PRODUCT_ID, APPLE_YEARLY_PRODUCT_ID } from '../billing';
+import { verifyAppleBillingPurchase, verifyBillingPurchase } from '../api';
 import BrandLogo from './BrandLogo';
 import './SubscriptionPaywall.css';
 
 const STORE_URL = 'https://play.google.com/store/apps/details?id=com.merkuryorunge.app';
 const MANAGE_URL = 'https://play.google.com/store/account/subscriptions?sku=merkur_yorunge_ogrenci&package=com.merkuryorunge.app';
+const APPLE_MANAGE_URL = 'https://apps.apple.com/account/subscriptions';
 const APP_URL = `intent://subscription/#Intent;scheme=merkuryorunge;package=com.merkuryorunge.app;S.browser_fallback_url=${encodeURIComponent(STORE_URL)};end`;
 const androidBrowser = !isNativePlayBilling() && /Android/i.test(navigator.userAgent);
 
 const SubscriptionPaywall = ({ onActivated }) => {
   const native = isNativePlayBilling();
+  const appleNative = isNativeAppleBilling();
   const [plans, setPlans] = useState([]);
+  const [applePlans, setApplePlans] = useState([]);
   const [loading, setLoading] = useState(native);
   const [planError, setPlanError] = useState('');
   const [busy, setBusy] = useState('');
@@ -35,6 +38,22 @@ const SubscriptionPaywall = ({ onActivated }) => {
     }
   };
 
+  const fetchApplePlans = async () => {
+    setLoading(true);
+    setPlanError('');
+    try {
+      const result = await loadAppleSubscriptionPlans();
+      const loaded = (result.products || []).filter(plan => [APPLE_MONTHLY_PRODUCT_ID, APPLE_YEARLY_PRODUCT_ID].includes(plan.productId));
+      if (!loaded.length) throw new Error('Apple abonelik ürünleri henüz hazır değil.');
+      setApplePlans(loaded);
+    } catch (error) {
+      setApplePlans([]);
+      setPlanError(error.message || 'Apple abonelikleri alınamadı.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const finishPurchase = async purchase => {
     if (!purchase?.purchaseToken || purchase.state !== 1) return;
     setMessage('Aboneliğiniz doğrulanıyor…');
@@ -44,33 +63,45 @@ const SubscriptionPaywall = ({ onActivated }) => {
     onActivated(status);
   };
 
+  const finishApplePurchase = async purchase => {
+    if (!purchase?.signedTransaction) return;
+    setMessage('Apple aboneliğiniz doğrulanıyor…');
+    const status = await verifyAppleBillingPurchase(purchase.signedTransaction);
+    setMessage(status.message || 'Aboneliğiniz etkinleştirildi.');
+    setBusy('');
+    onActivated(status);
+  };
+
   useEffect(() => {
-    if (!native) return undefined;
+    if (!native && !appleNative) return undefined;
     let listener;
     let errorListener;
     let disposed = false;
-    onPurchaseUpdated(purchase => finishPurchase(purchase).catch(error => {
+    const updateEvent = appleNative ? onApplePurchaseUpdated : onPurchaseUpdated;
+    const errorEvent = appleNative ? onApplePurchaseError : onPurchaseError;
+    const restorePurchases = appleNative ? restoreAppleSubscriptionPurchases : restoreSubscriptionPurchases;
+    updateEvent(purchase => (appleNative ? finishApplePurchase(purchase) : finishPurchase(purchase)).catch(error => {
       setBusy('');
       setMessage(error.response?.data?.error || error.message || 'Abonelik doğrulanamadı.');
     })).then(handle => {
       if (disposed) handle.remove();
       else listener = handle;
     }).catch(error => setPlanError(error.message || 'Google Play bağlantısı kurulamadı.'));
-    onPurchaseError(error => {
+    errorEvent(error => {
       setBusy('');
       if (error.code === 'USER_CANCELED') { setMessage(''); return; }
-      if (error.code === 'ITEM_ALREADY_OWNED') { restoreSubscriptionPurchases().then(result => (result.purchases || []).filter(item => item.state === 1).forEach(item => finishPurchase(item))).catch(() => {}); return; }
+      if (error.code === 'ITEM_ALREADY_OWNED') { restorePurchases().then(result => (result.purchases || []).forEach(item => (appleNative ? finishApplePurchase(item) : finishPurchase(item)))).catch(() => {}); return; }
       setRetryable(['SERVICE_UNAVAILABLE', 'NETWORK_ERROR'].includes(error.code));
       setMessage(error.message || 'Ödeme tamamlanamadı.');
     }).then(handle => { if (disposed) handle.remove(); else errorListener = handle; });
-    fetchPlans();
-    restoreSubscriptionPurchases().then(result => {
-      (result.purchases || []).filter(item => item.state === 1).forEach(item => {
-        finishPurchase(item).catch(error => setMessage(error.response?.data?.error || error.message || 'Abonelik doğrulanamadı.'));
+    if (appleNative) fetchApplePlans(); else fetchPlans();
+    restorePurchases().then(result => {
+      (result.purchases || []).filter(item => appleNative ? item.signedTransaction : item.state === 1).forEach(item => {
+        (appleNative ? finishApplePurchase(item) : finishPurchase(item)).catch(error => setMessage(error.response?.data?.error || error.message || 'Abonelik doğrulanamadı.'));
       });
     }).catch(() => {});
     return () => { disposed = true; listener?.remove(); errorListener?.remove(); };
-  }, [native]);
+  }, [native, appleNative]);
 
   const buy = async basePlanId => {
     setBusy(basePlanId);
@@ -88,6 +119,23 @@ const SubscriptionPaywall = ({ onActivated }) => {
     }
   };
 
+  const buyApple = async productId => {
+    setBusy(productId);
+    setMessage('Apple ödeme ekranı açılıyor…');
+    try {
+      const result = await purchaseAppleSubscription(productId);
+      if (result?.signedTransaction) {
+        const status = await verifyAppleBillingPurchase(result.signedTransaction);
+        setMessage(status.message || 'Aboneliğiniz etkinleştirildi.');
+        onActivated(status);
+      }
+    } catch (error) {
+      setMessage(error.response?.data?.error || error.message || 'Apple aboneliği başlatılamadı.');
+    } finally {
+      setBusy('');
+    }
+  };
+
   const restore = async () => {
     setBusy('restore');
     setMessage('Satın almalar kontrol ediliyor…');
@@ -102,7 +150,21 @@ const SubscriptionPaywall = ({ onActivated }) => {
     }
   };
 
-  const visiblePlans = native ? plans : [
+  const restoreApple = async () => {
+    setBusy('restore');
+    setMessage('Apple satın almaları kontrol ediliyor…');
+    try {
+      const result = await restoreAppleSubscriptionPurchases();
+      const active = (result.purchases || []).find(item => item.signedTransaction);
+      if (!active) throw new Error('Bu Apple hesabında aktif abonelik bulunamadı.');
+      await finishApplePurchase(active);
+    } catch (error) {
+      setBusy('');
+      setMessage(error.response?.data?.error || error.message || 'Apple satın alma geri yüklenemedi.');
+    }
+  };
+
+  const visiblePlans = native ? plans : appleNative ? applePlans.map(plan => ({ ...plan, basePlanId: plan.productId })) : [
     { basePlanId: MONTHLY_PLAN_ID, billingPeriod: 'P1M' },
     { basePlanId: YEARLY_PLAN_ID, billingPeriod: 'P1Y' }
   ];
@@ -134,7 +196,7 @@ const SubscriptionPaywall = ({ onActivated }) => {
           <li><Check size={16} /> Merkür AI erişimi</li>
         </ul>
 
-        {!native && (
+        {!native && !appleNative && (
           <div className="subscription-notice">
             <span className="subscription-notice-icon"><Smartphone size={22} /></span>
             <div>
@@ -144,8 +206,8 @@ const SubscriptionPaywall = ({ onActivated }) => {
           </div>
         )}
 
-        {loading && <p className="subscription-feedback">Google Play paketleri yükleniyor…</p>}
-        {planError && <div role="alert" className="subscription-error">{planError} <button type="button" onClick={fetchPlans}>Tekrar dene</button></div>}
+        {loading && <p className="subscription-feedback">{appleNative ? 'Apple abonelikleri' : 'Google Play paketleri'} yükleniyor…</p>}
+        {planError && <div role="alert" className="subscription-error">{planError} <button type="button" onClick={appleNative ? fetchApplePlans : fetchPlans}>Tekrar dene</button></div>}
 
         {visiblePlans.length > 0 && (
           <div className="subscription-plans">
@@ -158,13 +220,13 @@ const SubscriptionPaywall = ({ onActivated }) => {
                     <span className="subscription-plan-label">{annual ? 'Yıllık' : 'Aylık'} plan</span>
                     {annual && <span className="subscription-plan-badge">Uzun dönem</span>}
                   </div>
-                  <div className={`subscription-price${native ? '' : ' subscription-price-muted'}`}>
-                    {native ? (plan.formattedPrice || 'Fiyat yükleniyor') : 'Fiyat uygulamada gösterilir'}
+                  <div className={`subscription-price${native || appleNative ? '' : ' subscription-price-muted'}`}>
+                    {native ? (plan.formattedPrice || 'Fiyat yükleniyor') : appleNative ? (plan.displayPrice || 'Fiyat yükleniyor') : 'Fiyat uygulamada gösterilir'}
                   </div>
                   <p className="subscription-period">{annual ? 'Yılda bir' : 'Ayda bir'}, iptal edilene kadar otomatik yenilenir. Dilediğinde iptal edebilirsin.</p>
-                  {native && (
-                    <button type="button" className="subscription-buy" disabled={!!busy || !plan.formattedPrice} onClick={() => buy(plan.basePlanId)}>
-                      <CreditCard size={18} /> <span>{busy === plan.basePlanId ? 'İşleniyor…' : 'Google Play ile devam et'}</span>
+                  {(native || appleNative) && (
+                    <button type="button" className="subscription-buy" disabled={!!busy || (native ? !plan.formattedPrice : !plan.displayPrice)} onClick={() => appleNative ? buyApple(plan.basePlanId) : buy(plan.basePlanId)}>
+                      <CreditCard size={18} /> <span>{busy === plan.basePlanId ? 'İşleniyor…' : appleNative ? 'Apple ile devam et' : 'Google Play ile devam et'}</span>
                     </button>
                   )}
                 </article>
@@ -173,7 +235,7 @@ const SubscriptionPaywall = ({ onActivated }) => {
           </div>
         )}
 
-        {!native && (
+        {!native && !appleNative && (
           <div className="subscription-links">
             {androidBrowser && <a className="subscription-buy" href={APP_URL}><Smartphone size={18} /> <span>Uygulamayı aç</span></a>}
             <a className={androidBrowser ? 'subscription-store' : 'subscription-buy'} href={STORE_URL}>
@@ -183,12 +245,12 @@ const SubscriptionPaywall = ({ onActivated }) => {
         )}
 
         {message && <p role="status" className="subscription-feedback">{message}</p>}
-        {retryable && <button type="button" className="subscription-store" onClick={fetchPlans}>Tekrar dene</button>}
+        {retryable && <button type="button" className="subscription-store" onClick={appleNative ? fetchApplePlans : fetchPlans}>Tekrar dene</button>}
 
         <footer className="subscription-footer">
-          <span><ShieldCheck size={18} /> Ödemeler Google Play tarafından işlenir.</span>
-          {native && <button type="button" onClick={restore} disabled={!!busy}><RefreshCw size={16} /> Satın almayı geri yükle</button>}
-          <a href={MANAGE_URL} target="_blank" rel="noreferrer">Aboneliği yönet</a>
+          <span><ShieldCheck size={18} /> Ödemeler {appleNative ? 'Apple' : 'Google Play'} tarafından işlenir.</span>
+          {(native || appleNative) && <button type="button" onClick={appleNative ? restoreApple : restore} disabled={!!busy}><RefreshCw size={16} /> Satın almayı geri yükle</button>}
+          <a href={appleNative ? APPLE_MANAGE_URL : MANAGE_URL} target="_blank" rel="noreferrer">Aboneliği yönet</a>
           <a href="/hizmet-sartlari">Kullanım Şartları</a>
           <a href="/gizlilikpolitikasi">Gizlilik Politikası</a>
         </footer>

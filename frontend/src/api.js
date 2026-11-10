@@ -52,6 +52,11 @@ export const verifyBillingPurchase = async (purchaseToken) => {
   return response.data;
 };
 
+export const verifyAppleBillingPurchase = async (signedTransaction) => {
+  const response = await axios.post(`${API_URL}/billing/apple/verify`, { signedTransaction }, { headers: billingHeaders() });
+  return response.data;
+};
+
 export const submitLog = async (logData) => {
   const response = await axios.post(`${API_URL}/logs`, logData);
   return response.data;
