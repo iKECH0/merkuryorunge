@@ -7,6 +7,7 @@ const crypto = require("crypto");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { createPersonalTrackingDocument, refreshTrackingDocumentAccess, isGoogleDriveConfigured } = require("./googleDrive");
 const { PRODUCT_ID: PLAY_SUBSCRIPTION_PRODUCT_ID, isPlayBillingServerConfigured, verifySubscriptionPurchase } = require("./playBilling");
+const { isAppleBillingServerConfigured, verifyAppleTransaction } = require("./appleBilling");
 
 const app = express();
 app.use(cors({
@@ -814,10 +815,25 @@ app.post("/api/billing/apple/verify", verifyBillingSession, async (req, res) => 
   if (!signedTransaction || signedTransaction.length > 20000) {
     return res.status(400).json({ error: 'Geçerli bir Apple satın alma kaydı bulunamadı.' });
   }
-  if (!process.env.APPLE_APP_STORE_ISSUER_ID || !process.env.APPLE_APP_STORE_KEY_ID || !process.env.APPLE_APP_STORE_PRIVATE_KEY) {
+  if (!isAppleBillingServerConfigured()) {
     return res.status(503).json({ error: 'Apple abonelik doğrulaması için App Store Server API anahtarları henüz yapılandırılmadı.' });
   }
-  return res.status(501).json({ error: 'Apple abonelik doğrulama servisi yapılandırılıyor; satın alma kaydı güvenle doğrulanmadan erişim açılmayacak.' });
+  try {
+    const verification = await verifyAppleTransaction(signedTransaction);
+    if (!verification.active) return res.status(402).json({ error: 'Apple aboneliği aktif değil veya süresi dolmuş.' });
+    const studentResult = await pool.query('SELECT * FROM students WHERE id = $1', [req.billingStudent.studentId]);
+    if (studentResult.rows.length === 0) return res.status(404).json({ error: 'Öğrenci bulunamadı.' });
+    const updated = await pool.query(
+      `UPDATE students SET subscription_status='active', subscription_expires_at=$1,
+       play_purchase_token=$2, play_product_id=$3, subscription_last_verified_at=CURRENT_TIMESTAMP
+       WHERE id=$4 RETURNING *`,
+      [verification.expiresAt, verification.transactionId, verification.productId, req.billingStudent.studentId]
+    );
+    res.json({ ...buildBillingStatus(updated.rows[0]), message: 'Apple aboneliğiniz başarıyla etkinleştirildi.' });
+  } catch (err) {
+    console.error('Apple abonelik doğrulama hatası:', err);
+    res.status(502).json({ error: err.message || 'Apple aboneliği doğrulanamadı.' });
+  }
 });
 
 app.get("/api/admin/billing/students", verifyAdminSession, async (_req, res) => {
