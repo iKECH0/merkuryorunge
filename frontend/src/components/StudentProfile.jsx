@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL, getStudentLogs, getStudentGoal, setStudentGoal, getStudentInfo } from '../api';
-import { Target, Bot, Sparkles, TrendingUp, Palette, CalendarDays, Clock, BookOpen, Hash, Trash2 } from 'lucide-react';
+import { isNativeAppleBilling, isNativePlayBilling } from '../billing';
+import { Target, Bot, Sparkles, TrendingUp, Palette, CalendarDays, Clock, BookOpen, Hash, Trash2, ExternalLink, CreditCard } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid } from 'recharts';
 import ReactMarkdown from 'react-markdown';
 import { getTrackingDocument } from '../data/trackingDocuments';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions?sku=merkur_yorunge_ogrenci&package=com.merkuryorunge.app';
+const APPLE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
 
 const StudentProfile = ({ studentName }) => {
   const navigate = useNavigate();
@@ -125,6 +128,10 @@ const StudentProfile = ({ studentName }) => {
   const trackingDocument = trackingDocumentUrl
     ? { label: 'Kişisel Takip Dokümanım', url: trackingDocumentUrl }
     : getTrackingDocument(className, trackingDocumentKey);
+  const nativeApple = isNativeAppleBilling();
+  const nativePlay = isNativePlayBilling();
+  const subscriptionManagementUrl = nativeApple ? APPLE_SUBSCRIPTIONS_URL : PLAY_SUBSCRIPTIONS_URL;
+  const subscriptionProvider = nativeApple ? 'Apple' : 'Google Play';
 
   const generateAIInsight = async () => {
     setIsAiLoading(true);
@@ -251,6 +258,29 @@ const StudentProfile = ({ studentName }) => {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="glass-card slide-up" style={{ marginBottom: '24px', padding: '20px', border: '1px solid rgba(6, 182, 212, 0.3)', background: 'linear-gradient(135deg, rgba(6,182,212,0.12), rgba(15,23,42,0.7))' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ width: '44px', height: '44px', borderRadius: '14px', display: 'grid', placeItems: 'center', background: 'rgba(6,182,212,0.16)', color: 'var(--color-primary)' }}>
+              <CreditCard size={22} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--color-text-main)' }}>Aboneliğim</h3>
+              <p style={{ margin: '4px 0 0', color: 'var(--color-text-muted)', fontSize: '13px' }}>Aboneliğini {subscriptionProvider} hesabından yönetebilir veya iptal edebilirsin.</p>
+            </div>
+          </div>
+          <a
+            href={subscriptionManagementUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '11px 16px', borderRadius: '10px', background: 'var(--color-primary)', color: '#06202a', fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap' }}
+          >
+            <ExternalLink size={16} /> Aboneliği yönet / iptal et
+          </a>
+        </div>
+        {!nativeApple && !nativePlay && <p style={{ margin: '12px 0 0 58px', color: 'var(--color-text-muted)', fontSize: '12px' }}>Satın alma işlemi hangi mağazada yapıldıysa abonelik yönetimi o mağazanın hesabında açılır.</p>}
       </div>
 
       {/* Background Theme Selector */}
