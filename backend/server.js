@@ -118,11 +118,13 @@ const buildBillingStatus = student => {
 
   const subscriptionExpiresAt = student.subscription_expires_at ? new Date(student.subscription_expires_at) : null;
   if (student.subscription_status === 'active' && subscriptionExpiresAt?.getTime() > now) {
+    const appleSubscription = ['merkur_yorunge_ogrenci_aylik', 'merkur_yorunge_ogrenci_yillik'].includes(student.play_product_id);
     return {
       enabled: true,
       access: true,
       reason: 'subscription',
-      productId: PLAY_SUBSCRIPTION_PRODUCT_ID,
+      provider: appleSubscription ? 'apple' : 'google_play',
+      productId: student.play_product_id || PLAY_SUBSCRIPTION_PRODUCT_ID,
       basePlanId: student.play_base_plan_id,
       expiresAt: subscriptionExpiresAt.toISOString()
     };

@@ -41,13 +41,15 @@ const verifyAppleTransaction = async signedTransaction => {
   const transactionId = String(clientPayload.transactionId || '').trim();
   if (!transactionId) throw new Error('Apple işlem kimliği bulunamadı.');
 
-  const response = await fetch(`https://api.storekit.itunes.apple.com/inApps/v1/transactions/${encodeURIComponent(transactionId)}`, {
+  const sandbox = clientPayload.environment === 'Sandbox';
+  const host = sandbox ? 'api.storekit-sandbox.apple.com' : 'api.storekit.apple.com';
+  const response = await fetch(`https://${host}/inApps/v1/transactions/${encodeURIComponent(transactionId)}`, {
     headers: { Authorization: `Bearer ${createToken()}` }
   });
   if (!response.ok) throw new Error(`Apple doğrulama servisi ${response.status} döndürdü.`);
   const data = await response.json();
   const transaction = decodePayload(data.signedTransactionInfo);
-  if (transaction.bundleId !== BUNDLE_ID || !PRODUCT_IDS.has(transaction.productId)) {
+  if (String(transaction.transactionId) !== transactionId || transaction.bundleId !== BUNDLE_ID || !PRODUCT_IDS.has(transaction.productId) || transaction.environment !== (sandbox ? 'Sandbox' : 'Production')) {
     throw new Error('Apple işlem ürünü veya uygulama ile eşleşmiyor.');
   }
   const expiresAt = Number(transaction.expiresDate || 0);

@@ -212,7 +212,7 @@ const SubscriptionPaywall = ({ onActivated }) => {
         {visiblePlans.length > 0 && (
           <div className="subscription-plans">
             {visiblePlans.map(plan => {
-              const annual = plan.basePlanId === YEARLY_PLAN_ID;
+              const annual = plan.basePlanId === YEARLY_PLAN_ID || plan.basePlanId === APPLE_YEARLY_PRODUCT_ID;
               return (
                 <article key={plan.basePlanId} className={`subscription-plan${annual ? ' subscription-plan-featured' : ''}`}>
                   <div className="subscription-plan-top">
