@@ -6,6 +6,7 @@ import { Target, Bot, Sparkles, TrendingUp, Palette, CalendarDays, Clock, BookOp
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid } from 'recharts';
 import ReactMarkdown from 'react-markdown';
 import { getTrackingDocument } from '../data/trackingDocuments';
+import { getWeeklyQuestionTotal } from '../utils/weeklyGoal';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions?sku=merkur_yorunge_ogrenci&package=com.merkuryorunge.app';
@@ -14,6 +15,7 @@ const APPLE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
 const StudentProfile = ({ studentName }) => {
   const navigate = useNavigate();
   const [logs, setLogs] = useState([]);
+  const [weekNow, setWeekNow] = useState(() => new Date());
   const [goal, setGoal] = useState(0);
   const [inputGoal, setInputGoal] = useState('');
   const [schoolLevel, setSchoolLevel] = useState('');
@@ -29,6 +31,16 @@ const StudentProfile = ({ studentName }) => {
     // Apply background theme to body or a wrapper if needed
     document.body.className = bgTheme;
   }, [studentName, bgTheme]);
+
+  useEffect(() => {
+    const refreshWeek = () => setWeekNow(new Date());
+    const timer = window.setInterval(refreshWeek, 60_000);
+    document.addEventListener('visibilitychange', refreshWeek);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshWeek);
+    };
+  }, []);
 
   const handleThemeChange = (theme) => {
     setBgTheme(theme);
@@ -68,14 +80,8 @@ const StudentProfile = ({ studentName }) => {
     }
   };
 
-  const calculateProgress = () => {
-    if (goal === 0) return 0;
-    const totalQuestions = logs.reduce((sum, log) => sum + (log.questions_solved || 0), 0);
-    return Math.min(100, Math.round((totalQuestions / goal) * 100));
-  };
-
-  const totalQuestions = logs.reduce((sum, log) => sum + (log.questions_solved || 0), 0);
-  const progress = calculateProgress();
+  const weeklyQuestions = getWeeklyQuestionTotal(logs, weekNow);
+  const progress = goal > 0 ? Math.min(100, Math.round((weeklyQuestions / goal) * 100)) : 0;
   const circleRadius = 45;
   const circumference = 2 * Math.PI * circleRadius;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
@@ -130,8 +136,13 @@ const StudentProfile = ({ studentName }) => {
     : getTrackingDocument(className, trackingDocumentKey);
   const nativeApple = isNativeAppleBilling();
   const nativePlay = isNativePlayBilling();
-  const subscriptionManagementUrl = nativeApple ? APPLE_SUBSCRIPTIONS_URL : PLAY_SUBSCRIPTIONS_URL;
-  const subscriptionProvider = nativeApple ? 'Apple' : 'Google Play';
+  let billingStatus = null;
+  try {
+    billingStatus = JSON.parse(localStorage.getItem('studentBillingStatus') || 'null');
+  } catch {}
+  const appleSubscription = billingStatus?.provider === 'apple';
+  const subscriptionManagementUrl = appleSubscription || nativeApple ? APPLE_SUBSCRIPTIONS_URL : PLAY_SUBSCRIPTIONS_URL;
+  const subscriptionProvider = appleSubscription || nativeApple ? 'Apple' : 'Google Play';
 
   const generateAIInsight = async () => {
     setIsAiLoading(true);
@@ -335,7 +346,8 @@ const StudentProfile = ({ studentName }) => {
                 <span style={{ fontSize: '24px', fontWeight: 'bold', color: progress >= 100 ? '#10b981' : 'var(--color-text-main)' }}>%{progress}</span>
               </div>
             </div>
-            <p style={{ marginTop: '16px', fontSize: '16px', fontWeight: 'bold', color: 'var(--color-text-muted)' }}>{totalQuestions} / {goal} Soru</p>
+            <p style={{ marginTop: '16px', fontSize: '16px', fontWeight: 'bold', color: 'var(--color-text-muted)' }}>{weeklyQuestions} / {goal} Soru</p>
+            <p style={{ margin: '0', fontSize: '13px', color: 'var(--color-text-muted)' }}>Bu hafta (Pazartesi–Pazar)</p>
             <button onClick={async () => {
               try {
                 await setStudentGoal(studentName, 0);
