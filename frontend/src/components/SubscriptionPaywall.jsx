@@ -10,6 +10,7 @@ const MANAGE_URL = 'https://play.google.com/store/account/subscriptions?sku=merk
 const APPLE_MANAGE_URL = 'https://apps.apple.com/account/subscriptions';
 const APP_URL = `intent://subscription/#Intent;scheme=merkuryorunge;package=com.merkuryorunge.app;S.browser_fallback_url=${encodeURIComponent(STORE_URL)};end`;
 const androidBrowser = !isNativePlayBilling() && /Android/i.test(navigator.userAgent);
+const iosBrowser = !isNativeAppleBilling() && /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 const SubscriptionPaywall = ({ onActivated }) => {
   const native = isNativePlayBilling();
@@ -201,7 +202,7 @@ const SubscriptionPaywall = ({ onActivated }) => {
             <span className="subscription-notice-icon"><Smartphone size={22} /></span>
             <div>
               <strong>Aboneliğini uygulamada başlat</strong>
-              <p>Ödemeyi Google Play üzerinden güvenle tamamlayabilirsin. Fiyatı uygulamada kendi para biriminde görürsün.</p>
+              <p>{iosBrowser ? 'Ödemeyi iOS uygulamasında Apple üzerinden tamamlayabilirsin.' : 'Ödemeyi Android uygulamasında Google Play üzerinden tamamlayabilirsin.'} Fiyatı uygulamada kendi para biriminde görürsün.</p>
             </div>
           </div>
         )}
@@ -235,7 +236,7 @@ const SubscriptionPaywall = ({ onActivated }) => {
           </div>
         )}
 
-        {!native && !appleNative && (
+        {!native && !appleNative && !iosBrowser && (
           <div className="subscription-links">
             {androidBrowser && <a className="subscription-buy" href={APP_URL}><Smartphone size={18} /> <span>Uygulamayı aç</span></a>}
             <a className={androidBrowser ? 'subscription-store' : 'subscription-buy'} href={STORE_URL}>
@@ -248,9 +249,9 @@ const SubscriptionPaywall = ({ onActivated }) => {
         {retryable && <button type="button" className="subscription-store" onClick={appleNative ? fetchApplePlans : fetchPlans}>Tekrar dene</button>}
 
         <footer className="subscription-footer">
-          <span><ShieldCheck size={18} /> Ödemeler {appleNative ? 'Apple' : 'Google Play'} tarafından işlenir.</span>
+          <span><ShieldCheck size={18} /> Ödemeler {appleNative || iosBrowser ? 'Apple' : 'Google Play'} tarafından işlenir.</span>
           {(native || appleNative) && <button type="button" onClick={appleNative ? restoreApple : restore} disabled={!!busy}><RefreshCw size={16} /> Satın almayı geri yükle</button>}
-          <a href={appleNative ? APPLE_MANAGE_URL : MANAGE_URL} target="_blank" rel="noreferrer">Aboneliği yönet</a>
+          <a href={appleNative || iosBrowser ? APPLE_MANAGE_URL : MANAGE_URL} target="_blank" rel="noreferrer">Aboneliği yönet</a>
           <a href="/hizmet-sartlari">Kullanım Şartları</a>
           <a href="/gizlilikpolitikasi">Gizlilik Politikası</a>
         </footer>
