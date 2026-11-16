@@ -21,7 +21,7 @@ test('routes sandbox purchases to Apple sandbox and checks the verified transact
   global.fetch = async (url) => {
     requested.push(url);
     return { ok: true, json: async () => ({ signedTransactionInfo: transaction({
-      transactionId: '123', environment: 'Sandbox', bundleId: 'com.merkuryorunge.app',
+      transactionId: '123', originalTransactionId: '100', environment: 'Sandbox', bundleId: 'com.merkuryorunge.app',
       productId: 'merkur_yorunge_ogrenci_aylik', expiresDate,
     }) }) };
   };
@@ -29,6 +29,7 @@ test('routes sandbox purchases to Apple sandbox and checks the verified transact
   try {
     const result = await verifyAppleTransaction(transaction({ transactionId: '123', environment: 'Sandbox' }));
     assert.equal(result.active, true);
+    assert.equal(result.originalTransactionId, '100');
     assert.match(requested[0], /^https:\/\/api\.storekit-sandbox\.apple\.com\/inApps\/v1\/transactions\/123$/);
     await assert.rejects(
       verifyAppleTransaction(transaction({ transactionId: 'different', environment: 'Sandbox' })),

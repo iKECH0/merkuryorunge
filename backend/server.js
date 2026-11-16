@@ -98,6 +98,8 @@ const verifyAdminSession = (req, res, next) => {
   }
 };
 
+const isAppleProductId = productId => ['merkur_yorunge_ogrenci_aylik', 'merkur_yorunge_ogrenci_yillik'].includes(productId);
+
 const buildBillingStatus = student => {
   if (!BILLING_ENABLED) return { enabled: false, access: true, reason: 'disabled' };
 
@@ -118,7 +120,7 @@ const buildBillingStatus = student => {
 
   const subscriptionExpiresAt = student.subscription_expires_at ? new Date(student.subscription_expires_at) : null;
   if (student.subscription_status === 'active' && subscriptionExpiresAt?.getTime() > now) {
-    const appleSubscription = ['merkur_yorunge_ogrenci_aylik', 'merkur_yorunge_ogrenci_yillik'].includes(student.play_product_id);
+    const appleSubscription = isAppleProductId(student.play_product_id);
     return {
       enabled: true,
       access: true,
@@ -719,7 +721,7 @@ app.get("/api/billing/status", verifyBillingSession, async (req, res) => {
     const lastVerified = student.subscription_last_verified_at
       ? new Date(student.subscription_last_verified_at).getTime()
       : 0;
-    const shouldReverify = BILLING_ENABLED && student.play_purchase_token &&
+    const shouldReverify = BILLING_ENABLED && student.play_purchase_token && !isAppleProductId(student.play_product_id) &&
       isPlayBillingServerConfigured() && Date.now() - lastVerified > 6 * 60 * 60 * 1000;
 
     if (shouldReverify) {
@@ -825,11 +827,16 @@ app.post("/api/billing/apple/verify", verifyBillingSession, async (req, res) => 
     if (!verification.active) return res.status(402).json({ error: 'Apple aboneliği aktif değil veya süresi dolmuş.' });
     const studentResult = await pool.query('SELECT * FROM students WHERE id = $1', [req.billingStudent.studentId]);
     if (studentResult.rows.length === 0) return res.status(404).json({ error: 'Öğrenci bulunamadı.' });
+    const duplicate = await pool.query(
+      'SELECT id FROM students WHERE play_purchase_token = $1 AND id <> $2 LIMIT 1',
+      [verification.originalTransactionId, req.billingStudent.studentId]
+    );
+    if (duplicate.rows.length > 0) return res.status(409).json({ error: 'Bu Apple aboneliği başka bir öğrenci hesabına bağlı.' });
     const updated = await pool.query(
       `UPDATE students SET subscription_status='active', subscription_expires_at=$1,
        play_purchase_token=$2, play_product_id=$3, subscription_last_verified_at=CURRENT_TIMESTAMP
        WHERE id=$4 RETURNING *`,
-      [verification.expiresAt, verification.transactionId, verification.productId, req.billingStudent.studentId]
+      [verification.expiresAt, verification.originalTransactionId, verification.productId, req.billingStudent.studentId]
     );
     res.json({ ...buildBillingStatus(updated.rows[0]), message: 'Apple aboneliğiniz başarıyla etkinleştirildi.' });
   } catch (err) {

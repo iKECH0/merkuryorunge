@@ -49,12 +49,12 @@ const verifyAppleTransaction = async signedTransaction => {
   if (!response.ok) throw new Error(`Apple doğrulama servisi ${response.status} döndürdü.`);
   const data = await response.json();
   const transaction = decodePayload(data.signedTransactionInfo);
-  if (String(transaction.transactionId) !== transactionId || transaction.bundleId !== BUNDLE_ID || !PRODUCT_IDS.has(transaction.productId) || transaction.environment !== (sandbox ? 'Sandbox' : 'Production')) {
+  if (String(transaction.transactionId) !== transactionId || !transaction.originalTransactionId || transaction.bundleId !== BUNDLE_ID || !PRODUCT_IDS.has(transaction.productId) || transaction.environment !== (sandbox ? 'Sandbox' : 'Production')) {
     throw new Error('Apple işlem ürünü veya uygulama ile eşleşmiyor.');
   }
   const expiresAt = Number(transaction.expiresDate || 0);
   const active = !transaction.revocationDate && expiresAt > Date.now();
-  return { active, expiresAt: active ? new Date(expiresAt) : new Date(0), transactionId, productId: transaction.productId };
+  return { active, expiresAt: active ? new Date(expiresAt) : new Date(0), transactionId, originalTransactionId: String(transaction.originalTransactionId), productId: transaction.productId };
 };
 
 module.exports = { isAppleBillingServerConfigured, verifyAppleTransaction };
