@@ -229,27 +229,27 @@ const StudentProfile = ({ studentName }) => {
   return (
     <div className="fade-in">
       <div className="glass-card slide-up" style={{ marginBottom: '24px', padding: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-          <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary), #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: 'bold', color: '#fff', boxShadow: '0 8px 16px rgba(6, 182, 212, 0.3)' }}>
+        <div className="student-profile-header">
+          <div className="student-profile-avatar" style={{ background: 'linear-gradient(135deg, var(--color-primary), #8b5cf6)', boxShadow: '0 8px 16px rgba(6, 182, 212, 0.3)' }}>
             {studentName.charAt(0).toUpperCase()}
           </div>
-          <div>
-            <h2 style={{ fontSize: '28px', margin: '0 0 8px 0', color: 'var(--color-text-main)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              {studentName} 
-              <span style={{ fontSize: '14px', background: 'rgba(255,255,255,0.1)', padding: '4px 12px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div className="student-profile-identity">
+            <h2 className="student-profile-name">{studentName}</h2>
+            <div className="student-profile-badges">
+              <span className="student-profile-badge" style={{ background: 'rgba(255,255,255,0.1)' }}>
                 <Sparkles size={14} color="var(--color-primary)" /> Merkür Yörünge Öğrencisi
               </span>
               {schoolLevel && (
-                <span style={{ fontSize: '14px', background: 'rgba(6, 182, 212, 0.15)', color: 'var(--color-primary)', padding: '4px 12px', borderRadius: '100px', display: 'flex', alignItems: 'center', border: '1px solid rgba(6, 182, 212, 0.3)' }}>
+                <span className="student-profile-badge" style={{ background: 'rgba(6, 182, 212, 0.15)', color: 'var(--color-primary)', border: '1px solid rgba(6, 182, 212, 0.3)' }}>
                   {schoolLevel}
                 </span>
               )}
               {className && (
-                <span style={{ fontSize: '14px', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '4px 12px', borderRadius: '100px', display: 'flex', alignItems: 'center', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                <span className="student-profile-badge" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
                   {className}. Sınıf
                 </span>
               )}
-            </h2>
+            </div>
             <div style={{ display: 'flex', gap: '16px', color: 'var(--color-text-muted)', fontSize: '14px', flexWrap: 'wrap' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Target size={16} /> Hedef: {goal} Soru</span>
               {trackingDocument && <a
@@ -261,7 +261,8 @@ const StudentProfile = ({ studentName }) => {
                   color: '#10b981', textDecoration: 'none', 
                   background: 'rgba(16, 185, 129, 0.1)', 
                   padding: '4px 12px', borderRadius: '100px', 
-                  border: '1px solid rgba(16, 185, 129, 0.3)'
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  maxWidth: '100%', overflowWrap: 'anywhere'
                 }}
               >
                 📊 {trackingDocument.label}

@@ -126,7 +126,7 @@ const Landing = () => {
             <BrandLogo size={64} iconSize={40} />
           </div>
           <h1 className="title metallic-text" style={{ fontSize: '46px', marginBottom: '16px', letterSpacing: '-1px', fontWeight: '800' }}>Merkür Yörünge</h1>
-          <p style={{ fontSize: '18px', color: 'var(--color-text-muted)', maxWidth: '500px', margin: '0 auto' }}>Platforma giriş yapmak veya kayıt olmak için lütfen profilinizi seçin.</p>
+          <p style={{ fontSize: '18px', color: 'var(--color-text-muted)', maxWidth: '620px', margin: '0 auto' }}>Çalışmalarını kaydet, hedeflerini takip et ve gelişimini gör. Öğrenciler öğretmen daveti olmadan hesap açıp ücretsiz deneme süresiyle başlayabilir.</p>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '450px', margin: '0 auto' }}>
@@ -145,7 +145,7 @@ const Landing = () => {
             <div style={{ flex: 1 }}>
               <h2 style={{ fontSize: '20px', color: '#fff', marginBottom: '6px', marginTop: 0 }}>Öğrenci Portalı</h2>
               <p style={{ color: 'var(--color-text-muted)', margin: 0, lineHeight: '1.4', fontSize: '14px' }}>
-                Çalışmalarınızı kaydedin, hedeflerinizi takip edin.
+                Kendi hesabını aç ve ücretsiz denemeyle başla.
               </p>
             </div>
             <div style={{ opacity: 0.5, paddingLeft: '12px' }}>
@@ -183,6 +183,14 @@ const Landing = () => {
           </button>
 
         </div>
+
+        <button type="button" className="btn btn-primary" onClick={() => navigate('/ogrenci?register=1')}
+          style={{ marginTop: '24px', padding: '12px 22px', borderRadius: '12px', fontWeight: 700 }}>
+          Öğrenci hesabı oluştur
+        </button>
+        <p style={{ color: 'var(--color-text-muted)', fontSize: '13px', lineHeight: 1.6, maxWidth: '520px', margin: '16px auto 0' }}>
+          Deneme süresi sona erdiğinde devam etmek için uygulamada abonelik planı seçmen istenir. Planların fiyatını ödeme ekranında görürsün.
+        </p>
 
         {/* Typewriter Effect Footer */}
         <div style={{ marginTop: '60px', height: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>

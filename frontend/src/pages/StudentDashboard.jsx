@@ -103,22 +103,18 @@ const StudentDashboard = ({ studentName }) => {
     <div className="fade-in" style={{ width: '100%' }}>
       {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} />}
       
-      {/* Logout Button */}
-      <button 
-        onClick={handleLogout}
-        className="fade-in"
-        style={{ position: 'absolute', top: '24px', right: '24px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', padding: '8px 16px', borderRadius: '100px', cursor: 'pointer', transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '500' }}
-        title="Güvenli Çıkış"
-      >
-        <LogOut size={14} /> Çıkış Yap
-      </button>
-
-      <div className="text-center" style={{ marginBottom: '40px', marginTop: '20px' }}>
+      <div className="text-center" style={{ marginBottom: '20px', marginTop: '20px' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '20px', background: 'linear-gradient(135deg, rgba(6,182,212,0.2), rgba(59,130,246,0.2))', border: '1px solid rgba(6,182,212,0.3)', marginBottom: '16px' }}>
           <BrandLogo size={52} iconSize={32} />
         </div>
         <h1 className="title text-gradient" style={{ fontSize: '40px', marginBottom: '8px', lineHeight: 1.1 }}>Merkür Yörünge</h1>
         <p style={{ margin: 0, fontSize: '18px', color: 'var(--color-text-muted)', fontFamily: 'var(--font-primary)', marginBottom: '12px' }}>Merhaba, {studentName} 🚀</p>
+      </div>
+
+      <div className="student-account-actions">
+        <button type="button" onClick={handleLogout} className="student-logout-button" aria-label="Hesaptan çıkış yap">
+          <LogOut size={18} /> Çıkış Yap
+        </button>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'center', animationDelay: '0.2s', width: '100%' }} className="slide-up">

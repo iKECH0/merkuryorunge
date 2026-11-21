@@ -283,6 +283,87 @@ select.input-field {
   width: max-content;
 }
 
+.student-account-actions {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  max-width: 540px;
+  margin: 0 auto 18px;
+}
+
+.student-logout-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+  font: 600 14px var(--font-primary);
+  cursor: pointer;
+}
+
+.student-logout-button:hover,
+.student-logout-button:focus-visible {
+  background: rgba(239, 68, 68, 0.2);
+  outline: 2px solid rgba(252, 165, 165, 0.5);
+  outline-offset: 2px;
+}
+
+.student-profile-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  min-width: 0;
+}
+
+.student-profile-avatar {
+  flex: 0 0 80px;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.student-profile-identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.student-profile-name {
+  margin: 0 0 10px;
+  color: var(--color-text-main);
+  font-size: 28px;
+  overflow-wrap: anywhere;
+}
+
+.student-profile-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.student-profile-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 5px 10px;
+  border-radius: 100px;
+  font-size: 13px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
 .nav-item {
   display: flex;
   align-items: center;
@@ -421,6 +502,22 @@ select.input-field {
 
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
+  .student-profile-header {
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .student-profile-avatar {
+    flex-basis: 64px;
+    width: 64px;
+    height: 64px;
+    font-size: 26px;
+  }
+
+  .student-profile-name {
+    font-size: 24px;
+  }
+
   .title {
     font-size: 28px !important;
   }

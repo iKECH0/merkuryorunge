@@ -512,7 +512,7 @@ const TeacherDashboard = () => {
       <div className="glass-card slide-up" style={{ padding: '16px 24px', marginBottom: '32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%)', border: '1px solid rgba(59, 130, 246, 0.2)', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}><Users size={18} color="var(--color-primary)" /> Sınıf Davet Kodunuz</h3>
-          <p style={{ margin: 0, fontSize: '13px', color: 'var(--color-text-muted)' }}>Öğrencileriniz kayıt olurken bu kodu girmelidir veya aşağıdaki linki onlara gönderebilirsiniz.</p>
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--color-text-muted)' }}>Öğrencinin hesabını sizinle eşleştirmek için kayıt sırasında bu kodu girmesini isteyin veya aşağıdaki linki gönderin.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px 20px', borderRadius: '12px', fontSize: '20px', fontWeight: 'bold', color: 'var(--color-primary-light)', letterSpacing: '4px' }}>

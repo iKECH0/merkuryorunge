@@ -8,8 +8,9 @@ const StudentLogin = ({ onLogin }) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const initialInvite = searchParams.get('invite') || '';
+  const openRegistration = searchParams.get('register') === '1';
 
-  const [isRegistering, setIsRegistering] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(Boolean(initialInvite) || openRegistration);
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -19,10 +20,10 @@ const StudentLogin = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // If there's an invite code in URL, default to register tab
+  // Invitation and public registration links open the registration form.
   useEffect(() => {
-    if (initialInvite) setIsRegistering(true);
-  }, [initialInvite]);
+    if (initialInvite || openRegistration) setIsRegistering(true);
+  }, [initialInvite, openRegistration]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,8 +32,8 @@ const StudentLogin = ({ onLogin }) => {
 
     try {
       if (isRegistering) {
-        if (!fullName || !username || !password || !inviteCode) {
-          setError('Tüm alanları doldurunuz.');
+        if (!fullName.trim() || !username.trim() || !password) {
+          setError('Ad, kullanıcı adı ve şifre gereklidir.');
           setIsLoading(false);
           return;
         }
@@ -112,7 +113,7 @@ const StudentLogin = ({ onLogin }) => {
           </div>
           <h2 className="title text-gradient" style={{ fontSize: '32px', marginBottom: '8px', letterSpacing: '-0.5px' }}>Merkür Yörünge</h2>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '15px' }}>
-            {isRegistering ? 'Hedefine ulaşmak için yörüngeye gir.' : 'Eğitim paneline erişmek için giriş yap.'}
+            {isRegistering ? 'Davet kodu olmadan kayıt ol, ücretsiz deneme süresiyle başla.' : 'Eğitim paneline erişmek için giriş yap.'}
           </p>
         </div>
 
@@ -163,12 +164,15 @@ const StudentLogin = ({ onLogin }) => {
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="Davet Kodu (Örn: AXB89)"
+                  placeholder="Öğretmen davet kodu (isteğe bağlı)"
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                   maxLength={6}
                   style={{ paddingLeft: '48px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', height: '54px', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 'bold' }}
                 />
+                <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', margin: '8px 0 0', lineHeight: 1.5 }}>
+                  Kod girersen hesabın öğretmeninle eşleşir. Kodun yoksa kendi hesabını oluşturabilirsin.
+                </p>
               </div>
             </>
           )}
@@ -217,6 +221,12 @@ const StudentLogin = ({ onLogin }) => {
             {isLoading ? 'İşleniyor...' : (isRegistering ? <><UserPlus size={20} /> Kayıt Ol</> : <><ArrowRight size={20} /> Giriş Yap</>)}
           </button>
         </form>
+
+        {isRegistering && (
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', lineHeight: 1.6, textAlign: 'center', marginTop: '20px' }}>
+            Deneme süresi bittiğinde devam etmek için uygulama içinden abonelik seçmen istenir.
+          </p>
+        )}
 
         <div style={{ marginTop: '32px', textAlign: 'center' }}>
           <button 

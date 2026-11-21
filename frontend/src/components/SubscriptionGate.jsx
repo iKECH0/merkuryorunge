@@ -28,6 +28,23 @@ const SubscriptionGate = ({ children }) => {
 
   useEffect(() => { refresh(); }, []);
 
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
+  useEffect(() => {
+    if (!status?.enabled || !status.access) return;
+    const expiresAt = status.reason === 'trial' ? status.trialEndsAt : status.expiresAt;
+    if (!expiresAt) return;
+    const remaining = new Date(expiresAt).getTime() - Date.now();
+    const timeout = setTimeout(refresh, Math.max(0, Math.min(remaining + 1000, 2147483647)));
+    return () => clearTimeout(timeout);
+  }, [status]);
+
   if (loading) return <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>Hesabınız kontrol ediliyor…</div>;
   if (error || !status) return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, textAlign: 'center' }} role="alert">
