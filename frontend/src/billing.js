@@ -3,6 +3,9 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 export const BILLING_PRODUCT_ID = 'merkur_yorunge_ogrenci';
 export const MONTHLY_PLAN_ID = 'aylik';
 export const YEARLY_PLAN_ID = 'yillik';
+export const MONTHLY_DISPLAY_PRICE_TRY = 249.99;
+export const YEARLY_DISPLAY_PRICE_TRY = 2499.99;
+export const TEACHER_PACKAGE_IDS = ['merkur_yorunge_ogretmen_5', 'merkur_yorunge_ogretmen_10', 'merkur_yorunge_ogretmen_25', 'merkur_yorunge_ogretmen_50'];
 export const APPLE_MONTHLY_PRODUCT_ID = 'merkur_yorunge_ogrenci_aylik';
 export const APPLE_YEARLY_PRODUCT_ID = 'merkur_yorunge_ogrenci_yillik';
 

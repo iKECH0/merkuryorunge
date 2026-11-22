@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, CalendarDays, Check, CreditCard, ExternalLink, RefreshCw, ShieldCheck, Smartphone, Sparkles, Stars } from 'lucide-react';
-import { isNativeAppleBilling, isNativePlayBilling, loadAppleSubscriptionPlans, loadSubscriptionPlans, MONTHLY_PLAN_ID, onApplePurchaseError, onApplePurchaseUpdated, onPurchaseError, onPurchaseUpdated, purchaseAppleSubscription, purchaseSubscription, restoreAppleSubscriptionPurchases, restoreSubscriptionPurchases, YEARLY_PLAN_ID, APPLE_MONTHLY_PRODUCT_ID, APPLE_YEARLY_PRODUCT_ID } from '../billing';
+import { isNativeAppleBilling, isNativePlayBilling, loadAppleSubscriptionPlans, loadSubscriptionPlans, MONTHLY_PLAN_ID, MONTHLY_DISPLAY_PRICE_TRY, YEARLY_DISPLAY_PRICE_TRY, onApplePurchaseError, onApplePurchaseUpdated, onPurchaseError, onPurchaseUpdated, purchaseAppleSubscription, purchaseSubscription, restoreAppleSubscriptionPurchases, restoreSubscriptionPurchases, YEARLY_PLAN_ID, APPLE_MONTHLY_PRODUCT_ID, APPLE_YEARLY_PRODUCT_ID } from '../billing';
 import { verifyAppleBillingPurchase, verifyBillingPurchase } from '../api';
 import BrandLogo from './BrandLogo';
 import './SubscriptionPaywall.css';
@@ -222,7 +222,7 @@ const SubscriptionPaywall = ({ onActivated }) => {
                     {annual && <span className="subscription-plan-badge">Uzun dönem</span>}
                   </div>
                   <div className={`subscription-price${native || appleNative ? '' : ' subscription-price-muted'}`}>
-                    {native ? (plan.formattedPrice || 'Fiyat yükleniyor') : appleNative ? (plan.displayPrice || 'Fiyat yükleniyor') : 'Fiyat uygulamada gösterilir'}
+                    {native ? (plan.formattedPrice || `₺${annual ? YEARLY_DISPLAY_PRICE_TRY.toLocaleString('tr-TR') : MONTHLY_DISPLAY_PRICE_TRY.toLocaleString('tr-TR')}`) : appleNative ? (plan.displayPrice || `₺${annual ? YEARLY_DISPLAY_PRICE_TRY.toLocaleString('tr-TR') : MONTHLY_DISPLAY_PRICE_TRY.toLocaleString('tr-TR')}`) : 'Fiyat uygulamada gösterilir'}
                   </div>
                   <p className="subscription-period">{annual ? 'Yılda bir' : 'Ayda bir'}, iptal edilene kadar otomatik yenilenir. Dilediğinde iptal edebilirsin.</p>
                   {(native || appleNative) && (

@@ -54,7 +54,12 @@ const verifyAppleTransaction = async signedTransaction => {
   }
   const expiresAt = Number(transaction.expiresDate || 0);
   const active = !transaction.revocationDate && expiresAt > Date.now();
-  return { active, expiresAt: active ? new Date(expiresAt) : new Date(0), transactionId, originalTransactionId: String(transaction.originalTransactionId), productId: transaction.productId };
+  return {
+    active, expiresAt: active ? new Date(expiresAt) : new Date(0), transactionId,
+    originalTransactionId: String(transaction.originalTransactionId), productId: transaction.productId,
+    priceMilliunits: transaction.environment === 'Production' && Number.isSafeInteger(transaction.price) ? transaction.price : null,
+    currency: transaction.environment === 'Production' && /^[A-Z]{3}$/.test(transaction.currency || '') ? transaction.currency : null
+  };
 };
 
 module.exports = { isAppleBillingServerConfigured, verifyAppleTransaction };

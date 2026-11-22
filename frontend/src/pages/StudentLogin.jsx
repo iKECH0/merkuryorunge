@@ -218,7 +218,7 @@ const StudentLogin = ({ onLogin }) => {
             }}
             disabled={isLoading}
           >
-            {isLoading ? 'İşleniyor...' : (isRegistering ? <><UserPlus size={20} /> Kayıt Ol</> : <><ArrowRight size={20} /> Giriş Yap</>)}
+            {isLoading ? 'İşleniyor...' : (isRegistering ? <><UserPlus size={20} /> Ücretsiz denemeyi başlat</> : <><ArrowRight size={20} /> Giriş Yap</>)}
           </button>
         </form>
 

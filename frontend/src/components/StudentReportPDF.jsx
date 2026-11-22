@@ -1,47 +1,58 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { Sparkles, Trophy, Clock, Target, BookOpen } from 'lucide-react';
 
 const StudentReportPDF = ({ student, isGenerating, onComplete }) => {
   const reportRef = useRef(null);
+  const isSaving = useRef(false);
 
-  // Expose generation function
-  React.useEffect(() => {
-    if (isGenerating && student) {
-      generatePDF();
-    }
-  }, [isGenerating, student]);
+  useEffect(() => {
+    if (!isGenerating || !student || isSaving.current) return;
+    isSaving.current = true;
+    const generatePDF = async () => {
+      try {
+        await document.fonts.ready;
+        const canvas = await html2canvas(reportRef.current, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#0f172a',
+          scrollX: 0,
+          scrollY: 0,
+          windowWidth: 794
+        });
+        if (!canvas.width || !canvas.height) throw new Error('Rapor görüntüsü boş oluşturuldu.');
 
-  const generatePDF = async () => {
-    if (!reportRef.current) return;
-    
-    try {
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#0f172a' // match var(--color-bg-deep)
-      });
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Merkur_Yorunge_${student.name.replace(/\s+/g, '_')}_Karnesi.pdf`);
-    } catch (err) {
-      console.error('PDF oluşturulamadı:', err);
-      alert('PDF oluşturulurken bir hata meydana geldi.');
-    } finally {
-      if (onComplete) onComplete();
-    }
-  };
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const scale = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
+        const pdfWidth = canvas.width * scale;
+        const pdfHeight = canvas.height * scale;
+
+        pdf.addImage(imgData, 'PNG', (pageWidth - pdfWidth) / 2, 0, pdfWidth, pdfHeight);
+        const fileName = `Merkur_Yorunge_${student.name.replace(/[^\p{L}\p{N}]+/gu, '_')}_Karnesi.pdf`;
+        if (Capacitor.isNativePlatform()) {
+          const base64 = pdf.output('datauristring').split(',')[1];
+          const file = await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
+          await Share.share({ title: 'Öğrenci gelişim raporu', files: [file.uri], dialogTitle: 'PDF kaydet veya paylaş' });
+        } else {
+          pdf.save(fileName);
+        }
+      } catch (err) {
+        console.error('PDF oluşturulamadı:', err);
+        alert('PDF oluşturulamadı. Lütfen tekrar deneyin.');
+      } finally {
+        isSaving.current = false;
+        if (onComplete) onComplete();
+      }
+    };
+    generatePDF();
+  }, [isGenerating, student, onComplete]);
 
   if (!student) return null;
 
@@ -58,7 +69,7 @@ const StudentReportPDF = ({ student, isGenerating, onComplete }) => {
   }
 
   return (
-    <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+    <div style={{ position: 'fixed', left: 0, top: 0, zIndex: -1, pointerEvents: 'none' }}>
       <div 
         ref={reportRef} 
         style={{ 

@@ -15,7 +15,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -27,6 +27,12 @@ const BILLING_ENABLED = process.env.BILLING_ENABLED === 'true';
 const BILLING_TRIAL_DAYS = Number(process.env.BILLING_TRIAL_DAYS || 3);
 const BILLING_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const ADMIN_SESSION_TTL_SECONDS = 60 * 60 * 12;
+const TEACHER_PACKAGES = Object.freeze({
+  teacher_5: { name: '5 Öğrenci', maxStudents: 5, annualPriceTry: 8000, productId: 'merkur_yorunge_ogretmen_5' },
+  teacher_10: { name: '10 Öğrenci', maxStudents: 10, annualPriceTry: 14000, productId: 'merkur_yorunge_ogretmen_10' },
+  teacher_25: { name: '25 Öğrenci', maxStudents: 25, annualPriceTry: 30000, productId: 'merkur_yorunge_ogretmen_25' },
+  teacher_50: { name: '50 Öğrenci', maxStudents: 50, annualPriceTry: 40000, productId: 'merkur_yorunge_ogretmen_50' }
+});
 const adminSessionSecret = process.env.ADMIN_SESSION_SECRET || process.env.SESSION_SECRET ||
   crypto.createHash('sha256').update(String(process.env.DATABASE_URL || 'merkuryorunge-admin-session')).digest('hex');
 
@@ -397,6 +403,10 @@ const initDB = async () => {
     // Geriye dönük uyumluluk için
     try {
       await pool.query(`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE`);
+      await pool.query(`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS teacher_package_id VARCHAR(40) DEFAULT NULL`);
+      await pool.query(`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS teacher_subscription_status VARCHAR(30) DEFAULT 'pending'`);
+      await pool.query(`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS teacher_subscription_expires_at TIMESTAMP DEFAULT NULL`);
+      await pool.query(`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS teacher_purchase_token TEXT DEFAULT NULL`);
     } catch(e) {}
 
     await pool.query(`
@@ -444,12 +454,25 @@ const initDB = async () => {
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS play_product_id VARCHAR(150) DEFAULT NULL`);
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS play_base_plan_id VARCHAR(150) DEFAULT NULL`);
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS play_order_id VARCHAR(255) DEFAULT NULL`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS apple_transaction_id VARCHAR(255) DEFAULT NULL`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS apple_price_milliunits BIGINT DEFAULT NULL`);
+      await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS apple_price_currency VARCHAR(3) DEFAULT NULL`);
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS subscription_last_verified_at TIMESTAMP DEFAULT NULL`);
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS billing_exempt BOOLEAN NOT NULL DEFAULT FALSE`);
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS manual_access_expires_at TIMESTAMP DEFAULT NULL`);
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS billing_override_note VARCHAR(255) DEFAULT NULL`);
       await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS billing_override_updated_at TIMESTAMP DEFAULT NULL`);
       await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_students_play_purchase_token ON students(play_purchase_token) WHERE play_purchase_token IS NOT NULL`);
+      await pool.query(`CREATE TABLE IF NOT EXISTS billing_report_lines (
+        store VARCHAR(20) NOT NULL,
+        period VARCHAR(7) NOT NULL,
+        line_index INT NOT NULL,
+        order_id VARCHAR(255),
+        currency VARCHAR(3) NOT NULL,
+        gross_minor BIGINT NOT NULL,
+        imported_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (store, period, line_index)
+      )`);
       await pool.query(`CREATE TABLE IF NOT EXISTS app_migrations (migration_key VARCHAR(150) PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
       // Bu sorgu yalnızca ilk kez çalıştığında o anda mevcut olan öğrencileri ücretsiz erişime alır.
       // Sonradan kaydolan öğrenciler varsayılan FALSE değeriyle normal deneme/abonelik akışına girer.
@@ -798,6 +821,9 @@ app.post("/api/billing/verify", verifyBillingSession, async (req, res) => {
            play_product_id = $3,
            play_base_plan_id = $4,
            play_order_id = $5,
+           apple_transaction_id = NULL,
+           apple_price_milliunits = NULL,
+           apple_price_currency = NULL,
            subscription_last_verified_at = CURRENT_TIMESTAMP
        WHERE id = $6 RETURNING *`,
       [verification.expiresAt, purchaseToken, verification.productId, verification.basePlanId, verification.orderId, student.id]
@@ -834,9 +860,12 @@ app.post("/api/billing/apple/verify", verifyBillingSession, async (req, res) => 
     if (duplicate.rows.length > 0) return res.status(409).json({ error: 'Bu Apple aboneliği başka bir öğrenci hesabına bağlı.' });
     const updated = await pool.query(
       `UPDATE students SET subscription_status='active', subscription_expires_at=$1,
-       play_purchase_token=$2, play_product_id=$3, subscription_last_verified_at=CURRENT_TIMESTAMP
-       WHERE id=$4 RETURNING *`,
-      [verification.expiresAt, verification.originalTransactionId, verification.productId, req.billingStudent.studentId]
+       play_purchase_token=$2, play_product_id=$3, subscription_last_verified_at=CURRENT_TIMESTAMP,
+       apple_transaction_id=$4, apple_price_milliunits=$5, apple_price_currency=$6,
+       play_order_id=NULL, play_base_plan_id=NULL
+       WHERE id=$7 RETURNING *`,
+      [verification.expiresAt, verification.originalTransactionId, verification.productId,
+        verification.transactionId, verification.priceMilliunits, verification.currency, req.billingStudent.studentId]
     );
     res.json({ ...buildBillingStatus(updated.rows[0]), message: 'Apple aboneliğiniz başarıyla etkinleştirildi.' });
   } catch (err) {
@@ -848,20 +877,83 @@ app.post("/api/billing/apple/verify", verifyBillingSession, async (req, res) => 
 app.get("/api/admin/billing/students", verifyAdminSession, async (_req, res) => {
   try {
     const result = await pool.query(`
-      SELECT id, full_name, username, class_name, school_level, billing_exempt,
-             manual_access_expires_at, subscription_status, subscription_expires_at,
-             (manual_access_expires_at > CURRENT_TIMESTAMP) AS manual_access_active,
-             (subscription_status = 'active' AND subscription_expires_at > CURRENT_TIMESTAMP) AS subscription_active,
-             play_base_plan_id, trial_started_at, billing_override_note,
-             billing_override_updated_at
-      FROM students
-      ORDER BY full_name ASC
+      SELECT s.id, s.full_name, s.username, s.class_name, s.school_level, s.created_at,
+             s.teacher_id, t.full_name AS teacher_name, s.billing_exempt,
+             s.manual_access_expires_at, s.subscription_status, s.subscription_expires_at,
+             (s.manual_access_expires_at > CURRENT_TIMESTAMP) AS manual_access_active,
+             (s.subscription_status = 'active' AND s.subscription_expires_at > CURRENT_TIMESTAMP) AS subscription_active,
+             s.play_product_id, s.play_base_plan_id, s.trial_started_at, s.billing_override_note,
+             s.billing_override_updated_at, s.play_order_id, s.subscription_last_verified_at,
+             s.apple_transaction_id, s.apple_price_milliunits, s.apple_price_currency
+      FROM students s
+      LEFT JOIN teachers t ON t.id = s.teacher_id
+      ORDER BY s.created_at DESC, s.id DESC
     `);
     res.setHeader('Cache-Control', 'no-store, private');
-    res.json({ billingEnabled: BILLING_ENABLED, trialDays: BILLING_TRIAL_DAYS, students: result.rows });
+    const financial = await pool.query(`
+      SELECT store, period, currency, SUM(gross_minor)::text AS gross_minor,
+             MAX(imported_at) AS imported_at
+      FROM billing_report_lines
+      GROUP BY store, period, currency
+      ORDER BY period DESC, store, currency
+    `);
+    const googleOrders = await pool.query(`
+      SELECT order_id, currency, SUM(gross_minor)::text AS gross_minor
+      FROM billing_report_lines
+      WHERE store = 'google_play' AND order_id IS NOT NULL
+      GROUP BY order_id, currency
+    `);
+    const orderAmounts = new Map();
+    for (const row of googleOrders.rows) {
+      if (!orderAmounts.has(row.order_id)) orderAmounts.set(row.order_id, []);
+      orderAmounts.get(row.order_id).push(row);
+    }
+    const students = result.rows.map(student => ({
+      ...student,
+      billing: buildBillingStatus(student),
+      reported_amounts: orderAmounts.get(student.play_order_id) || []
+    }));
+    res.json({ billingEnabled: BILLING_ENABLED, trialDays: BILLING_TRIAL_DAYS, students, financialReports: financial.rows });
   } catch (err) {
     console.error('Öğrenci abonelik listesi alınamadı:', err);
     res.status(500).json({ error: 'Öğrenci abonelik bilgileri alınamadı.' });
+  }
+});
+
+app.post('/api/admin/billing/reports', verifyAdminSession, async (req, res) => {
+  const { store, period, lines } = req.body || {};
+  if (!['google_play', 'apple'].includes(store) || !/^20\d{2}-(0[1-9]|1[0-2])$/.test(period || '') ||
+      !Array.isArray(lines) || lines.length < 1 || lines.length > 5000 ||
+      lines.some(line => !line || typeof line !== 'object' || Array.isArray(line))) {
+    return res.status(400).json({ error: 'Mağaza raporu, dönem veya satırlar geçersiz.' });
+  }
+  const clean = lines.map((line, index) => ({
+    index,
+    orderId: store === 'google_play' && /^GPA\.[\w.-]+$/.test(line.orderId || '') ? line.orderId : null,
+    currency: String(line.currency || '').toUpperCase(),
+    amount: Number(line.grossMinor)
+  }));
+  if (clean.some(line => !/^[A-Z]{3}$/.test(line.currency) || !Number.isSafeInteger(line.amount) || Math.abs(line.amount) > 100000000000)) {
+    return res.status(400).json({ error: 'Rapordaki tutar veya para birimi geçersiz.' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM billing_report_lines WHERE store=$1 AND period=$2', [store, period]);
+    for (const line of clean) {
+      await client.query(
+        'INSERT INTO billing_report_lines(store, period, line_index, order_id, currency, gross_minor) VALUES($1,$2,$3,$4,$5,$6)',
+        [store, period, line.index, line.orderId, line.currency, line.amount]
+      );
+    }
+    await client.query('COMMIT');
+    res.json({ imported: clean.length });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Mağaza raporu kaydedilemedi:', err);
+    res.status(500).json({ error: 'Mağaza raporu kaydedilemedi.' });
+  } finally {
+    client.release();
   }
 });
 
@@ -929,9 +1021,37 @@ app.put("/api/admin/billing/students/:studentId", verifyAdminSession, async (req
 // ----------------------
 
 // --- TEACHER AUTHENTICATION ---
+app.get('/api/billing/teacher-packages', (_req, res) => {
+  res.json({ packages: Object.entries(TEACHER_PACKAGES).map(([id, packageInfo]) => ({ id, ...packageInfo, interval: 'P1Y', currency: 'TRY' })) });
+});
+
+app.get('/api/teacher/:teacherId/billing', async (req, res) => {
+  const teacherId = Number(req.params.teacherId);
+  if (!Number.isInteger(teacherId) || teacherId <= 0) return res.status(400).json({ error: 'Geçersiz öğretmen.' });
+  try {
+    const result = await pool.query(`
+      SELECT t.id, t.teacher_package_id, t.teacher_subscription_status, t.teacher_subscription_expires_at,
+             COUNT(s.id)::int AS student_count
+      FROM teachers t LEFT JOIN students s ON s.teacher_id = t.id
+      WHERE t.id = $1
+      GROUP BY t.id
+    `, [teacherId]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Öğretmen bulunamadı.' });
+    const teacher = result.rows[0];
+    const packageInfo = TEACHER_PACKAGES[teacher.teacher_package_id] || null;
+    res.json({ ...teacher, package: packageInfo, remainingStudents: packageInfo ? Math.max(0, packageInfo.maxStudents - teacher.student_count) : null });
+  } catch (err) {
+    console.error('Öğretmen paket bilgisi alınamadı:', err);
+    res.status(500).json({ error: 'Öğretmen paket bilgisi alınamadı.' });
+  }
+});
+
 app.post("/api/auth/teacher/register", async (req, res) => {
   try {
-    const { fullName, username, password } = req.body;
+    const { fullName, username, password, packageId } = req.body;
+    if (!fullName?.trim() || !username?.trim() || !password || !TEACHER_PACKAGES[packageId]) {
+      return res.status(400).json({ error: 'Ad, kullanıcı adı, şifre ve öğretmen paketi zorunludur.' });
+    }
     
     const userExists = await pool.query("SELECT * FROM teachers WHERE username = $1", [username]);
     if (userExists.rows.length > 0) {
@@ -945,8 +1065,8 @@ app.post("/api/auth/teacher/register", async (req, res) => {
     const passwordHash = await bcrypt.hash(password, salt);
 
     const result = await pool.query(
-      "INSERT INTO teachers (full_name, username, password_hash, invite_code) VALUES ($1, $2, $3, $4) RETURNING id, full_name, username, invite_code",
-      [fullName, username, passwordHash, inviteCode]
+      "INSERT INTO teachers (full_name, username, password_hash, invite_code, teacher_package_id, teacher_subscription_status) VALUES ($1, $2, $3, $4, $5, 'pending') RETURNING id, full_name, username, invite_code, teacher_package_id, teacher_subscription_status",
+      [fullName.trim(), username.trim().toLowerCase(), passwordHash, inviteCode, packageId]
     );
 
     res.status(201).json(result.rows[0]);
@@ -972,11 +1092,23 @@ app.post("/api/auth/teacher/add-student", async (req, res) => {
     }
 
     const teacherResult = await pool.query(
-      "SELECT id FROM teachers WHERE id = $1 AND is_approved = TRUE",
+      "SELECT id, teacher_package_id, teacher_subscription_status, teacher_subscription_expires_at FROM teachers WHERE id = $1 AND is_approved = TRUE",
       [Number(teacherId)]
     );
     if (teacherResult.rows.length === 0) {
       return res.status(400).json({ error: "Seçilen öğretmen bulunamadı veya henüz onaylanmadı." });
+    }
+    const teacher = teacherResult.rows[0];
+    const teacherPackage = TEACHER_PACKAGES[teacher.teacher_package_id];
+    const teacherHasAccess = teacher.teacher_subscription_status === 'active' && teacher.teacher_subscription_expires_at && new Date(teacher.teacher_subscription_expires_at).getTime() > Date.now();
+    if (!teacherHasAccess && teacher.teacher_package_id && teacher.teacher_package_id !== 'legacy') {
+      return res.status(402).json({ error: 'Öğrenci eklemek için öğretmen paketinizin ödemesi tamamlanmalıdır.' });
+    }
+    if (teacherPackage) {
+      const countResult = await pool.query('SELECT COUNT(*)::int AS count FROM students WHERE teacher_id = $1', [Number(teacherId)]);
+      if (countResult.rows[0].count >= teacherPackage.maxStudents) {
+        return res.status(409).json({ error: `${teacherPackage.name} paketindeki öğrenci sınırına ulaştınız. Paketinizi yükseltin.` });
+      }
     }
     
     // Check if username exists
@@ -1056,7 +1188,10 @@ app.post("/api/auth/teacher/login", async (req, res) => {
       return res.status(400).json({ error: "Geçersiz kullanıcı adı veya şifre." });
     }
 
-    res.json({ id: teacher.id, username: teacher.username, full_name: teacher.full_name, invite_code: teacher.invite_code });
+    const packageInfo = TEACHER_PACKAGES[teacher.teacher_package_id];
+    res.json({ id: teacher.id, username: teacher.username, full_name: teacher.full_name, invite_code: teacher.invite_code,
+      teacher_package_id: teacher.teacher_package_id, teacher_package: packageInfo || null,
+      teacher_subscription_status: teacher.teacher_subscription_status, teacher_subscription_expires_at: teacher.teacher_subscription_expires_at });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Sunucu hatası" });

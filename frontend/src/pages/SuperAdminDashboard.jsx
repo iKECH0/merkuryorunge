@@ -1,8 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAdminStats, approveTeacher, deleteTeacher, addTeacherByAdmin, getDeletionRequests, deleteDeletionRequest, downloadPlatformBackup, getConsultingRequests, updateConsultingRequestStatus, deleteConsultingRequest, deleteConsultingRequests, getAdminBillingStudents, updateAdminBillingStudent } from '../api';
+import { getAdminStats, approveTeacher, deleteTeacher, addTeacherByAdmin, getDeletionRequests, deleteDeletionRequest, downloadPlatformBackup, getConsultingRequests, updateConsultingRequestStatus, deleteConsultingRequest, deleteConsultingRequests, getAdminBillingStudents, updateAdminBillingStudent, importAdminBillingReport } from '../api';
 import { Users, CheckCircle, LogOut, RefreshCw, BarChart2, Trash2, PlusCircle, X, User, Key, Briefcase, ShieldAlert, AlertTriangle, Database, Download, Phone, Mail, GraduationCap, CreditCard, Gift, CalendarPlus, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { parseBillingReport } from '../billingReportImport';
+
+const amountLabel = (minor, currency, divisor = 100) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency }).format(Number(minor) / divisor);
+
+const billingCategory = (student) => {
+  const reason = student.billing?.reason;
+  if (reason === 'complimentary' || reason === 'manual') return 'free';
+  return reason || 'unknown';
+};
+
+const billingDisplay = (student) => {
+  const billing = student.billing || {};
+  const date = value => value ? new Date(value).toLocaleDateString('tr-TR') : '';
+  switch (billing.reason) {
+    case 'trial': return { label: `Denemede · ${date(billing.trialEndsAt)} bitiyor`, color: '#67e8f9' };
+    case 'payment_required': return { label: 'Deneme bitti · Ödeme bekleniyor', color: '#fbbf24' };
+    case 'subscription': return { label: `${billing.provider === 'apple' ? 'Apple' : 'Google Play'} aboneliği · ${date(billing.expiresAt)}`, color: '#34d399' };
+    case 'manual': return { label: `Manuel erişim · ${date(billing.expiresAt)}`, color: '#34d399' };
+    case 'complimentary': return { label: 'Süresiz ücretsiz', color: '#34d399' };
+    case 'disabled': return { label: 'Ödeme sistemi pasif', color: '#fbbf24' };
+    default: return { label: 'Durum belirlenemedi', color: '#94a3b8' };
+  }
+};
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
@@ -10,8 +33,13 @@ const SuperAdminDashboard = () => {
   const [deletionRequests, setDeletionRequests] = useState([]);
   const [consultingRequests, setConsultingRequests] = useState([]);
   const [selectedConsultingIds, setSelectedConsultingIds] = useState([]);
-  const [billingData, setBillingData] = useState({ billingEnabled: false, trialDays: 3, students: [] });
+  const [billingData, setBillingData] = useState({ billingEnabled: false, trialDays: 3, students: [], financialReports: [] });
+  const [reportStore, setReportStore] = useState('google_play');
+  const [reportPeriod, setReportPeriod] = useState(() => { const date = new Date(); date.setMonth(date.getMonth() - 1); return date.toISOString().slice(0, 7); });
+  const [reportImporting, setReportImporting] = useState(false);
   const [billingUpdatingId, setBillingUpdatingId] = useState(null);
+  const [billingFilter, setBillingFilter] = useState('all');
+  const [billingSearch, setBillingSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -214,13 +242,35 @@ const SuperAdminDashboard = () => {
       const result = await updateAdminBillingStudent(studentId, action);
       setBillingData((current) => ({
         ...current,
-        students: current.students.map((student) => student.id === studentId ? result.student : student)
+        students: current.students.map((student) => student.id === studentId ? { ...student, ...result.student, billing: result.billing } : student)
       }));
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.error || 'Abonelik işlemi tamamlanamadı.');
     } finally {
       setBillingUpdatingId(null);
+    }
+  };
+
+  const handleBillingReportFile = async event => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(reportPeriod)) { alert('Geçerli bir rapor dönemi seçin.'); return; }
+    setReportImporting(true);
+    try {
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', raw: true });
+      const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: '' });
+      const lines = parseBillingReport(rows, reportStore);
+      const totals = lines.reduce((result, line) => { result[line.currency] = (result[line.currency] || 0) + line.grossMinor; return result; }, {});
+      const summary = Object.entries(totals).map(([currency, minor]) => amountLabel(minor, currency)).join(' · ');
+      if (!window.confirm(`${file.name} içindeki ${lines.length} abonelik satırı ${reportPeriod} dönemi için içe aktarılacak. Önceki aynı dönem raporu değiştirilecek. Toplam: ${summary}. Devam edilsin mi?`)) return;
+      await importAdminBillingReport(reportStore, reportPeriod, lines);
+      await fetchData();
+    } catch (err) {
+      alert(err.response?.data?.error || err.message || 'Rapor okunamadı.');
+    } finally {
+      setReportImporting(false);
     }
   };
 
@@ -270,6 +320,22 @@ const SuperAdminDashboard = () => {
   }
 
   const { teachers, platformTotals } = data;
+
+  const billingCounts = billingData.students.reduce((counts, student) => {
+    const category = billingCategory(student);
+    counts[category] = (counts[category] || 0) + 1;
+    return counts;
+  }, {});
+  const visibleBillingStudents = billingData.students.filter((student) => {
+    const query = billingSearch.trim().toLocaleLowerCase('tr-TR');
+    const matchesSearch = !query || `${student.full_name} ${student.username}`.toLocaleLowerCase('tr-TR').includes(query);
+    return matchesSearch && (billingFilter === 'all' || billingCategory(student) === billingFilter);
+  });
+  const revenueTotals = (billingData.financialReports || []).reduce((totals, report) => {
+    const key = `${report.store}|${report.currency}`;
+    totals[key] = (totals[key] || 0) + Number(report.gross_minor);
+    return totals;
+  }, {});
 
   return (
     <div className="fade-in" style={{ width: '100%' }}>
@@ -377,31 +443,76 @@ const SuperAdminDashboard = () => {
             Ödeme sistemi: {billingData.billingEnabled ? 'Aktif' : 'Güvenli biçimde pasif'}
           </span>
         </div>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
+          {[
+            ['all', 'Tüm öğrenciler', billingData.students.length],
+            ['trial', 'Denemede', billingCounts.trial || 0],
+            ['payment_required', 'Ödeme bekleyen', billingCounts.payment_required || 0],
+            ['subscription', 'Abone', billingCounts.subscription || 0],
+            ['free', 'Ücretsiz erişim', billingCounts.free || 0]
+          ].map(([value, label, count]) => (
+            <button key={value} type="button" onClick={() => setBillingFilter(value)}
+              aria-pressed={billingFilter === value}
+              style={{ padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', color: billingFilter === value ? '#042f2e' : '#cbd5e1', background: billingFilter === value ? '#67e8f9' : 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.12)', fontWeight: 700 }}>
+              {label} · {count}
+            </button>
+          ))}
+        </div>
+        <div style={{ padding: '16px', border: '1px solid rgba(34,211,238,.25)', borderRadius: '14px', marginBottom: '18px', background: 'rgba(8,145,178,.06)' }}>
+          <strong style={{ color: '#a5f3fc' }}>Mağaza cirosu · içe aktarılan mali raporlar</strong>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', margin: '6px 0 12px' }}>İadeler düşülür. Para birimleri ayrı gösterilir. Mağaza kesintileri düşülmez; bu tutarlar banka ödemesi değildir.</p>
+          {Object.entries(revenueTotals).length ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
+              {Object.entries(revenueTotals).map(([key, minor]) => {
+                const [store, currency] = key.split('|');
+                return <span key={key} style={{ padding: '10px 13px', borderRadius: '10px', background: 'rgba(255,255,255,.06)', color: '#fff' }}><b>{store === 'apple' ? 'App Store' : 'Google Play'}</b> · {amountLabel(minor, currency)}</span>;
+              })}
+            </div>
+          ) : <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Henüz mağaza kazanç raporu eklenmedi; ciro hesabı gösterilmiyor.</p>}
+          {(billingData.financialReports || []).length > 0 && <div style={{ color: 'var(--color-text-muted)', fontSize: '11px', marginBottom: '12px' }}>Dönemler: {(billingData.financialReports || []).map(report => `${report.store === 'apple' ? 'Apple' : 'Play'} ${report.period} ${report.currency}`).join(' · ')}</div>}
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+            <select className="input-field" aria-label="Rapor mağazası" value={reportStore} onChange={event => setReportStore(event.target.value)} style={{ width: 'auto' }}><option value="google_play">Google Play kazanç raporu</option><option value="apple">App Store mali raporu</option></select>
+            <input className="input-field" type="month" aria-label="Rapor dönemi" value={reportPeriod} onChange={event => setReportPeriod(event.target.value)} style={{ width: 'auto' }} />
+            <label className="btn" style={{ cursor: reportImporting ? 'wait' : 'pointer', padding: '9px 13px' }}><FileSpreadsheet size={15} /> {reportImporting ? 'İçe aktarılıyor...' : 'Rapor içe aktar'}<input type="file" accept=".csv,.tsv,.txt,.xlsx" disabled={reportImporting} onChange={handleBillingReportFile} style={{ display: 'none' }} /></label>
+          </div>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', margin: '10px 0 0' }}>Google Play için Kazanç raporu, Apple için Mali rapor seçin. Bu alan şu anda rapor yüklendiğinde güncellenir.</p>
+        </div>
+        <input className="input-field" type="search" value={billingSearch} onChange={event => setBillingSearch(event.target.value)}
+          placeholder="Öğrenci adı veya kullanıcı adı ara" aria-label="Abonelik listesinde öğrenci ara"
+          style={{ width: '100%', marginBottom: '18px' }} />
         {billingData.students.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '36px', color: 'var(--color-text-muted)' }}>Kayıtlı öğrenci bulunmuyor.</div>
+        ) : visibleBillingStudents.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '36px', color: 'var(--color-text-muted)' }}>Bu filtrede öğrenci bulunmuyor.</div>
         ) : (
           <div style={{ display: 'grid', gap: '12px' }}>
-            {billingData.students.map((student) => {
-              const manualActive = student.manual_access_active;
-              const playActive = student.subscription_active;
-              const statusLabel = student.billing_exempt ? 'Süresiz ücretsiz' : manualActive ? `Manuel erişim: ${new Date(student.manual_access_expires_at).toLocaleDateString('tr-TR')}` : playActive ? `Google Play: ${new Date(student.subscription_expires_at).toLocaleDateString('tr-TR')}` : student.trial_started_at ? 'Deneme / ödeme bekliyor' : 'Henüz deneme başlamadı';
-              const statusColor = student.billing_exempt || manualActive || playActive ? '#34d399' : '#fbbf24';
+            {visibleBillingStudents.map((student) => {
+              const { label: statusLabel, color: statusColor } = billingDisplay(student);
               return (
                 <div key={student.id} style={{ padding: '18px', borderRadius: '15px', background: 'rgba(255,255,255,.025)', border: '1px solid rgba(255,255,255,.07)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', alignItems: 'center', gap: '14px' }}>
                   <div>
                     <strong style={{ color: '#fff', display: 'block' }}>{student.full_name}</strong>
                     <span style={{ color: 'var(--color-text-muted)', fontSize: '12px' }}>@{student.username}{student.class_name ? ` · ${student.class_name}` : ''}</span>
+                    <div style={{ color: 'var(--color-text-muted)', fontSize: '11px', marginTop: '6px' }}>
+                      {student.created_at ? `${new Date(student.created_at).toLocaleDateString('tr-TR')} kayıt` : 'Kayıt tarihi yok'} · {student.teacher_name ? `Öğretmen: ${student.teacher_name}` : 'Bağımsız kayıt'}
+                    </div>
                   </div>
                   <div>
                     <span style={{ display: 'inline-block', padding: '6px 10px', borderRadius: '100px', color: statusColor, background: `${statusColor}18`, border: `1px solid ${statusColor}45`, fontSize: '12px', fontWeight: 700 }}>{statusLabel}</span>
                     {student.billing_override_note && <div style={{ color: 'var(--color-text-muted)', fontSize: '11px', marginTop: '5px' }}>{student.billing_override_note}</div>}
+                    {student.billing?.reason === 'subscription' && <div style={{ color: 'var(--color-text-muted)', fontSize: '11px', marginTop: '6px' }}>
+                      {student.billing.provider === 'apple' ? 'App Store' : 'Google Play'} · {student.play_base_plan_id === 'yillik' || student.play_product_id?.endsWith('_yillik') ? 'Yıllık' : 'Aylık'} plan
+                      {student.subscription_last_verified_at && ` · Son doğrulama ${new Date(student.subscription_last_verified_at).toLocaleDateString('tr-TR')}`}
+                      {student.billing.provider === 'apple' && student.apple_price_milliunits != null && student.apple_price_currency && <span> · Son işlem {amountLabel(student.apple_price_milliunits, student.apple_price_currency, 1000)}</span>}
+                      {student.billing.provider === 'google_play' && student.reported_amounts?.map(amount => <span key={amount.currency}> · Rapordaki son sipariş {amountLabel(amount.gross_minor, amount.currency)}</span>)}
+                    </div>}
                   </div>
                   <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap' }}>
                     <button disabled={billingUpdatingId === student.id} onClick={() => handleBillingAction(student.id, 'grant_complimentary')} className="btn" style={{ padding: '7px 10px', fontSize: '12px', color: '#34d399', background: 'rgba(16,185,129,.1)', border: '1px solid rgba(16,185,129,.25)' }}><Gift size={13} /> Ücretsiz</button>
                     <button disabled={billingUpdatingId === student.id} onClick={() => handleBillingAction(student.id, 'grant_30_days')} className="btn" style={{ padding: '7px 10px', fontSize: '12px' }}><CalendarPlus size={13} /> +30 gün</button>
                     <button disabled={billingUpdatingId === student.id} onClick={() => handleBillingAction(student.id, 'grant_365_days')} className="btn" style={{ padding: '7px 10px', fontSize: '12px' }}><CalendarPlus size={13} /> +1 yıl</button>
                     <button disabled={billingUpdatingId === student.id} onClick={() => handleBillingAction(student.id, 'expire_trial')} className="btn" style={{ padding: '7px 10px', fontSize: '12px', color: '#fbbf24', background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.25)' }}>Denemeyi bitir</button>
-                    {(student.billing_exempt || manualActive) && <button disabled={billingUpdatingId === student.id} onClick={() => handleBillingAction(student.id, 'clear_manual_access')} className="btn" style={{ padding: '7px 10px', fontSize: '12px', color: '#fca5a5', background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)' }}>Erişimi kaldır</button>}
+                    {(student.billing_exempt || student.manual_access_active) && <button disabled={billingUpdatingId === student.id} onClick={() => handleBillingAction(student.id, 'clear_manual_access')} className="btn" style={{ padding: '7px 10px', fontSize: '12px', color: '#fca5a5', background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)' }}>Erişimi kaldır</button>}
                   </div>
                 </div>
               );
