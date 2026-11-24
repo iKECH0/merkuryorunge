@@ -289,6 +289,8 @@ select.input-field {
   width: 100%;
   max-width: 540px;
   margin: 0 auto 18px;
+  position: relative;
+  z-index: 20;
 }
 
 .student-logout-button {
@@ -304,6 +306,9 @@ select.input-field {
   color: #fca5a5;
   font: 600 14px var(--font-primary);
   cursor: pointer;
+  min-width: 132px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .student-logout-button:hover,
@@ -502,6 +507,18 @@ select.input-field {
 
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
+  .student-account-actions {
+    justify-content: center;
+    margin: 0 auto 16px;
+    padding: 0 4px;
+  }
+
+  .student-logout-button {
+    width: 100%;
+    min-height: 48px;
+    font-size: 15px;
+  }
+
   .student-profile-header {
     flex-direction: column;
     gap: 14px;
