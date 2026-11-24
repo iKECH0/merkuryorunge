@@ -2,12 +2,14 @@ const documentUrl = (id) => `https://docs.google.com/spreadsheets/d/${id}/edit?u
 
 export const TRACKING_DOCUMENT_OPTIONS = [
   { value: '', label: 'Sınıfa göre otomatik' },
+  { value: 'mezun-tyt-ayt', label: 'Mezun — TYT + AYT Takip Dokümanı' },
   { value: 'yks-sayisal', label: 'YKS Sayısal Takip Dokümanı' },
   { value: 'yks-ea', label: 'YKS Eşit Ağırlık Takip Dokümanı' },
   { value: 'yks-sozel', label: 'YKS Sözel Takip Dokümanı' }
 ];
 
 const TRACKING_DOCUMENTS = {
+  'mezun-tyt-ayt': { label: 'Mezun — TYT + AYT Takip', url: documentUrl('15rAyRfyjF1ofiDffx5a6Ggg71qFRm9IP0T4MNPyLtf0') },
   'yks-sayisal': { label: 'YKS Sayısal Takip', url: documentUrl('1l644ea88QT-2s5Ow5DdnmSu2Wfhqvhf6us55M9lGMDU') },
   'yks-ea':      { label: 'YKS EA Takip',      url: documentUrl('1HIhdjN1-ih-_-m8uW4wgZzHLUik-z5iA42JcioCRtBo') },
   'yks-sozel':   { label: 'YKS Sözel Takip',   url: documentUrl('1Mmp_xSe7rKCscnM7o9gukKzwkD6fkEPxE4nnvUScKJo') },
