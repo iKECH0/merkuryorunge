@@ -9,8 +9,10 @@ export const API_BASE_URL = import.meta.env.DEV
   : (Capacitor.isNativePlatform() ? NATIVE_API_BASE_URL : '');
 export const API_URL = `${API_BASE_URL}/api`;
 
-export const registerTeacher = async (fullName, username, password) => {
-  const response = await axios.post(`${API_URL}/auth/teacher/register`, { fullName, username, password });
+export const getTeacherPackages = async () => (await axios.get(`${API_URL}/billing/teacher-packages`)).data;
+export const getTeacherBilling = async (teacherId) => (await axios.get(`${API_URL}/teacher/${teacherId}/billing`)).data;
+export const registerTeacher = async (fullName, username, password, packageId) => {
+  const response = await axios.post(`${API_URL}/auth/teacher/register`, { fullName, username, password, packageId });
   return response.data;
 };
 
@@ -138,6 +140,7 @@ export const updateConsultingRequestStatus = async (id, status) => (await axios.
 export const deleteConsultingRequest = async (id) => (await axios.delete(`${API_URL}/consulting-requests/${id}`, { headers: adminHeaders() })).data;
 export const deleteConsultingRequests = async (ids) => (await axios.post(`${API_URL}/consulting-requests/bulk-delete`, { ids }, { headers: adminHeaders() })).data;
 export const getAdminBillingStudents = async () => (await axios.get(`${API_URL}/admin/billing/students`, { headers: adminHeaders() })).data;
+export const importAdminBillingReport = async (store, period, lines) => (await axios.post(`${API_URL}/admin/billing/reports`, { store, period, lines }, { headers: adminHeaders() })).data;
 export const updateAdminBillingStudent = async (studentId, action) => (await axios.put(`${API_URL}/admin/billing/students/${studentId}`, { action }, { headers: adminHeaders() })).data;
 
 export const approveTeacher = async (teacherId) => {
