@@ -298,15 +298,15 @@ select.input-field {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 44px;
-  padding: 10px 18px;
+  min-height: 36px;
+  padding: 7px 12px;
   border: 1px solid rgba(239, 68, 68, 0.35);
   border-radius: 12px;
   background: rgba(239, 68, 68, 0.1);
   color: #fca5a5;
-  font: 600 14px var(--font-primary);
+  font: 600 12px var(--font-primary);
   cursor: pointer;
-  min-width: 132px;
+  min-width: 0;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
@@ -508,15 +508,16 @@ select.input-field {
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
   .student-account-actions {
-    justify-content: center;
+    justify-content: flex-end;
     margin: 0 auto 16px;
     padding: 0 4px;
   }
 
   .student-logout-button {
-    width: 100%;
-    min-height: 48px;
-    font-size: 15px;
+    width: auto;
+    min-height: 36px;
+    padding: 7px 12px;
+    font-size: 12px;
   }
 
   .student-profile-header {
