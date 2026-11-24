@@ -1,4 +1,6 @@
 const TEMPLATE_FILE_IDS = {
+  // Mezun öğrenciler TYT + AYT ortak YKS şablonundan başlar.
+  'mezun-tyt-ayt': '15rAyRfyjF1ofiDffx5a6Ggg71qFRm9IP0T4MNPyLtf0',
   'yks-sayisal': '15rAyRfyjF1ofiDffx5a6Ggg71qFRm9IP0T4MNPyLtf0',
   'yks-ea': '1osH3DDAcQeQ85hWxRhh605H7oMkWeRYXxSHImhO8Vms',
   'yks-sozel': '1xHpaurgDZe-scxI5GbahN5rKhp54IycSql72a0lpyNA',
