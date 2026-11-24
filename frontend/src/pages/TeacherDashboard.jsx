@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { getLogs, getStats, getAdminStats, addStudentByTeacher, updateStudent, deleteStudentByTeacher, changeTeacherPassword, refreshStudentDocumentAccess, regenerateStudentDocument } from '../api';
+import { getLogs, getStats, getAdminStats, getTeacherBilling, addStudentByTeacher, updateStudent, deleteStudentByTeacher, changeTeacherPassword, refreshStudentDocumentAccess, regenerateStudentDocument } from '../api';
 import StudentReportPDF from '../components/StudentReportPDF';
 import CurriculumManager from '../components/CurriculumManager';
 import TeachingHoursTracker from '../components/TeachingHoursTracker';
@@ -15,6 +16,7 @@ const TeacherDashboard = () => {
   const navigate = useNavigate();
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState(null);
+  const [teacherBilling, setTeacherBilling] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [generatingStudent, setGeneratingStudent] = useState(null);
@@ -81,6 +83,7 @@ const TeacherDashboard = () => {
       return;
     }
     fetchData();
+    if (teacherId !== 'ALL') getTeacherBilling(teacherId).then(setTeacherBilling).catch(() => {});
     if (teacherId === 'ALL') {
       getAdminStats()
         .then(data => setLeaderTeachers((data.teachers || []).filter(teacher => teacher.is_approved)))
@@ -139,7 +142,8 @@ const TeacherDashboard = () => {
         return;
       }
 
-      const addedStudent = await addStudentByTeacher(newStudentFullName.trim(), newStudentUsername.trim().toLowerCase(), newStudentPassword, teacherIdForAdd, newStudentSchoolLevel, newStudentClassName.trim() || null, newStudentTrackingDocumentKey, newStudentGoogleEmail.trim(), newStudentTrackingDocumentUrl.trim());
+      const resolvedTrackingDocumentKey = newStudentTrackingDocumentKey || (newStudentClassName.trim().toLowerCase() === 'mezun' ? 'mezun-tyt-ayt' : '');
+      const addedStudent = await addStudentByTeacher(newStudentFullName.trim(), newStudentUsername.trim().toLowerCase(), newStudentPassword, teacherIdForAdd, newStudentSchoolLevel, newStudentClassName.trim() || null, resolvedTrackingDocumentKey, newStudentGoogleEmail.trim(), newStudentTrackingDocumentUrl.trim());
       setAddSuccess(addedStudent.document_warning || 'Öğrenci başarıyla eklendi!');
       setNewStudentFullName('');
       setNewStudentUsername('');
@@ -507,6 +511,12 @@ const TeacherDashboard = () => {
           </button>
         </div>
       </div>
+      {teacherBilling && teacherId !== 'ALL' && (
+        <div className="glass-card" style={{ padding: '14px 18px', marginBottom: '22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', border: '1px solid rgba(34,211,238,.25)' }}>
+          <span style={{ color: '#a5f3fc', fontWeight: 700 }}>Paket: {teacherBilling.package?.name || 'Tanımsız'} · {teacherBilling.student_count}/{teacherBilling.package?.maxStudents || '∞'} öğrenci</span>
+          <span style={{ color: teacherBilling.teacher_subscription_status === 'active' ? '#86efac' : '#fbbf24', fontSize: '13px' }}>{teacherBilling.teacher_subscription_status === 'active' ? `Aktif · ${new Date(teacherBilling.teacher_subscription_expires_at).toLocaleDateString('tr-TR')}` : 'Ödeme bekliyor'}</span>
+        </div>
+      )}
 
       {/* Invite Code Banner */}
       <div className="glass-card slide-up" style={{ padding: '16px 24px', marginBottom: '32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%)', border: '1px solid rgba(59, 130, 246, 0.2)', flexWrap: 'wrap', gap: '16px' }}>
@@ -751,7 +761,7 @@ const TeacherDashboard = () => {
                       onClick={() => handleGenerateReport(student)}
                       disabled={generatingStudent === student.name}
                     >
-                      {generatingStudent === student.name ? 'Hazırlanıyor...' : 'PDF İndir'}
+                      {generatingStudent === student.name ? 'Hazırlanıyor...' : Capacitor.isNativePlatform() ? 'PDF Kaydet / Paylaş' : 'PDF İndir'}
                     </button>
                   </div>
                 </div>
@@ -808,7 +818,7 @@ const TeacherDashboard = () => {
               </div>
               <div className="form-group">
                 <label>Sınıf <span style={{ color: 'var(--color-text-muted)', fontWeight: 400, fontSize: '12px' }}>(İsteğe Bağlı)</span></label>
-                <input type="number" min="1" max="12" className="input-field" placeholder="Örn: 9, 10, 11" value={newStudentClassName} onChange={(e) => setNewStudentClassName(e.target.value)} />
+                <input type="text" className="input-field" placeholder="Örn: 9, 10, 11 veya Mezun" value={newStudentClassName} onChange={(e) => setNewStudentClassName(e.target.value)} />
               </div>
               <div className="form-group">
                 <label>Eğitim Kademesi</label>
@@ -820,7 +830,7 @@ const TeacherDashboard = () => {
               </div>
               <div className="form-group">
                 <label>Takip Dokümanı</label>
-                <select className="input-field" value={newStudentTrackingDocumentKey} onChange={(e) => setNewStudentTrackingDocumentKey(e.target.value)} style={{ appearance: 'auto' }}>
+                <select className="input-field" value={newStudentTrackingDocumentKey || (newStudentClassName.trim().toLowerCase() === 'mezun' ? 'mezun-tyt-ayt' : '')} onChange={(e) => setNewStudentTrackingDocumentKey(e.target.value)} style={{ appearance: 'auto' }}>
                   {TRACKING_DOCUMENT_OPTIONS.map(option => <option key={option.value || 'auto'} value={option.value}>{option.label}</option>)}
                 </select>
               </div>
@@ -863,9 +873,9 @@ const TeacherDashboard = () => {
               <div className="form-group">
                 <label>Sınıf Numarası <span style={{ color: 'var(--color-text-muted)', fontWeight: 400, fontSize: '12px' }}>(İsteğe Bağlı)</span></label>
                 <input
-                  type="number" min="1" max="12"
+                  type="text"
                   className="input-field"
-                  placeholder="Örn: 9, 10, 11"
+                  placeholder="Örn: 9, 10, 11 veya Mezun"
                   value={editClassName}
                   onChange={(e) => setEditClassName(e.target.value)}
                 />
