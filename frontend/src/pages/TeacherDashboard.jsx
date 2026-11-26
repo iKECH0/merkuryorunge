@@ -514,7 +514,12 @@ const TeacherDashboard = () => {
       {teacherBilling && teacherId !== 'ALL' && (
         <div className="glass-card" style={{ padding: '14px 18px', marginBottom: '22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', border: '1px solid rgba(34,211,238,.25)' }}>
           <span style={{ color: '#a5f3fc', fontWeight: 700 }}>Paket: {teacherBilling.package?.name || 'Tanımsız'} · {teacherBilling.student_count}/{teacherBilling.package?.maxStudents || '∞'} öğrenci</span>
-          <span style={{ color: teacherBilling.teacher_subscription_status === 'active' ? '#86efac' : '#fbbf24', fontSize: '13px' }}>{teacherBilling.teacher_subscription_status === 'active' ? `Aktif · ${new Date(teacherBilling.teacher_subscription_expires_at).toLocaleDateString('tr-TR')}` : 'Ödeme bekliyor'}</span>
+          <span style={{ color: teacherBilling.teacher_subscription_status === 'active' && new Date(teacherBilling.teacher_subscription_expires_at).getTime() > Date.now() ? '#86efac' : '#fbbf24', fontSize: '13px' }}>{teacherBilling.teacher_subscription_status === 'active' && new Date(teacherBilling.teacher_subscription_expires_at).getTime() > Date.now() ? `Aktif · ${new Date(teacherBilling.teacher_subscription_expires_at).toLocaleDateString('tr-TR')}` : 'Deneme sona erdi · Paket seçin'}</span>
+          {teacherBilling.teacher_subscription_status !== 'active' || new Date(teacherBilling.teacher_subscription_expires_at).getTime() <= Date.now() ? (
+            <div style={{ width: '100%', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px', marginTop: '4px' }}>
+              {(teacherBilling.allPackages || []).map(item => <div key={item.id} style={{ padding: '10px 12px', borderRadius: '10px', background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)' }}><strong style={{ display: 'block', color: '#fff', fontSize: '13px' }}>{item.name}</strong><span style={{ color: '#a5f3fc', fontSize: '12px' }}>{Number(item.annualPriceTry || 0).toLocaleString('tr-TR')} TL / yıl</span></div>)}
+            </div>
+          ) : null}
         </div>
       )}
 
