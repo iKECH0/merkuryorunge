@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { registerTeacher, loginTeacher, loginAdmin } from '../api';
+import { registerTeacher, loginTeacher, loginAdmin, getTeacherPackages } from '../api';
 import { Sparkles, ArrowLeft, Briefcase, Lock, User, PlusCircle, LogIn, ArrowRight } from 'lucide-react';
 
 const TeacherAuth = () => {
@@ -8,11 +8,17 @@ const TeacherAuth = () => {
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [teacherPackages, setTeacherPackages] = useState([]);
+  const [packageId, setPackageId] = useState('teacher_5');
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    getTeacherPackages().then(result => setTeacherPackages(result.packages || [])).catch(() => {});
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,14 +33,14 @@ const TeacherAuth = () => {
           setIsLoading(false);
           return;
         }
-        const user = await registerTeacher(fullName.trim(), username.trim().toLowerCase(), password);
+        await registerTeacher(fullName.trim(), username.trim().toLowerCase(), password, packageId);
         setError('');
-        // Kayıt sonrası otomatik login yapılmıyor, çünkü onay gerekiyor
+        // Öğretmen hesabı kayıtla birlikte en düşük paket ve deneme süresiyle aktiftir.
         setFullName('');
         setUsername('');
         setPassword('');
         setIsLogin(true); // Giriş sekmesine at
-        setSuccessMsg('Kayıt başarılı! Hesabınız 1 gün içerisinde Profesyonel Öğretmen tarafından onaylanacaktır.');
+        setSuccessMsg('Kayıt başarılı! En düşük paket ve 3 günlük deneme süreniz hemen aktif edildi.');
       } else {
         if (!username || !password) {
           setError('Kullanıcı adı ve şifre gereklidir.');
@@ -109,7 +115,7 @@ const TeacherAuth = () => {
             <Briefcase size={36} color="#10b981" />
           </div>
           <h2 className="title text-gradient" style={{ fontSize: '32px', marginBottom: '8px', letterSpacing: '-0.5px' }}>Öğretmen Portalı</h2>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: '15px' }}>{isLogin ? 'Giriş yapın veya yeni öğretmen hesabı oluşturun.' : 'Hesabınız admin onayından sonra aktifleşir.'}</p>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '15px' }}>{isLogin ? 'Giriş yapın veya yeni öğretmen hesabı oluşturun.' : 'Kayıt sonrası en düşük paketle 3 günlük deneme hemen başlar.'}</p>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -150,6 +156,19 @@ const TeacherAuth = () => {
               style={{ paddingLeft: '48px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', height: '54px', letterSpacing: password ? '4px' : 'normal' }}
             />
           </div>
+
+          {!isLogin && (
+            <div className="input-group slide-up" style={{ animationDelay: '0.35s' }}>
+              <label style={{ display: 'block', color: 'var(--color-text-muted)', fontSize: '13px', marginBottom: '8px' }}>Yıllık öğretmen paketi</label>
+              <select className="input-field" value={packageId} onChange={event => setPackageId(event.target.value)} style={{ height: '54px', background: 'rgba(0,0,0,0.2)', borderRadius: '12px' }}>
+                {(teacherPackages.length ? teacherPackages : [
+                  { id: 'teacher_5', name: '5 Öğrenci · 8.000 TL / yıl' }, { id: 'teacher_10', name: '10 Öğrenci · 14.000 TL / yıl' },
+                  { id: 'teacher_25', name: '25 Öğrenci · 30.000 TL / yıl' }, { id: 'teacher_50', name: '50 Öğrenci · 40.000 TL / yıl' }
+                ]).map(item => <option key={item.id} value={item.id}>{item.name}{item.annualPriceTry ? ` · ${item.annualPriceTry.toLocaleString('tr-TR')} TL / yıl` : ''}</option>)}
+              </select>
+              <small style={{ display: 'block', color: 'var(--color-text-muted)', marginTop: '6px' }}>Seçiminiz 3 günlük deneme boyunca aktif olur; süre bitince tüm paketlerden seçim yapabilirsiniz.</small>
+            </div>
+          )}
 
           {error && (
             <div className="shake" style={{ color: '#ef4444', fontSize: '13px', textAlign: 'center', background: 'rgba(239,68,68,0.1)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
